@@ -1,0 +1,17 @@
+{
+  "appId": "com.pixelated.zeropoint",
+  "appName": "Zero Point",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#080a11"
+    },
+    "ScreenOrientation": {
+      "orientation": "portrait"
+    }
+  }
+}

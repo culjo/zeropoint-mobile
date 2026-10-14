@@ -1,0 +1,35 @@
+{
+  "name": "zeropoint-mobile",
+  "version": "1.0.0",
+  "description": "Zero Point - Quantum Math Cascade Mobile App",
+  "main": "www/index.html",
+  "scripts": {
+    "build": "echo 'Web assets ready in www/'",
+    "cap": "cap",
+    "cap:add:android": "cap add android",
+    "cap:add:ios": "cap add ios",
+    "cap:sync": "cap sync",
+    "cap:doctor": "cap doctor",
+    "cap:open:ios": "cap open ios",
+    "cap:open:android": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/cli": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/haptics": "^7.0.0",
+    "@capacitor/ios": "^7.0.0",
+    "@capacitor/screen-orientation": "^7.0.0",
+    "@capacitor/status-bar": "^7.0.0"
+  },
+  "keywords": [
+    "zeropoint",
+    "puzzle",
+    "math",
+    "game",
+    "capacitor",
+    "mobile"
+  ],
+  "author": "Pixelated Games",
+  "license": "UNLICENSED"
+}
