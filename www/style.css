@@ -29,12 +29,14 @@ body {
     background-color: var(--bg-main);
     color: var(--text-primary);
     font-family: var(--font-stack);
-    min-height: 100vh;
+    height: 100vh;
+    height: 100dvh;
     min-height: 100dvh;
+    width: 100vw;
     display: flex;
     justify-content: center;
-    align-items: center;
-    overflow-x: hidden;
+    align-items: stretch;
+    overflow: hidden;
     overscroll-behavior: none;
     -webkit-overflow-scrolling: touch;
     padding-top: env(safe-area-inset-top, 0px);
@@ -48,26 +50,31 @@ body {
 
 #game-root {
     width: 100%;
-    min-height: 100vh;
-    min-height: 100dvh;
+    height: 100%;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
     position: relative;
-    padding: 8px 0;
+    padding: 0;
+    overflow: hidden;
 }
 
 .screen-view {
     display: none;
     width: 100%;
+    height: 100%;
     max-width: 540px;
-    padding: 12px 16px;
+    padding: 10px 16px;
     flex-direction: column;
     align-items: center;
     opacity: 0;
     transform: scale(0.97);
     transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    box-sizing: border-box;
 }
 
 .screen-view:not(.active) {
@@ -80,13 +87,33 @@ body {
     transform: scale(1);
 }
 
+/* Gameplay Screen: True Edge-to-Edge Full-Height Arena */
+#screen-game.screen-view {
+    padding: 4px 12px 6px 12px;
+    overflow: hidden;
+    justify-content: space-between;
+}
+
+#screen-game #app {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    flex: 1 1 auto;
+    justify-content: space-between;
+    gap: 6px;
+    overflow: hidden;
+}
+
 #app {
     display: flex;
     flex-direction: column;
     align-items: center;
     width: 100%;
     max-width: 520px;
-    gap: 12px;
+    gap: 8px;
 }
 
 /* Header */
@@ -647,7 +674,8 @@ header {
 .canvas-wrapper {
     position: relative;
     width: 100%;
-    aspect-ratio: 6 / 8.8;
+    flex: 1 1 0;
+    min-height: 0;
     background: rgba(10, 14, 24, 0.85);
     border: 1px solid var(--border-color);
     border-radius: 16px;
@@ -686,9 +714,23 @@ canvas {
     width: 100%;
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    padding: 2px 4px;
-    margin-top: 2px;
+    align-items: flex-end;
+    padding: 2px 2px 4px 2px;
+    margin-top: 0;
+    flex-shrink: 0;
+}
+
+.cockpit-group-left {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+.cockpit-group-right {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
 }
 
 .cockpit-col {
@@ -697,24 +739,22 @@ canvas {
     align-items: center;
     gap: 3px;
     cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    position: relative;
 }
 
 .cockpit-label {
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     color: var(--text-muted);
     font-weight: 800;
-    letter-spacing: 0.8px;
+    letter-spacing: 0.9px;
     text-transform: uppercase;
+    margin-bottom: 2px;
+    transition: color 0.2s ease, text-shadow 0.2s ease;
 }
 
-.cockpit-right {
-    display: flex;
-    flex-direction: row;
-    align-items: flex-end;
-    gap: 8px;
-}
-
-.cockpit-swap-unit, .cockpit-queue-unit {
+.cockpit-hold-unit, .cockpit-swap-unit, .cockpit-queue-unit {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -722,12 +762,13 @@ canvas {
     cursor: pointer;
     user-select: none;
     -webkit-user-select: none;
+    position: relative;
 }
 
 .slot {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
+    width: 58px;
+    height: 58px;
+    border-radius: 14px;
     background: rgba(0, 0, 0, 0.45);
     border: 1.5px dashed var(--border-color);
     display: flex;
@@ -744,10 +785,44 @@ canvas {
     box-shadow: 0 0 10px var(--cyan-glow);
 }
 
+/* Hold Slot: Scales up when holding an orb */
+.hold-slot {
+    transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    transform-origin: center center;
+}
+
 .hold-slot.active {
     border-style: solid;
     border-color: var(--purple);
-    box-shadow: 0 0 12px rgba(196, 113, 237, 0.35);
+    box-shadow: 0 0 16px rgba(196, 113, 237, 0.55), inset 0 0 8px rgba(196, 113, 237, 0.25);
+    background: rgba(196, 113, 237, 0.15);
+    transform: scale(1.10);
+    z-index: 5;
+}
+
+.cockpit-hold-unit.has-content .cockpit-label {
+    color: var(--purple);
+    font-weight: 900;
+    text-shadow: 0 0 6px rgba(196, 113, 237, 0.4);
+}
+
+/* Swap Slot & Wiggle Animation when Active */
+@keyframes swapActiveWiggle {
+    0%, 100% {
+        transform: scale(1.12) rotate(0deg);
+    }
+    20% {
+        transform: scale(1.12) rotate(-5deg);
+    }
+    40% {
+        transform: scale(1.14) rotate(4deg);
+    }
+    60% {
+        transform: scale(1.12) rotate(-3deg);
+    }
+    80% {
+        transform: scale(1.14) rotate(2deg);
+    }
 }
 
 .swap-slot {
@@ -755,17 +830,19 @@ canvas {
     border-color: rgba(0, 242, 254, 0.35);
     color: var(--cyan);
     font-weight: 900;
-    font-size: 1.05rem;
+    font-size: 1.25rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 2px;
+    gap: 3px;
     user-select: none;
     -webkit-user-select: none;
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+    transform-origin: center center;
 }
 
 .swap-icon {
-    font-size: 0.88rem;
+    font-size: 1.05rem;
     line-height: 1;
 }
 
@@ -776,27 +853,36 @@ canvas {
 
 .swap-slot.swap-mode-active {
     background: rgba(0, 242, 254, 0.25);
+    border-style: solid;
     border-color: var(--gold);
     color: var(--gold);
-    box-shadow: 0 0 14px rgba(255, 215, 0, 0.5);
-    animation: pulseBorder 1.2s infinite ease-in-out;
+    box-shadow: 0 0 18px rgba(255, 215, 0, 0.7), inset 0 0 10px rgba(255, 215, 0, 0.35);
+    animation: swapActiveWiggle 0.65s infinite ease-in-out;
+    z-index: 10;
+}
+
+.cockpit-swap-unit.swap-mode-active .cockpit-label {
+    color: var(--gold);
+    font-weight: 900;
+    text-shadow: 0 0 8px rgba(255, 215, 0, 0.6);
 }
 
 .queue-preview {
     display: flex;
-    gap: 5px;
+    gap: 6px;
 }
 
 .next-slot {
-    width: 38px;
-    height: 48px;
+    width: 44px;
+    height: 58px;
+    border-radius: 14px;
     border-color: rgba(255, 255, 255, 0.2);
 }
 
 .queue-orb-label {
     font-family: var(--font-numbers);
     font-weight: 900;
-    font-size: 1.05rem;
+    font-size: 1.25rem;
 }
 
 /* Fullscreen Mode */

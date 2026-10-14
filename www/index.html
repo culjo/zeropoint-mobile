@@ -280,24 +280,26 @@
 
                 <!-- Zone 3: Bottom Ergonomic Thumb Cockpit -->
                 <div class="thumb-cockpit">
-                    <!-- Left Thumb: Hold Orb Slot -->
-                    <div class="cockpit-col cockpit-left" id="btn-touch-hold">
-                        <span class="cockpit-label">HOLD [C]</span>
-                        <div id="hold-slot" class="slot hold-slot" title="Tap or Press 'C' to Hold">
-                            <span id="hold-text">-</span>
+                    <!-- Bottom Left: Grouped Action Cockpit (Hold & Swap) -->
+                    <div class="cockpit-group-left">
+                        <div class="cockpit-col cockpit-hold-unit" id="btn-touch-hold">
+                            <span class="cockpit-label">HOLD [C]</span>
+                            <div id="hold-slot" class="slot hold-slot" title="Tap or Press 'C' to Hold">
+                                <span id="hold-text">-</span>
+                            </div>
                         </div>
-                    </div>
-
-                    <!-- Right Thumb: Quantum Swap Token & Next Queue -->
-                    <div class="cockpit-col cockpit-right">
-                        <div class="cockpit-swap-unit" id="btn-touch-swap">
+                        <div class="cockpit-col cockpit-swap-unit" id="btn-touch-swap">
                             <span class="cockpit-label">SWAP [S]</span>
                             <div id="btn-swap-token" class="slot swap-slot" title="Tap or Press 'S' to Swap">
                                 <span class="swap-icon">⚡</span>
                                 <span id="swap-token-count" class="swap-token-text">1</span>
                             </div>
                         </div>
-                        <div class="cockpit-queue-unit">
+                    </div>
+
+                    <!-- Bottom Right: Next Queue Preview -->
+                    <div class="cockpit-group-right">
+                        <div class="cockpit-col cockpit-queue-unit">
                             <span class="cockpit-label">NEXT</span>
                             <div class="queue-preview">
                                 <div id="next-slot-1" class="slot next-slot"></div>

@@ -1422,10 +1422,13 @@
         canvas.height = rect.height * dpr;
         ctx.scale(dpr, dpr);
 
-        cellW = rect.width / COLS;
-        cellH = rect.height / (ROWS + 1.2); // +1.2 space at the top for launcher
-        boardOffsetX = 0;
-        boardOffsetY = cellH * 1.2;
+        // Square cells sized to whichever axis is tighter (+1.2 rows at the top for the launcher).
+        // Extra width centers the board; extra height becomes drop space above it.
+        const cell = Math.min(rect.width / COLS, rect.height / (ROWS + 1.2));
+        cellW = cell;
+        cellH = cell;
+        boardOffsetX = (rect.width - cell * COLS) / 2;
+        boardOffsetY = rect.height - cell * ROWS;
     }
 
     function startNewGame() {
@@ -3076,15 +3079,17 @@
             holdText.textContent = heldOrb.label;
             holdText.style.color = heldOrb.type === 'special' ? (heldOrb.subType === 'blackhole' ? '#ffd700' : 'var(--purple)') :
                                   (heldOrb.value > 0 ? 'var(--cyan)' : 'var(--orange)');
-            holdText.style.fontSize = (heldOrb.label && heldOrb.label.length > 2) ? '1.05rem' : '1.25rem';
+            holdText.style.fontSize = (heldOrb.label && heldOrb.label.length > 2) ? '1.18rem' : '1.45rem';
             holdText.style.fontWeight = (heldOrb.label === '±' || (heldOrb.label && heldOrb.label.startsWith('÷'))) ? '700' : '900';
             holdSlot.classList.add('active');
+            if (btnTouchHold) btnTouchHold.classList.add('has-content');
         } else {
             holdText.textContent = '-';
             holdText.style.color = 'var(--text-muted)';
-            holdText.style.fontSize = '1.25rem';
+            holdText.style.fontSize = '1.45rem';
             holdText.style.fontWeight = '900';
             holdSlot.classList.remove('active');
+            if (btnTouchHold) btnTouchHold.classList.remove('has-content');
         }
 
         // Update Next Queue UI
@@ -3104,7 +3109,7 @@
 
         const isSpecialOp = orb.label === '±' || (orb.label && orb.label.startsWith('÷'));
         const fontWeight = isSpecialOp ? '700' : '900';
-        const fontSize = (orb.label && orb.label.length > 2) ? '1.05rem' : '1.25rem';
+        const fontSize = (orb.label && orb.label.length > 2) ? '1.18rem' : '1.35rem';
         element.innerHTML = `<span class="queue-orb-label" style="font-size: ${fontSize}; font-weight: ${fontWeight}; color: ${color};">${orb.label}</span>`;
     }
 
@@ -3115,7 +3120,7 @@
             if (isProcessing || isGameOver || isPaused || currentScreen !== 'game') return;
             const rect = canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
-            const col = Math.floor(mouseX / cellW);
+            const col = Math.floor((mouseX - boardOffsetX) / cellW);
             if (col >= 0 && col < COLS && col !== aimCol) {
                 aimCol = col;
                 sfx.playMove();
@@ -3141,7 +3146,7 @@
                 return;
             }
 
-            const col = Math.floor(mouseX / cellW);
+            const col = Math.floor((mouseX - boardOffsetX) / cellW);
             if (col >= 0 && col < COLS) {
                 aimCol = col;
                 dropActiveOrb();
@@ -3167,7 +3172,7 @@
                 return;
             }
 
-            const col = Math.floor(touchX / cellW);
+            const col = Math.floor((touchX - boardOffsetX) / cellW);
             if (col >= 0 && col < COLS) {
                 if (col !== aimCol) {
                     aimCol = col;
@@ -3193,7 +3198,7 @@
                 touchCanceled = false;
             }
 
-            const col = Math.floor(touchX / cellW);
+            const col = Math.floor((touchX - boardOffsetX) / cellW);
             if (col >= 0 && col < COLS && col !== aimCol) {
                 aimCol = col;
                 sfx.playMove();
