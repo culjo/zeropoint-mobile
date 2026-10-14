@@ -180,10 +180,13 @@
         <section id="screen-game" class="screen-view">
             <div id="app">
                 <!-- Header -->
-                <header>
-                    <div class="brand">
-                        <h1 id="game-mode-display">ZERO POINT</h1>
-                        <span class="tagline" id="game-mode-sub">Quantum Math Cascade</span>
+                <header class="game-header">
+                    <div class="header-highscore" id="stat-pill-best">
+                        <span class="highscore-icon">🏆</span>
+                        <div class="highscore-content">
+                            <span class="highscore-label" id="best-label">High Score</span>
+                            <span class="highscore-val" id="best-val">0</span>
+                        </div>
                     </div>
                     <div class="header-controls">
                         <button id="btn-pause" class="btn-icon" aria-label="Pause Game" title="Pause Game [Esc]">
@@ -192,158 +195,115 @@
                                 <rect x="14" y="4" width="4" height="16"></rect>
                             </svg>
                         </button>
-                        <button id="btn-sound" class="btn-icon" aria-label="Toggle Sound" title="Sound Mute/Unmute">
-                            <svg class="icon-sound-on" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                            </svg>
-                            <svg class="icon-sound-off" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
-                                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                                <line x1="23" y1="9" x2="17" y2="15"></line>
-                                <line x1="17" y1="9" x2="23" y2="15"></line>
-                            </svg>
-                        </button>
-                        <button id="btn-fullscreen" class="btn-icon" aria-label="Toggle Fullscreen" title="Toggle Fullscreen / Expand">
-                            <svg id="icon-expand" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
-                            </svg>
-                            <svg id="icon-compress" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
-                                <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path>
-                            </svg>
-                        </button>
-                        <button id="btn-restart" class="btn-icon" aria-label="Restart Game" title="Restart">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <polyline points="23 4 23 10 17 10"></polyline>
-                                <polyline points="1 20 1 14 7 14"></polyline>
-                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                            </svg>
-                        </button>
                     </div>
                 </header>
 
-                <!-- Stats Bar -->
-                <div class="stats-bar">
-                    <div class="stat-pill">
-                        <span class="label">Score</span>
-                        <span id="score-val" class="value">0</span>
+                <!-- Zone 1B: Compact Status & Overdrive Strip -->
+                <div class="compact-status-strip">
+                    <div class="hud-stat-pill">
+                        <span class="hud-stat-label">SCORE</span>
+                        <span id="score-val" class="hud-stat-value">0</span>
+                        <span class="hud-stat-divider">•</span>
+                        <span id="combo-val" class="hud-stat-combo">1x</span>
                     </div>
-                    <div class="stat-pill" id="stat-pill-best">
-                        <span class="label" id="best-label">Best</span>
-                        <span id="best-val" class="value">0</span>
-                    </div>
-                    <div class="stat-pill combo">
-                        <span class="label">Cascade</span>
-                        <span id="combo-val" class="value">1x</span>
-                    </div>
-                </div>
-
-                <!-- Overdrive / Singularity Frenzy Bar -->
-                <div class="overdrive-container" id="overdrive-container">
-                    <div class="overdrive-header">
-                        <span class="overdrive-label">⚡ Singularity Overdrive</span>
-                        <span id="overdrive-percent" class="overdrive-percent">0%</span>
-                    </div>
-                    <div class="overdrive-bar-track">
-                        <div id="overdrive-fill" class="overdrive-bar-fill"></div>
-                    </div>
-                    <button id="btn-overdrive" class="btn-overdrive-ready" style="display: none;">
-                        🔥 UNLEASH OVERDRIVE [F] 🔥
-                    </button>
-                </div>
-
-                <!-- Tutorial Step Card (Shown in Tutorial Mode) -->
-                <div class="tutorial-card" id="tutorial-card" style="display: none;">
-                    <div class="tutorial-header">
-                        <span class="tutorial-badge" id="tutorial-step-badge">STEP 1 / 4</span>
-                        <span class="tutorial-tag">🎓 ACADEMY TRAINING</span>
-                    </div>
-                    <div class="tutorial-title" id="tutorial-title">Opposites Cancel to Zero</div>
-                    <div class="tutorial-desc" id="tutorial-desc">Drop your <strong>-3</strong> orb onto the <strong>+3</strong> tile in Column 3 to trigger a Zero Blast!</div>
-                </div>
-
-                <!-- Adventure Mode Objective Bar (Shown in Adventure Mode) -->
-                <div class="adventure-objective-card" id="adventure-objective-card" style="display: none;">
-                    <div class="adv-obj-header">
-                        <span class="adv-obj-badge">🎯 SECTOR OBJECTIVE</span>
-                        <span class="adv-obj-stars" id="adv-obj-stars">☆☆☆</span>
-                    </div>
-                    <div class="adv-obj-desc-row">
-                        <span class="adv-obj-desc" id="adv-obj-desc">Trigger 3 Zero Blasts (Cancel to Zero)</span>
-                        <span class="adv-obj-progress" id="adv-obj-progress">0 / 3</span>
-                    </div>
-                    <div class="adv-obj-track">
-                        <div class="adv-obj-fill" id="adv-obj-fill" style="width: 0%;"></div>
+                    <div class="overdrive-container" id="overdrive-container">
+                        <div class="overdrive-header">
+                            <span class="overdrive-label">⚡ OVERDRIVE</span>
+                            <span id="overdrive-percent" class="overdrive-percent">0%</span>
+                        </div>
+                        <div class="overdrive-bar-track">
+                            <div id="overdrive-fill" class="overdrive-bar-fill"></div>
+                        </div>
+                        <button id="btn-overdrive" class="btn-overdrive-ready" style="display: none;">
+                            🔥 UNLEASH [F] 🔥
+                        </button>
                     </div>
                 </div>
 
-                <!-- In-Run Tactical Bounty Card (Shown in Classic Mode) -->
-                <div class="bounty-card" id="bounty-card">
-                    <div class="bounty-header">
-                        <div class="bounty-title-group">
-                            <span class="bounty-badge">🎯 TACTICAL BOUNTY</span>
+                <!-- Zone 1C: Contextual Mission / Objective / Tutorial Strip (Only 1 active at a time) -->
+                <div class="mission-status-strip">
+                    <!-- Tutorial Step Card (Shown in Tutorial Mode) -->
+                    <div class="tutorial-card" id="tutorial-card" style="display: none;">
+                        <div class="tutorial-header">
+                            <span class="tutorial-badge" id="tutorial-step-badge">STEP 1 / 4</span>
+                            <span class="tutorial-tag">🎓 ACADEMY</span>
+                            <span class="tutorial-title" id="tutorial-title">Opposites Cancel to Zero</span>
+                        </div>
+                        <div class="tutorial-desc" id="tutorial-desc">Drop your <strong>-3</strong> orb onto the <strong>+3</strong> tile in Column 3 to trigger a Zero Blast!</div>
+                    </div>
+
+                    <!-- Adventure Mode Objective Bar (Shown in Adventure Mode) -->
+                    <div class="adventure-objective-card" id="adventure-objective-card" style="display: none;">
+                        <div class="adv-obj-header">
+                            <span class="adv-obj-badge">🎯 OBJECTIVE</span>
+                            <span class="adv-obj-desc" id="adv-obj-desc">Trigger 3 Zero Blasts</span>
+                            <span class="adv-obj-stars" id="adv-obj-stars">☆☆☆</span>
+                            <span class="adv-obj-progress" id="adv-obj-progress">0 / 3</span>
+                        </div>
+                        <div class="adv-obj-track">
+                            <div class="adv-obj-fill" id="adv-obj-fill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- In-Run Tactical Bounty Card (Shown in Classic Mode) -->
+                    <div class="bounty-card" id="bounty-card">
+                        <div class="bounty-header">
+                            <span class="bounty-badge">🎯 BOUNTY</span>
                             <span class="bounty-name" id="bounty-name">Supernova Forge</span>
+                            <span class="bounty-reward" id="bounty-reward">+50 pts • ⚡+1</span>
+                            <span class="bounty-progress-text" id="bounty-progress-text">0 / 1</span>
                         </div>
-                        <div class="bounty-reward" id="bounty-reward">
-                            +50 pts • ⚡ +1 Swap
+                        <div class="bounty-desc-row" style="display: none;">
+                            <span class="bounty-desc" id="bounty-desc">Detonate a ±4 or higher Cross Laser</span>
                         </div>
-                    </div>
-                    <div class="bounty-desc-row">
-                        <span class="bounty-desc" id="bounty-desc">Detonate a ±4 or higher Cross Laser</span>
-                        <span class="bounty-progress-text" id="bounty-progress-text">0 / 1</span>
-                    </div>
-                    <div class="bounty-progress-track">
-                        <div class="bounty-progress-fill" id="bounty-progress-fill" style="width: 0%;"></div>
-                    </div>
-                </div>
-
-                <!-- Tactical HUD (Hold slot & Swap Tokens & Queue preview) -->
-                <div class="tactical-hud">
-                    <div class="hold-section">
-                        <span class="tactical-label">Hold [C]</span>
-                        <div id="hold-slot" class="slot hold-slot" title="Click or Press 'C' to Swap Held Orb">
-                            <span id="hold-text">-</span>
-                        </div>
-                    </div>
-
-                    <div class="swap-section">
-                        <span class="tactical-label">Swap [S]</span>
-                        <div id="btn-swap-token" class="slot swap-slot" title="Click or Press 'S' to enter Quantum Tile Swap Mode">
-                            <span id="swap-token-count" class="swap-token-text">⚡ 1</span>
-                        </div>
-                    </div>
-
-                    <div class="queue-section">
-                        <span class="tactical-label">Next</span>
-                        <div class="queue-preview">
-                            <div id="next-slot-1" class="slot next-slot"></div>
-                            <div id="next-slot-2" class="slot next-slot"></div>
+                        <div class="bounty-progress-track">
+                            <div class="bounty-progress-fill" id="bounty-progress-fill" style="width: 0%;"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Containment & Rise Countdown (Dedicated Line) -->
-                <div class="rise-status-bar" id="rise-status-bar">
-                    <div class="rise-status-content">
+                <!-- Zone 2: Canvas Game Arena with Floating Status Badges -->
+                <div class="canvas-wrapper" id="canvas-container">
+                    <!-- Floating Rise Warning Badge (Zero vertical space overhead) -->
+                    <div class="rise-status-bar" id="rise-status-bar">
                         <span class="rise-status-icon">⚠️</span>
                         <span class="rise-status-label" id="turn-counter-label">Rising In</span>
                         <span id="rise-counter" class="counter-ring">5 Drops</span>
                     </div>
-                </div>
 
-                <!-- Canvas Game Arena -->
-                <div class="canvas-wrapper" id="canvas-container">
+                    <!-- Floating Swap Banner -->
                     <div id="swap-banner" class="swap-banner" style="display: none;">
-                        <span>⚡ QUANTUM SWAP: Tap 2 adjacent tiles to swap &bull; [Esc] cancel</span>
+                        <span>⚡ QUANTUM SWAP: Tap 2 adjacent tiles &bull; [Esc] cancel</span>
                     </div>
                     <canvas id="game-canvas"></canvas>
                 </div>
 
-                <!-- Controls Hint -->
-                <div class="controls-bar">
-                    <span class="desktop-hint">🖱️ Move mouse / [←][→] &bull; Click/[Space] drop &bull; [C] hold &bull; [S] swap &bull; ⚡ Overdrive at 100%</span>
-                    <div class="touch-action-buttons">
-                        <button id="btn-touch-hold" class="action-btn">Hold [C]</button>
-                        <button id="btn-touch-swap" class="action-btn btn-swap">⚡ Swap (1)</button>
+                <!-- Zone 3: Bottom Ergonomic Thumb Cockpit -->
+                <div class="thumb-cockpit">
+                    <!-- Left Thumb: Hold Orb Slot -->
+                    <div class="cockpit-col cockpit-left" id="btn-touch-hold">
+                        <span class="cockpit-label">HOLD [C]</span>
+                        <div id="hold-slot" class="slot hold-slot" title="Tap or Press 'C' to Hold">
+                            <span id="hold-text">-</span>
+                        </div>
+                    </div>
+
+                    <!-- Right Thumb: Quantum Swap Token & Next Queue -->
+                    <div class="cockpit-col cockpit-right">
+                        <div class="cockpit-swap-unit" id="btn-touch-swap">
+                            <span class="cockpit-label">SWAP [S]</span>
+                            <div id="btn-swap-token" class="slot swap-slot" title="Tap or Press 'S' to Swap">
+                                <span class="swap-icon">⚡</span>
+                                <span id="swap-token-count" class="swap-token-text">1</span>
+                            </div>
+                        </div>
+                        <div class="cockpit-queue-unit">
+                            <span class="cockpit-label">NEXT</span>
+                            <div class="queue-preview">
+                                <div id="next-slot-1" class="slot next-slot"></div>
+                                <div id="next-slot-2" class="slot next-slot"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

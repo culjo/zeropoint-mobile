@@ -830,7 +830,7 @@
         if (bountyCard) bountyCard.style.display = 'block';
         if (adventureObjectiveCard) adventureObjectiveCard.style.display = 'none';
         if (tutorialCard) tutorialCard.style.display = 'none';
-        if (bestLabel) bestLabel.textContent = 'Best';
+        if (bestLabel) bestLabel.textContent = 'High Score';
         if (bestVal) bestVal.textContent = (career.highScore || 0).toLocaleString();
         if (turnCounterLabel) turnCounterLabel.textContent = 'Rising In';
 
@@ -3261,12 +3261,32 @@
             }
         });
 
-        // Button Listeners
-        if (holdSlot) holdSlot.addEventListener('click', swapHold);
-        if (btnTouchHold) btnTouchHold.addEventListener('click', swapHold);
+        // Button Listeners with event propagation protection (prevents bubbling double-toggle)
+        const handleSwapButtonClick = (e) => {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            toggleSwapMode();
+        };
+
+        const handleHoldButtonClick = (e) => {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            swapHold();
+        };
+
+        if (btnSwapToken) btnSwapToken.addEventListener('click', handleSwapButtonClick);
+        if (btnTouchSwap && btnTouchSwap !== btnSwapToken) {
+            btnTouchSwap.addEventListener('click', handleSwapButtonClick);
+        }
+        if (holdSlot) holdSlot.addEventListener('click', handleHoldButtonClick);
+        if (btnTouchHold && btnTouchHold !== holdSlot) {
+            btnTouchHold.addEventListener('click', handleHoldButtonClick);
+        }
         if (btnTouchDrop) btnTouchDrop.addEventListener('click', dropActiveOrb);
-        if (btnSwapToken) btnSwapToken.addEventListener('click', toggleSwapMode);
-        if (btnTouchSwap) btnTouchSwap.addEventListener('click', toggleSwapMode);
         if (btnOverdrive) btnOverdrive.addEventListener('click', activateOverdrive);
         if (btnTouchFrenzy) btnTouchFrenzy.addEventListener('click', activateOverdrive);
 
