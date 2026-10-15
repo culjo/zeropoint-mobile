@@ -271,16 +271,11 @@
                     </div>
 
                     <!-- Adventure Mode Objective Bar (Shown in Adventure Mode) -->
-                    <div class="adventure-objective-card" id="adventure-objective-card" style="display: none;">
-                        <div class="adv-obj-header">
-                            <span class="adv-obj-badge">🎯 OBJECTIVE</span>
-                            <span class="adv-obj-desc" id="adv-obj-desc">Trigger 3 Zero Blasts</span>
-                            <span class="adv-obj-stars" id="adv-obj-stars">☆☆☆</span>
-                            <span class="adv-obj-progress" id="adv-obj-progress">0 / 3</span>
-                        </div>
-                        <div class="adv-obj-track">
-                            <div class="adv-obj-fill" id="adv-obj-fill" style="width: 0%;"></div>
-                        </div>
+                    <div class="adventure-objective-card obj-strip" id="adventure-objective-card" style="display: none;" role="status" aria-live="polite">
+                        <span class="obj-glyph" id="adv-obj-glyph" aria-hidden="true">◈</span>
+                        <span class="adv-obj-desc" id="adv-obj-desc">Trigger 3 Zero Blasts</span>
+                        <span class="obj-togo" id="adv-obj-togo" hidden>1 TO GO</span>
+                        <span class="adv-obj-progress" id="adv-obj-progress">0/3</span>
                     </div>
 
                     <!-- In-Run Tactical Bounty Card (Shown in Classic Mode) -->
@@ -378,6 +373,24 @@
                 <button type="button" id="btn-codex-tutorial" class="acad-practice">Practice it in the Hands-on Tutorial</button>
             </div>
         </section>
+
+        <!-- ========================================== -->
+        <!-- OVERLAY: OBJECTIVE INTRO (mission card)    -->
+        <!-- ========================================== -->
+        <div id="obj-intro" class="obj-intro" role="dialog" aria-modal="true" aria-labelledby="obj-intro-title" hidden>
+            <div class="obj-intro-card" id="obj-intro-card">
+                <span class="obj-intro-kicker" id="obj-intro-kicker">NODE 1-1 · OBJECTIVE</span>
+                <span class="obj-intro-glyph" id="obj-intro-glyph" aria-hidden="true">◈</span>
+                <h2 class="obj-intro-title" id="obj-intro-title">Shatter all Dark Matter cores</h2>
+                <p class="obj-intro-hint" id="obj-intro-hint">Blast beside a core twice to shatter it</p>
+                <div class="obj-intro-chips">
+                    <span class="obj-intro-chip drops" id="obj-intro-drops">18 DROPS</span>
+                    <span class="obj-intro-chip stars" id="obj-intro-stars">★ WITHIN 11 · ★ 130+ PTS</span>
+                </div>
+                <span class="obj-intro-tap">TAP TO START</span>
+                <div class="obj-intro-timer" aria-hidden="true"><div class="obj-intro-timer-fill" id="obj-intro-timer-fill"></div></div>
+            </div>
+        </div>
 
         <!-- ========================================== -->
         <!-- MODAL: IN-GAME PAUSE                       -->

@@ -142,10 +142,8 @@
 
     // Adventure Objective HUD
     const adventureObjectiveCard = document.getElementById('adventure-objective-card');
-    const advObjStars = document.getElementById('adv-obj-stars');
     const advObjDesc = document.getElementById('adv-obj-desc');
     const advObjProgress = document.getElementById('adv-obj-progress');
-    const advObjFill = document.getElementById('adv-obj-fill');
 
     // Objective / tutorial strip (collapsed when neither card is showing)
     const missionStrip = document.getElementById('mission-status-strip');
@@ -464,6 +462,7 @@
     let gameMode = 'classic'; // 'classic' | 'adventure'
     let activeAdventureLevel = null;
     let adventureProgress = 0;
+    let lastCoreHighlight = false; // gold target brackets on the final dark core
     let adventureObjectiveMet = false;
     let dropsUsed = 0;
     let maxDrops = 15;
@@ -538,6 +537,7 @@
     let pendingNodeConfig = null;
 
     function showScreen(screenId) {
+        if (screenId !== 'game') hideObjectiveIntro();
         currentScreen = screenId;
         const screens = [screenHome, screenAdventureNodes, screenChallenges, screenAdventureMap, screenGame, screenCodex];
         screens.forEach(s => {
@@ -1000,7 +1000,7 @@
         if (gameModeDisplay) gameModeDisplay.textContent = `NODE ${config.id}`;
         if (gameModeSub) gameModeSub.textContent = config.title;
         if (bountyCard) bountyCard.style.display = 'none';
-        if (adventureObjectiveCard) adventureObjectiveCard.style.display = 'block';
+        if (adventureObjectiveCard) adventureObjectiveCard.style.display = 'flex';
         if (tutorialCard) tutorialCard.style.display = 'none';
         if (advObjDesc) advObjDesc.textContent = config.desc;
         if (bestLabel) bestLabel.textContent = 'Node Best';
@@ -1017,6 +1017,7 @@
             config.setupBoard(grid, ROWS, COLS, createTile);
         }
         updateAdventureObjectiveUI();
+        showObjectiveIntro(config);
     }
 
     // ==========================================================
@@ -1160,6 +1161,7 @@
     }
 
     function startClassicMode() {
+        hideObjectiveIntro();
         gameMode = 'classic';
         isTutorial = false;
         activeAdventureLevel = null;
@@ -1205,7 +1207,7 @@
         if (gameModeDisplay) gameModeDisplay.textContent = lvl.sector;
         if (gameModeSub) gameModeSub.textContent = lvl.title;
         if (bountyCard) bountyCard.style.display = 'none';
-        if (adventureObjectiveCard) adventureObjectiveCard.style.display = 'block';
+        if (adventureObjectiveCard) adventureObjectiveCard.style.display = 'flex';
         if (tutorialCard) tutorialCard.style.display = 'none';
         if (advObjDesc) advObjDesc.textContent = lvl.desc;
         if (bestLabel) bestLabel.textContent = 'Sector Best';
@@ -1221,9 +1223,11 @@
             lvl.setupBoard(grid);
         }
         updateAdventureObjectiveUI();
+        showObjectiveIntro(lvl);
     }
 
     function startTutorialMode() {
+        hideObjectiveIntro();
         gameMode = 'adventure';
         isTutorial = true;
         activeAdventureLevel = ADVENTURE_LEVELS.find(l => l.isTutorial) || ADVENTURE_LEVELS[0];
@@ -1906,6 +1910,9 @@
             sfx.playMove();
         });
 
+        const objIntroOverlay = document.getElementById('obj-intro');
+        if (objIntroOverlay) objIntroOverlay.addEventListener('click', dismissObjectiveIntro);
+
         // Game Over Menu Action
         if (btnGoMenu) {
             btnGoMenu.addEventListener('click', () => {
@@ -1996,6 +2003,7 @@
         grid = Array(ROWS).fill(null).map(() => Array(COLS).fill(null));
         score = 0;
         if (scoreVal) scoreVal.textContent = '0';
+        lastCoreHighlight = false;
         combo = 1;
         maxCombo = 1;
         totalZeroPoints = 0;
@@ -2596,7 +2604,7 @@
                     const tileB = grid[r][c + 1];
                     if (tileB && tileB.type === 'number' && tileA.value + tileB.value === 0) {
                         totalZeroPoints++;
-                        checkAdventureObjective('annihilations', 1);
+                        checkAdventureObjective('annihilations', 1, cellCenterBetween(r, c, r, c + 1));
                         const magnitude = Math.abs(tileA.value);
 
                         if (isTutorial) {
@@ -2619,7 +2627,7 @@
                     const tileB = grid[r + 1][c];
                     if (tileB && tileB.type === 'number' && tileA.value + tileB.value === 0) {
                         totalZeroPoints++;
-                        checkAdventureObjective('annihilations', 1);
+                        checkAdventureObjective('annihilations', 1, cellCenterBetween(r, c, r + 1, c));
                         const magnitude = Math.abs(tileA.value);
 
                         if (isTutorial) {
@@ -2650,7 +2658,7 @@
                     const tileB = grid[r][c + 1];
                     if (tileB && tileB.type === 'number' && tileA.value === tileB.value) {
                         const fusedVal = tileA.value * 2;
-                        checkAdventureObjective('synthesis_tier', Math.abs(fusedVal));
+                        checkAdventureObjective('synthesis_tier', Math.abs(fusedVal), cellCenterBetween(r, c, r, c + 1));
 
                         if (isTutorial && tutorialStep === 2) {
                             tutorialStepCompleted = true;
@@ -2666,7 +2674,7 @@
                     const tileB = grid[r + 1][c];
                     if (tileB && tileB.type === 'number' && tileA.value === tileB.value) {
                         const fusedVal = tileA.value * 2;
-                        checkAdventureObjective('synthesis_tier', Math.abs(fusedVal));
+                        checkAdventureObjective('synthesis_tier', Math.abs(fusedVal), cellCenterBetween(r, c, r + 1, c));
 
                         if (isTutorial && tutorialStep === 2) {
                             tutorialStepCompleted = true;
@@ -2806,7 +2814,7 @@
         // Tactical Bounty checks & Supernova Token Bonus
         if (tier >= 3) {
             checkBountyProgress('laser', 1);
-            checkAdventureObjective('trigger_laser', magnitude);
+            checkAdventureObjective('trigger_laser', magnitude, cellCenterBetween(r, c, r2, c2));
         }
         if (tier >= 4) {
             checkBountyProgress('supernova', 1);
@@ -2833,7 +2841,7 @@
                 grid[r][c] = createTile(val);
                 addFloatingText('SHATTERED!', nx, ny, '#fff');
                 addScore(15);
-                checkAdventureObjective('clear_dark_matter', 1);
+                checkAdventureObjective('clear_dark_matter', 1, { x: nx, y: ny });
             } else {
                 target.flash = 0.8;
             }
@@ -2944,10 +2952,44 @@
         return count;
     }
 
-    function checkAdventureObjective(type, payload = 1) {
+    // Short label, intro hint and on-board callout text per objective type
+    const OBJECTIVE_META = {
+        annihilations: { short: (o) => `Trigger ${o.target} Zero Blasts`, hint: 'Touch opposite numbers (like +3 and −3) to cancel them', event: 'ZERO BLAST' },
+        synthesis_tier: { short: (o) => `Build a +${o.target} orb`, hint: 'Merge matching numbers to double them', event: 'MERGED' },
+        clear_dark_matter: { short: () => 'Shatter Dark Matter cores', hint: 'Blast beside a core twice to shatter it', event: 'CORE SHATTERED' },
+        trigger_laser: { short: () => 'Fire a Cross Laser', hint: 'Cancel a ±4 pair to fire across the row and column', event: 'CROSS LASER!' },
+        activate_frenzy: { short: () => 'Unleash Frenzy', hint: 'Fill the Overdrive bar to 100%', event: 'FRENZY!' }
+    };
+
+    function getObjectiveGlyph(obj) {
+        return (CHALLENGE_GLYPHS[obj.type] || (() => '★'))(obj);
+    }
+
+    // Board-space midpoint of two cells (canvas CSS pixels)
+    function cellCenterBetween(r1, c1, r2, c2) {
+        return {
+            x: boardOffsetX + ((c1 + c2) / 2) * cellW + cellW / 2,
+            y: boardOffsetY + ((r1 + r2) / 2) * cellH + cellH / 2
+        };
+    }
+
+    function getObjectiveCounts(obj) {
+        if (obj.type === 'synthesis_tier') {
+            return { cur: adventureObjectiveMet ? obj.target : adventureProgress, tgt: obj.target, text: adventureObjectiveMet ? 'DONE' : `+${adventureProgress || 0}/+${obj.target}` };
+        }
+        if (obj.type === 'trigger_laser' || obj.type === 'activate_frenzy') {
+            return { cur: adventureObjectiveMet ? 1 : 0, tgt: 1, text: adventureObjectiveMet ? 'DONE' : '0/1' };
+        }
+        const cur = Math.min(adventureProgress, obj.target);
+        return { cur, tgt: obj.target, text: `${cur}/${obj.target}` };
+    }
+
+    function checkAdventureObjective(type, payload = 1, pos = null) {
         if (gameMode !== 'adventure' || !activeAdventureLevel || isGameOver) return;
         const obj = activeAdventureLevel.objective;
         if (!obj) return;
+        const prevProgress = adventureProgress;
+        const prevMet = adventureObjectiveMet;
 
         if (obj.type === 'annihilations' && type === 'annihilations') {
             adventureProgress = Math.min(obj.target, adventureProgress + payload);
@@ -2974,37 +3016,128 @@
             adventureObjectiveMet = true;
         }
 
-        updateAdventureObjectiveUI();
+        const advanced = adventureProgress > prevProgress || (adventureObjectiveMet && !prevMet);
+        updateAdventureObjectiveUI(advanced);
+        if (advanced) showObjectiveCallout(obj, pos);
     }
 
-    function updateAdventureObjectiveUI() {
+    function updateAdventureObjectiveUI(bump = false) {
         if (!activeAdventureLevel || gameMode !== 'adventure') return;
         const obj = activeAdventureLevel.objective;
         if (!obj) return;
 
-        if (advObjDesc) advObjDesc.textContent = activeAdventureLevel.desc;
+        const meta = OBJECTIVE_META[obj.type];
+        const { cur, tgt, text } = getObjectiveCounts(obj);
+        const countable = obj.type === 'annihilations' || obj.type === 'clear_dark_matter';
+        const oneToGo = countable && !adventureObjectiveMet && tgt - cur === 1;
 
-        let currentVal = adventureProgress;
-        let targetVal = obj.target;
-        let text = `${Math.min(currentVal, targetVal)} / ${targetVal}`;
-        let pct = Math.min(100, Math.round((currentVal / targetVal) * 100));
-
-        if (obj.type === 'synthesis_tier') {
-            text = currentVal >= targetVal ? 'COMPLETE! ✨' : `+${currentVal} / +${targetVal}`;
-            pct = currentVal >= targetVal ? 100 : Math.round((currentVal / targetVal) * 100);
-        } else if (obj.type === 'activate_frenzy' || obj.type === 'trigger_laser') {
-            text = currentVal >= targetVal ? 'COMPLETE! 🔥' : 'Pending...';
-            pct = currentVal >= targetVal ? 100 : 0;
+        const glyphEl = document.getElementById('adv-obj-glyph');
+        const togoEl = document.getElementById('adv-obj-togo');
+        if (glyphEl) glyphEl.textContent = adventureObjectiveMet ? '✓' : getObjectiveGlyph(obj);
+        if (advObjDesc) advObjDesc.textContent = meta ? meta.short(obj) : activeAdventureLevel.desc;
+        if (advObjProgress) advObjProgress.textContent = text;
+        if (togoEl) togoEl.hidden = !oneToGo;
+        if (adventureObjectiveCard) {
+            adventureObjectiveCard.classList.toggle('one-to-go', oneToGo);
+            adventureObjectiveCard.classList.toggle('complete', adventureObjectiveMet);
+            if (bump) {
+                adventureObjectiveCard.classList.remove('bump');
+                void adventureObjectiveCard.offsetWidth;
+                adventureObjectiveCard.classList.add('bump');
+            }
         }
 
-        if (advObjProgress) advObjProgress.textContent = text;
-        if (advObjFill) advObjFill.style.width = `${pct}%`;
+        lastCoreHighlight = obj.type === 'clear_dark_matter' && !adventureObjectiveMet && countRemainingDarkMatter() === 1;
+    }
 
-        // Real-time 3-star preview
-        const s1 = adventureProgress >= targetVal ? '⭐' : '☆';
-        const s2 = dropsUsed <= activeAdventureLevel.targetDropsForStar ? '⭐' : '☆';
-        const s3 = score >= activeAdventureLevel.targetScoreForStar ? '⭐' : '☆';
-        if (advObjStars) advObjStars.textContent = `${s1}${s2}${s3}`;
+    // Badge that rises from where the objective progressed ("◈ 3/4 · CORE SHATTERED")
+    function showObjectiveCallout(obj, pos) {
+        const host = document.getElementById('canvas-container');
+        if (!host) return;
+        const meta = OBJECTIVE_META[obj.type];
+        const { cur, tgt } = getObjectiveCounts(obj);
+        const left = Math.max(0, tgt - cur);
+        const point = pos || { x: boardOffsetX + (COLS * cellW) / 2, y: boardOffsetY + (ROWS * cellH) / 2 };
+
+        const el = document.createElement('div');
+        el.className = 'obj-callout' + (adventureObjectiveMet || left === 1 ? ' gold' : '');
+        el.style.left = `${Math.min(Math.max(point.x, 70), host.clientWidth - 70)}px`;
+        el.style.top = `${Math.max(point.y, 60)}px`;
+        const badge = document.createElement('span');
+        badge.className = 'badge';
+        const g = document.createElement('span');
+        g.className = 'g';
+        g.textContent = getObjectiveGlyph(obj);
+        const n = document.createElement('span');
+        n.className = 'n';
+        n.textContent = obj.type === 'synthesis_tier' && !adventureObjectiveMet ? `+${cur}` : `${cur}/${tgt}`;
+        badge.append(g, n);
+        const label = document.createElement('span');
+        label.className = 'label';
+        label.textContent = adventureObjectiveMet ? 'OBJECTIVE COMPLETE!' : (left === 1 ? `${meta ? meta.event : 'PROGRESS'} · 1 TO GO` : (meta ? meta.event : 'PROGRESS'));
+        el.append(badge, label);
+        host.appendChild(el);
+        setTimeout(() => el.remove(), 1600);
+        triggerHaptic(adventureObjectiveMet ? 'zero' : 'tick');
+    }
+
+    // ---------- Intro A: mission card before the first drop ----------
+    let objIntroTimer = null;
+
+    function showObjectiveIntro(level) {
+        const overlay = document.getElementById('obj-intro');
+        const obj = level && level.objective;
+        if (!overlay || !obj || level.isTutorial) return;
+        const meta = OBJECTIVE_META[obj.type];
+        const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+        set('obj-intro-kicker', `${getLevelCode(level)} · OBJECTIVE`);
+        set('obj-intro-glyph', getObjectiveGlyph(obj));
+        set('obj-intro-title', level.desc || (meta ? meta.short(obj) : 'Complete the objective'));
+        set('obj-intro-hint', meta ? meta.hint : '');
+        set('obj-intro-drops', `${level.maxDrops} DROPS`);
+        set('obj-intro-stars', `★ WITHIN ${level.targetDropsForStar} · ★ ${level.targetScoreForStar.toLocaleString()}+ PTS`);
+
+        const card = document.getElementById('obj-intro-card');
+        const fill = document.getElementById('obj-intro-timer-fill');
+        overlay.classList.remove('leaving');
+        if (card) { card.style.transform = ''; card.style.opacity = ''; card.style.animation = 'none'; void card.offsetWidth; card.style.animation = ''; }
+        if (fill) { fill.style.animation = 'none'; void fill.offsetWidth; fill.style.animation = 'objIntroTimer 3.5s linear forwards'; }
+        overlay.hidden = false;
+        clearTimeout(objIntroTimer);
+        objIntroTimer = setTimeout(dismissObjectiveIntro, 3500);
+    }
+
+    function dismissObjectiveIntro() {
+        const overlay = document.getElementById('obj-intro');
+        if (!overlay || overlay.hidden || overlay.classList.contains('leaving')) return;
+        clearTimeout(objIntroTimer);
+        const card = document.getElementById('obj-intro-card');
+        const target = adventureObjectiveCard && adventureObjectiveCard.offsetParent ? adventureObjectiveCard.getBoundingClientRect() : null;
+        overlay.classList.add('leaving');
+        if (card && target) {
+            const from = card.getBoundingClientRect();
+            const dx = (target.left + target.width / 2) - (from.left + from.width / 2);
+            const dy = (target.top + target.height / 2) - (from.top + from.height / 2);
+            const scale = Math.max(0.1, target.width / from.width);
+            card.style.animation = 'none';
+            card.style.transform = `translate(${dx}px, ${dy}px) scale(${scale}, ${Math.max(0.08, target.height / from.height)})`;
+            card.style.opacity = '0';
+        }
+        setTimeout(() => {
+            overlay.hidden = true;
+            overlay.classList.remove('leaving');
+            if (adventureObjectiveCard) {
+                adventureObjectiveCard.classList.remove('bump');
+                void adventureObjectiveCard.offsetWidth;
+                adventureObjectiveCard.classList.add('bump');
+            }
+        }, 460);
+    }
+
+    function hideObjectiveIntro() {
+        const overlay = document.getElementById('obj-intro');
+        clearTimeout(objIntroTimer);
+        if (overlay) { overlay.hidden = true; overlay.classList.remove('leaving'); }
     }
 
     function checkGameOver() {
@@ -4875,11 +5008,45 @@
             ctx.fill();
         }
 
-        ctx.fillStyle = '#7a889b';
-        ctx.font = '800 12px Inter, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(hp > 1 ? 'DARK CORE' : 'CRACKED', 0, 0);
+        // Core icon: a diamond shell with a glowing nucleus (red when cracked)
+        const s = Math.min(w, h) * 0.24;
+        const iconColor = hp > 1 ? '#7a889b' : '#e06c75';
+        ctx.strokeStyle = iconColor;
+        ctx.lineWidth = 2;
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(0, -s);
+        ctx.lineTo(s, 0);
+        ctx.lineTo(0, s);
+        ctx.lineTo(-s, 0);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.fillStyle = iconColor;
+        ctx.beginPath();
+        ctx.moveTo(0, -s * 0.42);
+        ctx.lineTo(s * 0.42, 0);
+        ctx.lineTo(0, s * 0.42);
+        ctx.lineTo(-s * 0.42, 0);
+        ctx.closePath();
+        ctx.fill();
+
+        // Last remaining core of a clear-dark-matter objective: pulsing gold target brackets
+        if (lastCoreHighlight) {
+            const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 160);
+            const inset = -3 - pulse * 3;
+            const bx = -w / 2 + inset, by = -h / 2 + inset;
+            const bw = w - inset * 2, bh = h - inset * 2;
+            const arm = Math.min(w, h) * 0.26;
+            ctx.strokeStyle = `rgba(249, 212, 35, ${0.65 + pulse * 0.35})`;
+            ctx.lineWidth = 2.5;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(bx, by + arm); ctx.lineTo(bx, by); ctx.lineTo(bx + arm, by);
+            ctx.moveTo(bx + bw - arm, by); ctx.lineTo(bx + bw, by); ctx.lineTo(bx + bw, by + arm);
+            ctx.moveTo(bx + bw, by + bh - arm); ctx.lineTo(bx + bw, by + bh); ctx.lineTo(bx + bw - arm, by + bh);
+            ctx.moveTo(bx + arm, by + bh); ctx.lineTo(bx, by + bh); ctx.lineTo(bx, by + bh - arm);
+            ctx.stroke();
+        }
 
         ctx.restore();
     }

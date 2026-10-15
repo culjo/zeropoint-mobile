@@ -5678,3 +5678,330 @@ input:checked + .toggle-slider:before {
     #modal-victory .win-stars { transform: scale(0.8); margin-top: 6px; margin-bottom: -20px; }
     #modal-gameover .breach-retry-wrap { margin-top: 26px; }
 }
+
+/* ==========================================================
+   Objective — Progress B (strip + on-board callouts)
+   Glyph tile, short goal, "1 TO GO" pill and a count. Gold
+   glow when one step is left, cyan when complete.
+   ========================================================== */
+#screen-game .mission-status-strip #adventure-objective-card.obj-strip {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    height: 46px;
+    box-sizing: border-box;
+    padding: 0 12px 0 8px;
+    border-radius: 14px;
+    border: 1px solid rgba(0, 242, 254, 0.3);
+    border-left-width: 1px;
+    background: rgba(10, 14, 24, 0.9);
+    transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+}
+
+#adventure-objective-card.obj-strip .obj-glyph {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    border-radius: 9px;
+    border: 1.5px solid #00f2fe;
+    background: repeating-linear-gradient(135deg, #1f2537 0 5px, #171c2b 5px 10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Lato', sans-serif;
+    font-size: 15px;
+    font-weight: 900;
+    color: #7ff8ff;
+}
+
+#adventure-objective-card.obj-strip .adv-obj-desc {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    font-weight: 800;
+    color: #f0f4fc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#adventure-objective-card.obj-strip .obj-togo {
+    height: 24px;
+    padding: 0 9px;
+    border-radius: 12px;
+    background: #f9d423;
+    color: #1a1302;
+    display: flex;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.8px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+#adventure-objective-card.obj-strip .obj-togo[hidden] { display: none; }
+
+#adventure-objective-card.obj-strip .adv-obj-progress {
+    font-family: 'Lato', sans-serif;
+    font-size: 15px;
+    font-weight: 900;
+    color: #00f2fe;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+@keyframes objStripGlow {
+    0%, 100% { box-shadow: 0 0 12px rgba(249, 212, 35, 0.2); }
+    50% { box-shadow: 0 0 26px rgba(249, 212, 35, 0.45); }
+}
+
+#screen-game .mission-status-strip #adventure-objective-card.obj-strip.one-to-go {
+    border-color: rgba(249, 212, 35, 0.6);
+    background: linear-gradient(90deg, rgba(249, 212, 35, 0.14), rgba(10, 14, 24, 0.9) 70%);
+    animation: objStripGlow 1.2s ease-in-out infinite;
+}
+
+#adventure-objective-card.obj-strip.one-to-go .obj-glyph {
+    border-color: #f9d423;
+    color: #f9d423;
+    background: repeating-linear-gradient(135deg, #2a2510 0 5px, #1f1b0c 5px 10px);
+}
+
+#adventure-objective-card.obj-strip.one-to-go .adv-obj-progress { color: #f9d423; }
+
+#screen-game .mission-status-strip #adventure-objective-card.obj-strip.complete {
+    border-color: #00f2fe;
+    background: linear-gradient(90deg, rgba(0, 242, 254, 0.16), rgba(10, 14, 24, 0.9) 70%);
+    box-shadow: 0 0 20px rgba(0, 242, 254, 0.35);
+}
+
+#adventure-objective-card.obj-strip.complete .obj-glyph {
+    background: #00f2fe;
+    color: #032a30;
+}
+
+@keyframes objStripBump {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.03); }
+    100% { transform: scale(1); }
+}
+
+#adventure-objective-card.obj-strip.bump { animation: objStripBump 0.35s ease-out; }
+#adventure-objective-card.obj-strip.one-to-go.bump { animation: objStripBump 0.35s ease-out, objStripGlow 1.2s ease-in-out infinite; }
+
+/* On-board callout: rises from where the progress happened */
+.obj-callout {
+    position: absolute;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    animation: objCallout 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.obj-callout .badge {
+    height: 40px;
+    box-sizing: border-box;
+    padding: 0 14px 0 7px;
+    border-radius: 20px;
+    background: linear-gradient(#0f3a44, #0b2a33);
+    border: 2px solid #00f2fe;
+    box-shadow: 0 4px 0 #04525c, 0 0 22px rgba(0, 242, 254, 0.6);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.obj-callout .badge .g {
+    min-width: 26px;
+    height: 26px;
+    padding: 0 3px;
+    box-sizing: border-box;
+    border-radius: 8px;
+    background: #00f2fe;
+    color: #032a30;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Lato', sans-serif;
+    font-size: 14px;
+    font-weight: 900;
+}
+
+.obj-callout .badge .n {
+    font-family: 'Lato', sans-serif;
+    font-size: 18px;
+    font-weight: 900;
+    color: #f0f4fc;
+}
+
+.obj-callout .label {
+    padding: 3px 8px;
+    border-radius: 8px;
+    background: rgba(6, 7, 13, 0.85);
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1.6px;
+    color: #7ff8ff;
+    text-shadow: 0 0 8px rgba(0, 242, 254, 0.6), 0 1px 2px rgba(0, 0, 0, 0.8);
+    white-space: nowrap;
+}
+
+.obj-callout.gold .badge { border-color: #f9d423; background: linear-gradient(#3a3210, #251f08); box-shadow: 0 4px 0 #5c4a06, 0 0 22px rgba(249, 212, 35, 0.6); }
+.obj-callout.gold .badge .g { background: #f9d423; color: #1a1302; }
+.obj-callout.gold .label { color: #ffe45c; text-shadow: 0 0 8px rgba(249, 212, 35, 0.6), 0 1px 2px rgba(0, 0, 0, 0.8); }
+
+@keyframes objCallout {
+    0% { transform: translate(-50%, -30%) scale(0.6); opacity: 0; }
+    18% { transform: translate(-50%, -80%) scale(1.1); opacity: 1; }
+    30% { transform: translate(-50%, -85%) scale(1); opacity: 1; }
+    75% { transform: translate(-50%, -105%) scale(1); opacity: 1; }
+    100% { transform: translate(-50%, -125%) scale(0.95); opacity: 0; }
+}
+
+/* ==========================================================
+   Objective — Intro A (mission card)
+   Shown before the first drop; tap or wait to start, then the
+   card shrinks into the objective strip.
+   ========================================================== */
+.obj-intro {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(3, 4, 8, 0.72);
+    transition: background 0.35s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.obj-intro[hidden] { display: none; }
+.obj-intro.leaving { background: rgba(3, 4, 8, 0); pointer-events: none; }
+
+@keyframes objIntroDrop {
+    0% { transform: translateY(-40px) scale(0.9); opacity: 0; }
+    100% { transform: none; opacity: 1; }
+}
+
+.obj-intro-card {
+    width: 100%;
+    max-width: 360px;
+    box-sizing: border-box;
+    border-radius: 26px;
+    border: 1.5px solid rgba(0, 242, 254, 0.5);
+    background: linear-gradient(180deg, #141a2c, #0b0e18);
+    box-shadow: 0 8px 0 #06232a, 0 24px 50px rgba(0, 0, 0, 0.6), 0 0 40px rgba(0, 242, 254, 0.15);
+    padding: 22px 20px 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    text-align: center;
+    color: #f0f4fc;
+    font-family: 'Inter', sans-serif;
+    animation: objIntroDrop 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+    transform-origin: center center;
+}
+
+.obj-intro.leaving .obj-intro-card {
+    transition: transform 0.45s cubic-bezier(0.5, 0, 0.2, 1), opacity 0.45s ease;
+}
+
+.obj-intro-kicker {
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 2.6px;
+    color: #00f2fe;
+}
+
+.obj-intro-glyph {
+    width: 84px;
+    height: 84px;
+    margin-top: 4px;
+    box-sizing: border-box;
+    border-radius: 24px;
+    background: repeating-linear-gradient(135deg, #1f2537 0 7px, #171c2b 7px 14px);
+    border: 2.5px solid #00f2fe;
+    box-shadow: 0 0 26px rgba(0, 242, 254, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Lato', sans-serif;
+    font-size: 36px;
+    font-weight: 900;
+    color: #7ff8ff;
+}
+
+.obj-intro-title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: 0;
+}
+
+.obj-intro-hint {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #a3acc6;
+}
+
+.obj-intro-chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.obj-intro-chip {
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.obj-intro-chip.drops { background: rgba(255, 107, 138, 0.1); border: 1px solid rgba(255, 107, 138, 0.35); color: #ff6b8a; }
+.obj-intro-chip.stars { background: rgba(249, 212, 35, 0.1); border: 1px solid rgba(249, 212, 35, 0.35); color: #f9d423; }
+
+.obj-intro-tap {
+    margin-top: 8px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1.4px;
+    color: #8892b0;
+}
+
+.obj-intro-timer {
+    align-self: stretch;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+}
+
+.obj-intro-timer-fill {
+    height: 100%;
+    width: 100%;
+    background: #00f2fe;
+    transform-origin: left center;
+}
+
+@keyframes objIntroTimer {
+    from { transform: scaleX(1); }
+    to { transform: scaleX(0); }
+}
