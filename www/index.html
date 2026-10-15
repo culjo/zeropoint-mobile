@@ -343,155 +343,39 @@
         <!-- SCREEN 4: QUANTUM CODEX (Learn & Academy)  -->
         <!-- ========================================== -->
         <section id="screen-codex" class="screen-view">
-            <header class="codex-header">
-                <button id="btn-codex-to-home" class="btn-icon" title="Back to Menu">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="19" y1="12" x2="5" y2="12"></line>
-                        <polyline points="12 19 5 12 12 5"></polyline>
-                    </svg>
+            <header class="acad-header">
+                <button id="btn-codex-to-home" class="btn-icon" aria-label="Back" title="Back">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
                 </button>
-                <div class="codex-title-group">
-                    <span class="codex-badge">FIELD MANUAL</span>
-                    <h2>Quantum Academy & Codex</h2>
+                <div class="acad-title-group">
+                    <span class="acad-kicker">QUANTUM ACADEMY</span>
+                    <h2>Field Manual</h2>
                 </div>
-                <div style="width: 38px;"></div>
+                <div class="acad-counter" id="acad-counter">1/4</div>
             </header>
 
-            <!-- Navigation Tabs -->
-            <div class="codex-tabs">
-                <button class="codex-tab active" data-tab="annihilation">1. Zero Blast</button>
-                <button class="codex-tab" data-tab="synthesis">2. Merge & Double</button>
-                <button class="codex-tab" data-tab="specials">3. Special Orbs</button>
-                <button class="codex-tab" data-tab="tactics">4. Tactics</button>
-            </div>
+            <!-- Lesson chips: rendered by renderAcademy() -->
+            <div class="acad-chips" id="acad-chips" role="tablist"></div>
 
-            <!-- Hands-on Training Link -->
-            <div class="codex-training-cta">
-                <span class="cta-text">Prefer learning by doing?</span>
-                <button id="btn-codex-tutorial" class="btn-tutorial-pill">🎓 Play Hands-on Tutorial ➜</button>
-            </div>
-
-            <!-- Tab 1: Zero Blast (Cancel to Zero) -->
-            <div class="codex-tab-content active" id="tab-annihilation">
-                <div class="codex-card">
-                    <div class="codex-hero-demo">
-                        <span class="codex-orb cyan">+3</span>
-                        <span class="codex-op">+</span>
-                        <span class="codex-orb coral">-3</span>
-                        <span class="codex-op">=</span>
-                        <span class="codex-orb zero">0 💥</span>
-                    </div>
-                    <h3>Opposites Cancel to Zero</h3>
-                    <p>Every dropped number is positive cyan (<code>+N</code>) or negative coral (<code>-N</code>). When two opposite numbers touch (like <code>+3</code> and <code>-3</code>), they add up to 0, cancel out, and detonate a <strong>Zero Blast</strong>!</p>
+            <!-- Lesson card -->
+            <div class="acad-card" id="acad-card">
+                <div class="acad-demo" id="acad-demo">
+                    <span class="acad-lesson-kicker" id="acad-lesson-kicker"></span>
+                    <div class="acad-demo-row" id="acad-demo-row"></div>
                 </div>
-
-                <div class="codex-card">
-                    <h3>Zero Blast Power Levels</h3>
-                    <div class="tier-row">
-                        <span class="tier-pill tier-1">±1</span>
-                        <span><strong>Micro Pop:</strong> Basic single-cell clear.</span>
-                    </div>
-                    <div class="tier-row">
-                        <span class="tier-pill tier-2">±2</span>
-                        <span><strong>Shockwave:</strong> High-impact wave that cracks nearby Dark Matter blocks.</span>
-                    </div>
-                    <div class="tier-row">
-                        <span class="tier-pill tier-3">±4</span>
-                        <span><strong>Cross Laser:</strong> Fires intense laser beams across the entire row and column!</span>
-                    </div>
-                    <div class="tier-row">
-                        <span class="tier-pill tier-4">±8+</span>
-                        <span><strong>Supernova:</strong> Obliterates a massive 3&times;3 area and awards a bonus Swap Token!</span>
-                    </div>
+                <div class="acad-body">
+                    <h3 id="acad-title"></h3>
+                    <p id="acad-text"></p>
+                    <div class="acad-facts" id="acad-facts"></div>
                 </div>
             </div>
 
-            <!-- Tab 2: Merge & Double -->
-            <div class="codex-tab-content" id="tab-synthesis">
-                <div class="codex-card">
-                    <div class="codex-hero-demo">
-                        <span class="codex-orb cyan">+2</span>
-                        <span class="codex-op">+</span>
-                        <span class="codex-orb cyan">+2</span>
-                        <span class="codex-op">=</span>
-                        <span class="codex-orb cyan large">+4 ✨</span>
-                    </div>
-                    <h3>Same Numbers Merge & Double</h3>
-                    <p>Touching identical numbers combine together and double in value (<code>+2 & +2 = +4</code>, <code>+4 & +4 = +8</code>, <code>-3 & -3 = -6</code>). Merge larger numbers to craft monster Cross Lasers and Supernovas!</p>
-                </div>
-
-                <div class="codex-card">
-                    <h3>Chain Reaction Cascades</h3>
-                    <p>When tiles fall into empty spaces after a match, any new matches trigger cascading combos (<code>2x, 3x, 4x...</code>), multiplying your score and quickly recharging your Swap Tokens!</p>
-                </div>
-            </div>
-
-            <!-- Tab 3: Special Orbs -->
-            <div class="codex-tab-content" id="tab-specials">
-                <div class="codex-specials-grid">
-                    <div class="special-card">
-                        <span class="special-icon purple">±</span>
-                        <div>
-                            <h4>[±] Flip Sign</h4>
-                            <p>Flips a number between positive and negative (e.g. turns +4 into -4), allowing you to immediately cancel an opposite number to zero.</p>
-                        </div>
-                    </div>
-                    <div class="special-card">
-                        <span class="special-icon cyan">÷2</span>
-                        <div>
-                            <h4>[÷2] Divide (Halve)</h4>
-                            <p>Cuts a number in half (e.g. 8 becomes 4), perfect for matching smaller numbers on the board.</p>
-                        </div>
-                    </div>
-                    <div class="special-card">
-                        <span class="special-icon gold">×2</span>
-                        <div>
-                            <h4>[×2] Double Up</h4>
-                            <p>Doubles a tile's number (e.g. 4 becomes 8), accelerating your path to high-tier Supernovas.</p>
-                        </div>
-                    </div>
-                    <div class="special-card">
-                        <span class="special-icon purple">0</span>
-                        <div>
-                            <h4>[0] Core Bomb</h4>
-                            <p>Clears a 3&times;3 area of tiles, destroying obstacles and dark matter in its crater.</p>
-                        </div>
-                    </div>
-                    <div class="special-card">
-                        <span class="special-icon gold">⚫</span>
-                        <div>
-                            <h4>⚫ Black Hole (Frenzy)</h4>
-                            <p>Unleashed during Frenzy: Gravitationally crushes and clears an entire column from top to bottom.</p>
-                        </div>
-                    </div>
-                    <div class="special-card">
-                        <span class="special-icon coral">💥</span>
-                        <div>
-                            <h4>💥 Mega Nuke (Frenzy)</h4>
-                            <p>Deploys a devastating 3&times;3 high-yield explosion across the board.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tab 4: Tactics -->
-            <div class="codex-tab-content" id="tab-tactics">
-                <div class="codex-card">
-                    <h3>⚡ Quantum Swap Tokens</h3>
-                    <p>Press <strong>[S]</strong> or tap the Swap button to enter Swap Mode. Select any two adjacent tiles to swap their positions on the grid. Use this to ignite trapped combinations or escape containment breaches!</p>
-                </div>
-                <div class="codex-card">
-                    <h3>📦 Hold Slot [C]</h3>
-                    <p>Don't want to drop the current orb right now? Press <strong>[C]</strong> or click the Hold slot to store it for later and retrieve your previously held orb.</p>
-                </div>
-                <div class="codex-card">
-                    <h3>🎯 Tactical Bounties</h3>
-                    <p>In Classic Mode, in-run bounties appear at the top. Fulfilling these mini-missions awards valuable bonus points and free Quantum Swap Tokens!</p>
-                </div>
-            </div>
-
-            <div class="codex-bottom">
-                <button id="btn-codex-close" class="btn-large">Return to Menu</button>
+            <div class="acad-dock">
+                <button type="button" id="btn-codex-next" class="acad-next">
+                    <span id="acad-next-label">Next lesson</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"></path></svg>
+                </button>
+                <button type="button" id="btn-codex-tutorial" class="acad-practice">Practice it in the Hands-on Tutorial</button>
             </div>
         </section>
 

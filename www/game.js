@@ -564,9 +564,165 @@
             setTimeout(resizeCanvas, 60);
         } else if (screenId === 'codex') {
             if (screenCodex) screenCodex.classList.add('active');
+            renderAcademy();
         }
 
         syncAudioUI();
+    }
+
+    // ==========================================================
+    // ACADEMY LESSON DECK
+    // ==========================================================
+    const ACADEMY_TINT = {
+        cyan: ['#00f2fe', 'rgba(0, 242, 254, 0.14)'],
+        purple: ['#c471ed', 'rgba(196, 113, 237, 0.16)'],
+        gold: ['#f9d423', 'rgba(249, 212, 35, 0.14)'],
+        red: ['#ff4e50', 'rgba(255, 78, 80, 0.15)']
+    };
+
+    const ACADEMY_LESSONS = [
+        {
+            glyph: '0', short: 'ZERO BLAST', kicker: 'LESSON 1 · CORE RULE', accent: '#00f2fe', haze: 'rgba(196, 113, 237, 0.22)',
+            demo: [['pos', '+3'], ['op', '+'], ['neg', '-3'], ['op', '='], ['zero', '0']],
+            title: 'Opposites cancel to zero',
+            body: 'Every orb is cyan +N or coral −N. When opposites touch they add up to 0 and detonate a Zero Blast. Bigger numbers, bigger blasts.',
+            facts: [
+                ['cyan', '±1', 'Micro Pop', 'Basic single-cell clear'],
+                ['purple', '±2', 'Shockwave', 'Cracks nearby Dark Matter'],
+                ['gold', '±4', 'Cross Laser', 'Beams across row and column'],
+                ['red', '±8+', 'Supernova', '3×3 blast + bonus Swap Token']
+            ]
+        },
+        {
+            glyph: '×2', short: 'MERGE', kicker: 'LESSON 2 · BUILD UP', accent: '#f9d423', haze: 'rgba(249, 212, 35, 0.18)',
+            demo: [['pos', '+2'], ['op', '+'], ['pos', '+2'], ['op', '='], ['gold', '+4']],
+            title: 'Same sign? Merge & double',
+            body: 'Matching orbs fuse into one with double the value. Build big numbers, then hit them with their opposite for a stronger blast.',
+            facts: [
+                ['cyan', '+4', '+4 & +4 = +8', 'Positives stack upward'],
+                ['red', '−6', '−3 & −3 = −6', 'Negatives stack too'],
+                ['gold', '2x+', 'Chain Reaction', 'Cascades multiply score & recharge Swaps']
+            ]
+        },
+        {
+            glyph: '◈', short: 'SPECIALS', kicker: 'LESSON 3 · SPECIAL ORBS', accent: '#c471ed', haze: 'rgba(196, 113, 237, 0.24)',
+            demo: [['sp', '±'], ['op', '→'], ['pos', '+5'], ['op', '='], ['neg', '-5']],
+            title: 'Special orbs bend the rules',
+            body: 'Specials act on the orb they land next to. Flip a sign to set up a blast, or reach for a bomb when the board gets crowded.',
+            facts: [
+                ['purple', '±', 'Flip Sign', 'Flips the sign of a number'],
+                ['cyan', '÷2 ×2', 'Divide / Double Up', 'Halves or doubles a number'],
+                ['gold', '0', 'Core Bomb', 'Clears a 3×3 area'],
+                ['red', '⚫ 💥', 'Frenzy: Black Hole / Nuke', 'Whole column or 3×3 explosion']
+            ]
+        },
+        {
+            glyph: 'S', short: 'TACTICS', kicker: 'LESSON 4 · TACTICS', accent: '#f9d423', haze: 'rgba(0, 242, 254, 0.16)',
+            demo: [['pos', '+2'], ['op', '⇄'], ['neg', '-2']],
+            title: 'Play the long game',
+            body: 'Tools for getting out of tight spots and scoring big in Classic. Save them for when they matter.',
+            facts: [
+                ['cyan', 'S', 'Quantum Swap', 'Swap two adjacent tiles'],
+                ['purple', 'C', 'Hold Slot', 'Stash an orb for later'],
+                ['gold', '★', 'Tactical Bounties', 'Classic mini-missions for points & Swaps']
+            ]
+        }
+    ];
+
+    let academyLesson = 0;
+
+    function renderAcademy() {
+        const lesson = ACADEMY_LESSONS[academyLesson];
+        if (!lesson) return;
+        const el = (id) => document.getElementById(id);
+
+        const counter = el('acad-counter');
+        if (counter) counter.textContent = `${academyLesson + 1}/${ACADEMY_LESSONS.length}`;
+
+        const chips = el('acad-chips');
+        if (chips) {
+            chips.innerHTML = '';
+            ACADEMY_LESSONS.forEach((l, i) => {
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'acad-chip' + (i === academyLesson ? ' on' : (i < academyLesson ? ' done' : ''));
+                chip.setAttribute('role', 'tab');
+                chip.setAttribute('aria-selected', i === academyLesson ? 'true' : 'false');
+                chip.setAttribute('aria-label', l.title);
+                const g = document.createElement('span');
+                g.className = 'g';
+                g.textContent = l.glyph;
+                const s = document.createElement('span');
+                s.className = 's';
+                s.textContent = l.short;
+                chip.append(g, s);
+                chip.addEventListener('click', () => {
+                    if (academyLesson === i) return;
+                    academyLesson = i;
+                    renderAcademy();
+                    sfx.playMove();
+                });
+                chips.appendChild(chip);
+            });
+        }
+
+        const demo = el('acad-demo');
+        if (demo) {
+            demo.style.setProperty('--acad-haze', lesson.haze);
+            demo.style.setProperty('--acad-accent', lesson.accent);
+        }
+        const kicker = el('acad-lesson-kicker');
+        if (kicker) kicker.textContent = lesson.kicker;
+
+        const row = el('acad-demo-row');
+        if (row) {
+            row.innerHTML = '';
+            lesson.demo.forEach(([kind, text]) => {
+                const tok = document.createElement('span');
+                tok.className = `acad-tok ${kind}`;
+                tok.textContent = text;
+                row.appendChild(tok);
+            });
+            row.classList.remove('enter');
+            void row.offsetWidth;
+            row.classList.add('enter');
+        }
+
+        const title = el('acad-title');
+        if (title) title.textContent = lesson.title;
+        const text = el('acad-text');
+        if (text) text.textContent = lesson.body;
+
+        const facts = el('acad-facts');
+        if (facts) {
+            facts.innerHTML = '';
+            lesson.facts.forEach(([tint, key, name, desc]) => {
+                const [color, bg] = ACADEMY_TINT[tint];
+                const row = document.createElement('div');
+                row.className = 'acad-fact';
+                const k = document.createElement('span');
+                k.className = 'k';
+                k.style.color = color;
+                k.style.background = bg;
+                k.textContent = key;
+                const t = document.createElement('span');
+                t.className = 't';
+                const n = document.createElement('span');
+                n.className = 'n';
+                n.textContent = name;
+                const d = document.createElement('span');
+                d.className = 'd';
+                d.textContent = desc;
+                t.append(n, d);
+                row.append(k, t);
+                facts.appendChild(row);
+            });
+        }
+        const body = document.querySelector('#screen-codex .acad-body');
+        if (body) body.scrollTop = 0;
+
+        const nextLabel = el('acad-next-label');
+        if (nextLabel) nextLabel.textContent = academyLesson < ACADEMY_LESSONS.length - 1 ? 'Next lesson' : 'Start training';
     }
 
     // ==========================================================
@@ -1669,18 +1825,15 @@
         if (btnCodexToHome) btnCodexToHome.addEventListener('click', () => showScreen(codexPreviousScreen));
         if (btnCodexClose) btnCodexClose.addEventListener('click', () => showScreen(codexPreviousScreen));
 
-        const codexTabs = document.querySelectorAll('.codex-tab');
-        const codexContents = document.querySelectorAll('.codex-tab-content');
-        codexTabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                const tabId = tab.getAttribute('data-tab');
-                codexTabs.forEach(t => t.classList.remove('active'));
-                codexContents.forEach(c => c.classList.remove('active'));
-                tab.classList.add('active');
-                const target = document.getElementById(`tab-${tabId}`);
-                if (target) target.classList.add('active');
-                sfx.playMove();
-            });
+        const btnCodexNext = document.getElementById('btn-codex-next');
+        if (btnCodexNext) btnCodexNext.addEventListener('click', () => {
+            if (academyLesson >= ACADEMY_LESSONS.length - 1) {
+                startTutorialMode();
+                return;
+            }
+            academyLesson++;
+            renderAcademy();
+            sfx.playMove();
         });
 
         // Game Over Menu Action
