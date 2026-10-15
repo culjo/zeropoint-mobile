@@ -1444,7 +1444,15 @@
         const dropsLabel = document.getElementById('vic-drops-label');
         if (kicker) kicker.textContent = v.kicker;
         if (victoryTitle) victoryTitle.textContent = v.title;
-        if (vicScore) vicScore.textContent = v.score.toLocaleString();
+        if (vicScore) {
+            vicScore.textContent = '0';
+            vicScore._countValue = 0;
+            const target = v.score;
+            setTimeout(() => {
+                animateCount(vicScore, target, 1200, 0);
+                setTimeout(() => retriggerClass(vicScore, 'count-done'), 1200);
+            }, 900);
+        }
         if (vicBonus) vicBonus.textContent = v.bonus;
         if (vicDrops) vicDrops.textContent = v.drops;
         if (dropsLabel) dropsLabel.textContent = v.dropsLabel;
@@ -2009,7 +2017,7 @@
     function startNewGame() {
         grid = Array(ROWS).fill(null).map(() => Array(COLS).fill(null));
         score = 0;
-        if (scoreVal) scoreVal.textContent = '0';
+        setScoreDisplay(0, true);
         lastCoreHighlight = false;
         combo = 1;
         maxCombo = 1;
@@ -2227,6 +2235,7 @@
 
         canHold = false;
         updateHUD();
+        retriggerClass(btnTouchHold, 'hold-pop');
     }
 
     // Processing impact when projectile hits target
@@ -3210,7 +3219,15 @@
                 ? `${getLevelCode(activeAdventureLevel)} · ${activeAdventureLevel.title}`
                 : message;
         }
-        if (goScore) goScore.textContent = score.toLocaleString();
+        if (goScore) {
+            goScore.textContent = '0';
+            goScore._countValue = 0;
+            const target = score;
+            setTimeout(() => {
+                animateCount(goScore, target, 1100, 0);
+                setTimeout(() => retriggerClass(goScore, 'count-done'), 1100);
+            }, 650);
+        }
         if (goBest) {
             if (isNewBest) {
                 goBest.textContent = '🏆 NEW BEST!';
@@ -3245,7 +3262,7 @@
         const dropBonus = dropsLeft * 20;
         const finalScore = score + dropBonus;
         score = finalScore;
-        scoreVal.textContent = score.toLocaleString();
+        setScoreDisplay(score);
 
         addFloatingText('SECTOR CLEARED!', canvas.width / (2 * dpr), boardOffsetY + cellH * 2.5, 'var(--gold)', 1.5);
 
@@ -3316,6 +3333,44 @@
         }, 500);
     }
 
+    // Ease a number element from its current value up to `to` (rAF, ease-out cubic)
+    function animateCount(el, to, duration = 900, from = null) {
+        if (!el) return;
+        cancelAnimationFrame(el._countRaf);
+        const start = from !== null ? from : (typeof el._countValue === 'number' ? el._countValue : (parseInt(String(el.textContent).replace(/[^0-9-]/g, ''), 10) || 0));
+        const t0 = performance.now();
+        el._countValue = start;
+        const step = (now) => {
+            const p = Math.min(1, (now - t0) / duration);
+            const eased = 1 - Math.pow(1 - p, 3);
+            const v = Math.round(start + (to - start) * eased);
+            el._countValue = v;
+            el.textContent = v.toLocaleString();
+            if (p < 1) el._countRaf = requestAnimationFrame(step);
+        };
+        el._countRaf = requestAnimationFrame(step);
+    }
+
+    function retriggerClass(el, cls) {
+        if (!el) return;
+        el.classList.remove(cls);
+        void el.offsetWidth;
+        el.classList.add(cls);
+    }
+
+    // In-game score: tween to the new value with a small pop
+    function setScoreDisplay(value, instant = false) {
+        if (!scoreVal) return;
+        if (instant) {
+            cancelAnimationFrame(scoreVal._countRaf);
+            scoreVal._countValue = value;
+            scoreVal.textContent = value.toLocaleString();
+            return;
+        }
+        animateCount(scoreVal, value, 420);
+        retriggerClass(scoreVal, 'score-pop');
+    }
+
     function addScore(pts) {
         score += pts;
         if (gameMode === 'classic') {
@@ -3337,7 +3392,7 @@
                 }
             }
         }
-        scoreVal.textContent = score.toLocaleString();
+        setScoreDisplay(score);
     }
 
     function addOverdriveCharge(pts) {
@@ -3785,6 +3840,9 @@
         // Update Swap Token UI
         if (swapTokenCount) {
             swapTokenCount.textContent = swapTokens;
+        }
+        if (btnTouchSwap) {
+            btnTouchSwap.classList.toggle('swap-max', swapTokens >= maxSwapTokens && !isSwapModeActive);
         }
         if (btnSwapToken) {
             if (swapTokens > 0) {

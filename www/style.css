@@ -6005,3 +6005,77 @@ input:checked + .toggle-slider:before {
     from { transform: scaleX(1); }
     to { transform: scaleX(0); }
 }
+
+/* ==========================================================
+   Juice — score count-up, swap-at-max wiggle, hold pop
+   ========================================================== */
+@keyframes scorePop {
+    0% { transform: scale(1); }
+    35% { transform: scale(1.14); color: #ffe45c; }
+    100% { transform: scale(1); }
+}
+
+#score-val {
+    display: inline-block;
+    transform-origin: left center;
+    font-variant-numeric: tabular-nums;
+}
+
+#score-val.score-pop { animation: scorePop 0.42s cubic-bezier(0.16, 1, 0.3, 1); }
+
+@keyframes countDone {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.12); }
+    100% { transform: scale(1); }
+}
+
+#modal-victory .win-score.count-done,
+#modal-gameover .breach-score.count-done {
+    animation: countDone 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Swap tokens at max: periodic wiggle + scale to say "use me" */
+@keyframes swapMaxWiggle {
+    0%, 62%, 100% { transform: rotate(0) scale(1); }
+    68% { transform: rotate(-5deg) scale(1.07); }
+    74% { transform: rotate(5deg) scale(1.09); }
+    80% { transform: rotate(-4deg) scale(1.07); }
+    86% { transform: rotate(3deg) scale(1.04); }
+    92% { transform: rotate(0) scale(1.02); }
+}
+
+@keyframes swapMaxGlow {
+    0%, 100% { box-shadow: 0 0 0 rgba(0, 242, 254, 0); }
+    50% { box-shadow: 0 0 22px rgba(0, 242, 254, 0.55); }
+}
+
+#screen-game .cockpit-swap-unit.swap-max {
+    border-color: #00f2fe;
+    animation: swapMaxWiggle 2.4s ease-in-out infinite, swapMaxGlow 2.4s ease-in-out infinite;
+}
+
+#screen-game .cockpit-swap-unit.swap-max:active { animation: none; }
+
+/* Hold: pop when an orb is placed inside */
+@keyframes holdPop {
+    0% { transform: scale(1); }
+    30% { transform: scale(0.92); }
+    60% { transform: scale(1.08); }
+    100% { transform: scale(1); }
+}
+
+@keyframes holdSlotFlash {
+    0% { box-shadow: 0 0 0 rgba(196, 113, 237, 0); }
+    40% { box-shadow: 0 0 22px rgba(196, 113, 237, 0.85); }
+    100% { box-shadow: 0 0 0 rgba(196, 113, 237, 0); }
+}
+
+#screen-game .cockpit-hold-unit.hold-pop { animation: holdPop 0.42s cubic-bezier(0.16, 1, 0.3, 1); }
+#screen-game .cockpit-hold-unit.hold-pop .hold-slot { animation: holdSlotFlash 0.5s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+    #score-val.score-pop,
+    #screen-game .cockpit-swap-unit.swap-max,
+    #screen-game .cockpit-hold-unit.hold-pop,
+    #screen-game .cockpit-hold-unit.hold-pop .hold-slot { animation: none; }
+}
