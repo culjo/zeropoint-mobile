@@ -120,7 +120,11 @@
     const advObjProgress = document.getElementById('adv-obj-progress');
     const advObjFill = document.getElementById('adv-obj-fill');
 
-    // Tactical Bounty Card (Classic)
+    // Objective / tutorial strip (collapsed when neither card is showing)
+    const missionStrip = document.getElementById('mission-status-strip');
+    const riseFill = document.getElementById('rise-fill');
+
+    // Tactical Bounty Card (Classic) — hidden in the HUD, summarised on the pause screen
     const bountyCard = document.getElementById('bounty-card');
     const bountyName = document.getElementById('bounty-name');
     const bountyReward = document.getElementById('bounty-reward');
@@ -146,6 +150,7 @@
     // Pause Modal
     const pauseModeName = document.getElementById('pause-mode-name');
     const pauseModeDetail = document.getElementById('pause-mode-detail');
+    const pauseBountyDetail = document.getElementById('pause-bounty-detail');
     const btnPauseResume = document.getElementById('btn-pause-resume');
     const btnPauseRestart = document.getElementById('btn-pause-restart');
     const btnPauseCodex = document.getElementById('btn-pause-codex');
@@ -729,7 +734,7 @@
         const nodeRecord = career.adventureNodes ? career.adventureNodes[config.id] : null;
         const nodeBest = nodeRecord && nodeRecord.bestScore ? nodeRecord.bestScore : 0;
         if (bestVal) bestVal.textContent = nodeBest.toLocaleString();
-        if (turnCounterLabel) turnCounterLabel.textContent = config.rules?.fluxRate ? 'Rising In' : 'Drops Left';
+        if (turnCounterLabel) turnCounterLabel.textContent = config.rules?.fluxRate ? 'Dark Matter Rises In' : 'Drops Left';
 
         showScreen('game');
         startNewGame();
@@ -827,12 +832,12 @@
 
         if (gameModeDisplay) gameModeDisplay.textContent = 'ZERO POINT';
         if (gameModeSub) gameModeSub.textContent = 'Quantum Math Cascade';
-        if (bountyCard) bountyCard.style.display = 'block';
+        if (bountyCard) bountyCard.style.display = 'none';
         if (adventureObjectiveCard) adventureObjectiveCard.style.display = 'none';
         if (tutorialCard) tutorialCard.style.display = 'none';
-        if (bestLabel) bestLabel.textContent = 'High Score';
+        if (bestLabel) bestLabel.textContent = 'Best';
         if (bestVal) bestVal.textContent = (career.highScore || 0).toLocaleString();
-        if (turnCounterLabel) turnCounterLabel.textContent = 'Rising In';
+        if (turnCounterLabel) turnCounterLabel.textContent = 'Dark Matter Rises In';
 
         showScreen('game');
         startNewGame();
@@ -1123,6 +1128,13 @@
             }
             if (pauseModeDetail) {
                 pauseModeDetail.textContent = isTutorial ? `Step ${tutorialStep} / 4 • Score: ${score.toLocaleString()}` : `Score: ${score.toLocaleString()} • Cascade: ${maxCombo}x • Zeroes: ${totalZeroPoints}`;
+            }
+            if (pauseBountyDetail) {
+                const showBounty = gameMode === 'classic' && !isTutorial && currentBounty;
+                pauseBountyDetail.style.display = showBounty ? '' : 'none';
+                if (showBounty) {
+                    pauseBountyDetail.textContent = `🎯 Bounty: ${currentBounty.title} — ${currentBounty.desc} (${currentBounty.progress}/${currentBounty.target}) • Reward: ${currentBounty.rewardText}`;
+                }
             }
             if (modalPause) modalPause.classList.add('visible');
         } else {
@@ -1422,13 +1434,15 @@
         canvas.height = rect.height * dpr;
         ctx.scale(dpr, dpr);
 
-        // Square cells sized to whichever axis is tighter (+1.2 rows at the top for the launcher).
-        // Extra width centers the board; extra height becomes drop space above it.
-        const cell = Math.min(rect.width / COLS, rect.height / (ROWS + 1.2));
+        // Square cells sized to whichever axis is tighter: +1.2 rows at the top for the launcher and
+        // +1 row at the bottom for the Dark Matter banner. Extra width centers the board; extra
+        // height becomes drop space above it.
+        const cell = Math.min(rect.width / COLS, rect.height / (ROWS + 2.2));
         cellW = cell;
         cellH = cell;
         boardOffsetX = (rect.width - cell * COLS) / 2;
-        boardOffsetY = rect.height - cell * ROWS;
+        boardOffsetY = rect.height - cell * (ROWS + 1);
+        if (riseStatusBar) riseStatusBar.style.height = `${cell}px`;
     }
 
     function startNewGame() {
@@ -2999,12 +3013,19 @@
     }
 
     function updateHUD() {
-        comboVal.textContent = `${combo}x`;
+        comboVal.textContent = `×${combo}`;
+        comboVal.classList.toggle('is-idle', combo <= 1);
+
+        if (missionStrip) {
+            const cardShown = (el) => el && el.style.display !== 'none' && el.style.display !== '';
+            missionStrip.style.display = (cardShown(adventureObjectiveCard) || cardShown(tutorialCard)) ? '' : 'none';
+        }
 
         if (gameMode === 'adventure') {
             const dropsRemaining = Math.max(0, maxDrops - dropsUsed);
-            riseCounter.textContent = `${dropsRemaining} Drop${dropsRemaining === 1 ? '' : 's'}`;
-            if (turnCounterLabel) turnCounterLabel.textContent = 'Drops Left';
+            riseCounter.textContent = isTutorial ? 'Guided' : `${dropsRemaining}`;
+            if (turnCounterLabel) turnCounterLabel.textContent = isTutorial ? 'Phase' : 'Drops Left';
+            if (riseFill) riseFill.style.height = isTutorial ? '0%' : `${Math.round((1 - dropsRemaining / Math.max(1, maxDrops)) * 100)}%`;
             if (riseStatusBar) {
                 if (dropsRemaining <= 3) {
                     riseStatusBar.classList.add('danger-pulse');
@@ -3014,8 +3035,9 @@
             }
             updateAdventureObjectiveUI();
         } else {
-            riseCounter.textContent = `${movesUntilRise} Drop${movesUntilRise === 1 ? '' : 's'}`;
-            if (turnCounterLabel) turnCounterLabel.textContent = 'Rising In';
+            riseCounter.textContent = `${movesUntilRise}`;
+            if (turnCounterLabel) turnCounterLabel.textContent = 'Dark Matter Rises In';
+            if (riseFill) riseFill.style.height = `${Math.round(Math.min(1, (MOVES_PER_RISE - movesUntilRise + 1) / MOVES_PER_RISE) * 100)}%`;
             if (riseStatusBar) {
                 if (movesUntilRise <= 1) {
                     riseStatusBar.classList.add('danger-pulse');
@@ -3079,14 +3101,14 @@
             holdText.textContent = heldOrb.label;
             holdText.style.color = heldOrb.type === 'special' ? (heldOrb.subType === 'blackhole' ? '#ffd700' : 'var(--purple)') :
                                   (heldOrb.value > 0 ? 'var(--cyan)' : 'var(--orange)');
-            holdText.style.fontSize = (heldOrb.label && heldOrb.label.length > 2) ? '1.18rem' : '1.45rem';
+            holdText.style.fontSize = (heldOrb.label && heldOrb.label.length > 2) ? '0.95rem' : '1.12rem';
             holdText.style.fontWeight = (heldOrb.label === '±' || (heldOrb.label && heldOrb.label.startsWith('÷'))) ? '700' : '900';
             holdSlot.classList.add('active');
             if (btnTouchHold) btnTouchHold.classList.add('has-content');
         } else {
             holdText.textContent = '-';
             holdText.style.color = 'var(--text-muted)';
-            holdText.style.fontSize = '1.45rem';
+            holdText.style.fontSize = '1.12rem';
             holdText.style.fontWeight = '900';
             holdSlot.classList.remove('active');
             if (btnTouchHold) btnTouchHold.classList.remove('has-content');
@@ -3098,18 +3120,24 @@
     }
 
     function renderQueueSlot(element, orb) {
+        element.classList.remove('q-pos', 'q-neg', 'q-special');
         if (!orb) {
             element.innerHTML = '';
             return;
         }
-        const color = orb.type === 'special' ? 
-            (orb.subType === 'blackhole' || orb.subType === 'supernova_core' ? 'var(--gold)' : 
+        // Numbers render like board tiles (white label, signed border); specials keep their accent colour
+        const isSpecial = orb.type === 'special';
+        element.classList.add(isSpecial ? 'q-special' : (orb.value > 0 ? 'q-pos' : 'q-neg'));
+        const color = isSpecial ?
+            (orb.subType === 'blackhole' || orb.subType === 'supernova_core' ? 'var(--gold)' :
              orb.subType === 'antimatter_nuke' ? 'var(--orange)' : 'var(--purple)') :
-            (orb.value > 0 ? 'var(--cyan)' : 'var(--orange)');
+            'var(--text-primary)';
 
         const isSpecialOp = orb.label === '±' || (orb.label && orb.label.startsWith('÷'));
         const fontWeight = isSpecialOp ? '700' : '900';
-        const fontSize = (orb.label && orb.label.length > 2) ? '1.18rem' : '1.35rem';
+        const isLarge = element.classList.contains('next-orb-lg');
+        const longLabel = orb.label && orb.label.length > 2;
+        const fontSize = isLarge ? (longLabel ? '0.95rem' : '1.12rem') : (longLabel ? '0.62rem' : '0.75rem');
         element.innerHTML = `<span class="queue-orb-label" style="font-size: ${fontSize}; font-weight: ${fontWeight}; color: ${color};">${orb.label}</span>`;
     }
 
@@ -3508,7 +3536,7 @@
             const x = boardOffsetX + c * cellW;
             ctx.beginPath();
             ctx.moveTo(x, boardOffsetY);
-            ctx.lineTo(x, h);
+            ctx.lineTo(x, boardOffsetY + cellH * ROWS);
             ctx.stroke();
         }
 

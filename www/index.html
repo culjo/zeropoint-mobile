@@ -179,49 +179,42 @@
         <!-- ========================================== -->
         <section id="screen-game" class="screen-view">
             <div id="app">
-                <!-- Header -->
-                <header class="game-header">
-                    <div class="header-highscore" id="stat-pill-best">
-                        <span class="highscore-icon">🏆</span>
-                        <div class="highscore-content">
-                            <span class="highscore-label" id="best-label">High Score</span>
-                            <span class="highscore-val" id="best-val">0</span>
+                <!-- Zone 1: Compact Arcade HUD (score left · next + overdrive centre · pause right) -->
+                <header class="game-header hud-compact">
+                    <div class="hud-score-block" id="stat-pill-best">
+                        <span class="hud-best"><span id="best-label">Best</span> <span id="best-val">0</span></span>
+                        <div class="hud-score-row">
+                            <span id="score-val" class="hud-score">0</span>
+                            <span id="combo-val" class="hud-combo">×1</span>
+                        </div>
+                    </div>
+                    <div class="hud-center">
+                        <div class="hud-next" aria-label="Next orbs">
+                            <div id="next-slot-1" class="next-orb next-orb-lg"></div>
+                            <div id="next-slot-2" class="next-orb next-orb-sm"></div>
+                        </div>
+                        <div class="overdrive-container hud-overdrive" id="overdrive-container" role="img" aria-label="Overdrive charge">
+                            <svg class="hud-overdrive-icon" width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>
+                            <div class="overdrive-bar-track">
+                                <div id="overdrive-fill" class="overdrive-bar-fill"></div>
+                            </div>
+                            <span id="overdrive-percent" class="overdrive-percent">0%</span>
+                            <button id="btn-overdrive" class="btn-overdrive-ready" style="display: none;">
+                                🔥 UNLEASH [F] 🔥
+                            </button>
                         </div>
                     </div>
                     <div class="header-controls">
                         <button id="btn-pause" class="btn-icon" aria-label="Pause Game" title="Pause Game [Esc]">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <rect x="6" y="4" width="4" height="16"></rect>
-                                <rect x="14" y="4" width="4" height="16"></rect>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+                                <path d="M8 5v14M16 5v14"></path>
                             </svg>
                         </button>
                     </div>
                 </header>
 
-                <!-- Zone 1B: Compact Status & Overdrive Strip -->
-                <div class="compact-status-strip">
-                    <div class="hud-stat-pill">
-                        <span class="hud-stat-label">SCORE</span>
-                        <span id="score-val" class="hud-stat-value">0</span>
-                        <span class="hud-stat-divider">•</span>
-                        <span id="combo-val" class="hud-stat-combo">1x</span>
-                    </div>
-                    <div class="overdrive-container" id="overdrive-container">
-                        <div class="overdrive-header">
-                            <span class="overdrive-label">⚡ OVERDRIVE</span>
-                            <span id="overdrive-percent" class="overdrive-percent">0%</span>
-                        </div>
-                        <div class="overdrive-bar-track">
-                            <div id="overdrive-fill" class="overdrive-bar-fill"></div>
-                        </div>
-                        <button id="btn-overdrive" class="btn-overdrive-ready" style="display: none;">
-                            🔥 UNLEASH [F] 🔥
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Zone 1C: Contextual Mission / Objective / Tutorial Strip (Only 1 active at a time) -->
-                <div class="mission-status-strip">
+                <!-- Zone 1C: Contextual Objective / Tutorial Strip (hidden in Classic; bounty lives on the pause screen) -->
+                <div class="mission-status-strip" id="mission-status-strip">
                     <!-- Tutorial Step Card (Shown in Tutorial Mode) -->
                     <div class="tutorial-card" id="tutorial-card" style="display: none;">
                         <div class="tutorial-header">
@@ -264,11 +257,14 @@
 
                 <!-- Zone 2: Canvas Game Arena with Floating Status Badges -->
                 <div class="canvas-wrapper" id="canvas-container">
-                    <!-- Floating Rise Warning Badge (Zero vertical space overhead) -->
-                    <div class="rise-status-bar" id="rise-status-bar">
-                        <span class="rise-status-icon">⚠️</span>
-                        <span class="rise-status-label" id="turn-counter-label">Rising In</span>
-                        <span id="rise-counter" class="counter-ring">5 Drops</span>
+                    <!-- Dark Matter Rise Banner: one cell tall, docked under the board; fill rises as the countdown drops -->
+                    <div class="rise-status-bar" id="rise-status-bar" role="status">
+                        <div class="rise-fill" id="rise-fill"></div>
+                        <span class="rise-status-content">
+                            <svg class="rise-status-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                            <span class="rise-status-label" id="turn-counter-label">Dark Matter Rises In</span>
+                            <span id="rise-counter" class="counter-ring">5</span>
+                        </span>
                     </div>
 
                     <!-- Floating Swap Banner -->
@@ -280,33 +276,20 @@
 
                 <!-- Zone 3: Bottom Ergonomic Thumb Cockpit -->
                 <div class="thumb-cockpit">
-                    <!-- Bottom Left: Grouped Action Cockpit (Hold & Swap) -->
-                    <div class="cockpit-group-left">
-                        <div class="cockpit-col cockpit-hold-unit" id="btn-touch-hold">
-                            <span class="cockpit-label">HOLD [C]</span>
-                            <div id="hold-slot" class="slot hold-slot" title="Tap or Press 'C' to Hold">
-                                <span id="hold-text">-</span>
-                            </div>
-                        </div>
-                        <div class="cockpit-col cockpit-swap-unit" id="btn-touch-swap">
-                            <span class="cockpit-label">SWAP [S]</span>
-                            <div id="btn-swap-token" class="slot swap-slot" title="Tap or Press 'S' to Swap">
-                                <span class="swap-icon">⚡</span>
-                                <span id="swap-token-count" class="swap-token-text">1</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Bottom Right: Next Queue Preview -->
-                    <div class="cockpit-group-right">
-                        <div class="cockpit-col cockpit-queue-unit">
-                            <span class="cockpit-label">NEXT</span>
-                            <div class="queue-preview">
-                                <div id="next-slot-1" class="slot next-slot"></div>
-                                <div id="next-slot-2" class="slot next-slot"></div>
-                            </div>
-                        </div>
-                    </div>
+                    <button type="button" class="cockpit-btn cockpit-hold-unit" id="btn-touch-hold" aria-label="Hold orb" title="Tap or Press 'C' to Hold">
+                        <span id="hold-slot" class="slot hold-slot">
+                            <span id="hold-text">-</span>
+                        </span>
+                        <span class="cockpit-label">HOLD</span>
+                    </button>
+                    <span class="cockpit-hint">Drag to aim<br>Release to drop</span>
+                    <button type="button" class="cockpit-btn cockpit-swap-unit" id="btn-touch-swap" aria-label="Quantum swap" title="Tap or Press 'S' to Swap">
+                        <span class="cockpit-label">SWAP</span>
+                        <span id="btn-swap-token" class="slot swap-slot">
+                            <svg class="swap-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/></svg>
+                            <span id="swap-token-count" class="swap-token-text">1</span>
+                        </span>
+                    </button>
                 </div>
             </div>
         </section>
@@ -479,6 +462,7 @@
                 <div class="pause-summary" id="pause-mode-summary">
                     <p class="pause-info">Mode: <strong id="pause-mode-name">Classic Survival</strong></p>
                     <p class="pause-detail" id="pause-mode-detail">Score: 0 • Combo: 1x</p>
+                    <p class="pause-detail pause-bounty" id="pause-bounty-detail" style="display: none;"></p>
                 </div>
                 <div class="pause-actions">
                     <button id="btn-pause-resume" class="btn-large btn-primary">Resume [Esc]</button>
