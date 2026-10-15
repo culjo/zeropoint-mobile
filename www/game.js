@@ -362,7 +362,8 @@
             currentSector: 1,
             settings: {
                 sfx: true,
-                bgm: true,
+                bgm: false, // ambient music off by default until the new soundtrack lands
+                bgmOffMigrated: true,
                 vibration: true,
                 shake: 'high'
             }
@@ -372,6 +373,11 @@
             const raw = localStorage.getItem('zeropoint_career');
             if (raw) {
                 const parsed = JSON.parse(raw);
+                // One-time: switch ambient music off for existing saves (players can turn it back on)
+                if (parsed.settings && !parsed.settings.bgmOffMigrated) {
+                    parsed.settings.bgm = false;
+                    parsed.settings.bgmOffMigrated = true;
+                }
                 return {
                     ...defaultCareer,
                     ...parsed,
@@ -463,6 +469,7 @@
     let activeAdventureLevel = null;
     let adventureProgress = 0;
     let lastCoreHighlight = false; // gold target brackets on the final dark core
+    const SHOW_LAST_CORE_MARKER = false; // marker hidden for now; flip to re-enable
     let adventureObjectiveMet = false;
     let dropsUsed = 0;
     let maxDrops = 15;
@@ -1885,7 +1892,7 @@
                         unlockedLevel: 1,
                         levelStars: {},
                         levelHighScores: {},
-                        settings: { sfx: true, bgm: true, vibration: true, shake: 'high' }
+                        settings: { sfx: true, bgm: false, bgmOffMigrated: true, vibration: true, shake: 'high' }
                     };
                     saveCareerData();
                     updateCareerDisplays();
@@ -3047,7 +3054,7 @@
             }
         }
 
-        lastCoreHighlight = obj.type === 'clear_dark_matter' && !adventureObjectiveMet && countRemainingDarkMatter() === 1;
+        lastCoreHighlight = SHOW_LAST_CORE_MARKER && obj.type === 'clear_dark_matter' && !adventureObjectiveMet && countRemainingDarkMatter() === 1;
     }
 
     // Badge that rises from where the objective progressed ("◈ 3/4 · CORE SHATTERED")
