@@ -1399,6 +1399,32 @@
         ctx.restore();
     }
 
+    function setVictoryNextLabel(text) {
+        const label = document.getElementById('vic-next-label');
+        if (label) label.textContent = text;
+    }
+
+    function renderVictoryScreen(v) {
+        const kicker = document.getElementById('victory-kicker');
+        const vicBest = document.getElementById('vic-best');
+        const dropsLabel = document.getElementById('vic-drops-label');
+        if (kicker) kicker.textContent = v.kicker;
+        if (victoryTitle) victoryTitle.textContent = v.title;
+        if (vicScore) vicScore.textContent = v.score.toLocaleString();
+        if (vicBonus) vicBonus.textContent = v.bonus;
+        if (vicDrops) vicDrops.textContent = v.drops;
+        if (dropsLabel) dropsLabel.textContent = v.dropsLabel;
+        if (vicCascade) vicCascade.textContent = `${maxCombo}x`;
+        if (vicBest) vicBest.textContent = v.best;
+        if (victoryStarsContainer) {
+            victoryStarsContainer.querySelectorAll('.win-star').forEach((el, i) => {
+                el.classList.toggle('off', i >= v.stars);
+            });
+            victoryStarsContainer.setAttribute('aria-label', `${v.stars} of 3 stars`);
+        }
+        if (btnVicMap) btnVicMap.hidden = !v.showMap;
+    }
+
     function triggerTutorialVictory() {
         if (isGameOver || (modalVictory && modalVictory.classList.contains('visible'))) return;
         isGameOver = true;
@@ -1412,23 +1438,18 @@
         }
         saveCareerData();
 
-        if (victoryTitle) victoryTitle.textContent = "Academy Training Complete! 🎓";
-        if (vicScore) vicScore.textContent = (score + 100).toLocaleString();
-        if (vicDrops) vicDrops.textContent = "Passed (4/4)";
-        if (vicBonus) vicBonus.textContent = "+100 Graduation Bonus";
-        if (vicCascade) vicCascade.textContent = `${maxCombo}x`;
-
-        if (victoryStarsContainer) {
-            victoryStarsContainer.innerHTML = `
-                <span class="vic-star active">⭐</span>
-                <span class="vic-star active">⭐</span>
-                <span class="vic-star active">⭐</span>
-            `;
-        }
-
-        if (btnVicNext) {
-            btnVicNext.textContent = "Launch Sector 01-1 ➜";
-        }
+        renderVictoryScreen({
+            kicker: 'ACADEMY · TRAINING COMPLETE',
+            title: 'Flight Training Passed',
+            stars: 3,
+            score: score + 100,
+            bonus: '+100 GRADUATION BONUS',
+            drops: '4 / 4',
+            dropsLabel: 'STEPS DONE',
+            best: '—',
+            showMap: false
+        });
+        setVictoryNextLabel('Launch mission 01-1');
 
         setTimeout(() => {
             if (modalVictory) modalVictory.classList.add('visible');
@@ -1860,10 +1881,18 @@
                     isTutorial = false;
                     if (tutorialCard) tutorialCard.style.display = 'none';
                 }
-                if (gameMode === 'adventure') {
-                    showScreen('adventure-map');
+                showScreen('home');
+            });
+        }
+
+        const btnGoMap = document.getElementById('btn-go-map');
+        if (btnGoMap) {
+            btnGoMap.addEventListener('click', () => {
+                if (modalGameOver) modalGameOver.classList.remove('visible');
+                if (activeAdventureLevel && activeAdventureLevel.sectorNum) {
+                    showScreen('adventure-nodes');
                 } else {
-                    showScreen('home');
+                    showScreen('challenges');
                 }
             });
         }
@@ -1933,6 +1962,7 @@
     function startNewGame() {
         grid = Array(ROWS).fill(null).map(() => Array(COLS).fill(null));
         score = 0;
+        if (scoreVal) scoreVal.textContent = '0';
         combo = 1;
         maxCombo = 1;
         totalZeroPoints = 0;
@@ -2967,25 +2997,59 @@
         }
     }
 
+    function getStoredLevelBest(level) {
+        if (!level) return 0;
+        if (level.sectorNum) {
+            return (career.adventureNodes && career.adventureNodes[level.id] && career.adventureNodes[level.id].bestScore) || 0;
+        }
+        return career.levelHighScores[level.id] || 0;
+    }
+
+    function getLevelCode(level) {
+        if (!level) return '';
+        if (level.sectorNum) return `NODE ${level.id}`;
+        if (level.isTutorial) return 'ACADEMY';
+        const code = String(level.sector || '').replace(/^Sector\s*/i, '').toUpperCase();
+        return code ? `MISSION ${code}` : 'MISSION';
+    }
+
     function triggerGameOver(message = "The reactor exceeded critical threshold capacity!") {
         isGameOver = true;
         sfx.playGameOver();
         triggerScreenShake(18);
 
+        const isAdventureRun = gameMode === 'adventure' && !!activeAdventureLevel;
+        const outOfDrops = /drops/i.test(message);
+        const best = isAdventureRun ? getStoredLevelBest(activeAdventureLevel) : (career.highScore || 0);
+        const isNewBest = score > 0 && (isAdventureRun ? score > best : score >= best);
+
+        const goKicker = document.getElementById('go-kicker');
+        const goReason = document.getElementById('go-reason');
         const goScore = document.getElementById('go-score');
         const goBest = document.getElementById('go-best');
         const goCascade = document.getElementById('go-cascade');
         const goZeroes = document.getElementById('go-zeroes');
+        const btnGoMap = document.getElementById('btn-go-map');
+
+        if (goKicker) goKicker.textContent = outOfDrops ? 'OUT OF QUANTUM DROPS' : 'REACTOR OVERLOAD';
+        if (goReason) {
+            goReason.textContent = isAdventureRun
+                ? `${getLevelCode(activeAdventureLevel)} · ${activeAdventureLevel.title}`
+                : message;
+        }
         if (goScore) goScore.textContent = score.toLocaleString();
         if (goBest) {
-            const best = gameMode === 'classic' ? (career.highScore || 0) : ((activeAdventureLevel && career.levelHighScores[activeAdventureLevel.id]) || 0);
-            goBest.textContent = best.toLocaleString();
+            if (isNewBest) {
+                goBest.textContent = '🏆 NEW BEST!';
+            } else if (best > 0) {
+                goBest.textContent = `🏆 BEST ${best.toLocaleString()} · ${(best - score).toLocaleString()} TO GO`;
+            } else {
+                goBest.textContent = '🏆 NO BEST YET';
+            }
         }
         if (goCascade) goCascade.textContent = `${maxCombo}x`;
         if (goZeroes) goZeroes.textContent = totalZeroPoints;
-
-        const descEl = modalGameOver.querySelector('p');
-        if (descEl) descEl.textContent = message;
+        if (btnGoMap) btnGoMap.hidden = !isAdventureRun || isTutorial;
 
         setTimeout(() => {
             if (modalGameOver) modalGameOver.classList.add('visible');
@@ -3003,6 +3067,7 @@
         const star3 = score >= activeAdventureLevel.targetScoreForStar ? 1 : 0;
         const totalStars = star1 + star2 + star3;
 
+        const prevBest = getStoredLevelBest(activeAdventureLevel);
         const dropsLeft = Math.max(0, maxDrops - dropsUsed);
         const dropBonus = dropsLeft * 20;
         const finalScore = score + dropBonus;
@@ -3046,10 +3111,7 @@
 
             saveCareerData();
 
-            if (victoryTitle) victoryTitle.textContent = `${activeAdventureLevel.title} Cleared!`;
-            if (btnVicNext) {
-                btnVicNext.textContent = 'Return to Map ➜';
-            }
+            setVictoryNextLabel('Return to map');
         } else {
             // Handcrafted Challenge Level
             const lvlId = activeAdventureLevel.id;
@@ -3060,28 +3122,20 @@
             }
             saveCareerData();
 
-            if (victoryTitle) victoryTitle.textContent = `${activeAdventureLevel.sector || 'Mission'} Cleared!`;
-            if (btnVicNext) {
-                if (lvlId < ADVENTURE_LEVELS.length) {
-                    btnVicNext.textContent = 'Next Challenge ➜';
-                } else {
-                    btnVicNext.textContent = 'Challenges Complete 🏆';
-                }
-            }
+            setVictoryNextLabel(lvlId < ADVENTURE_LEVELS.length ? 'Next mission' : 'All missions complete');
         }
 
-        if (vicScore) vicScore.textContent = finalScore.toLocaleString();
-        if (vicDrops) vicDrops.textContent = `${dropsUsed} / ${maxDrops}`;
-        if (vicBonus) vicBonus.textContent = `+${dropBonus.toLocaleString()}`;
-        if (vicCascade) vicCascade.textContent = `${maxCombo}x`;
-
-        if (victoryStarsContainer) {
-            victoryStarsContainer.innerHTML = `
-                <span class="vic-star ${totalStars >= 1 ? 'active' : ''}">⭐</span>
-                <span class="vic-star ${totalStars >= 2 ? 'active' : ''}">⭐</span>
-                <span class="vic-star ${totalStars >= 3 ? 'active' : ''}">⭐</span>
-            `;
-        }
+        renderVictoryScreen({
+            kicker: `${getLevelCode(activeAdventureLevel)} · SUCCESS`,
+            title: activeAdventureLevel.title,
+            stars: totalStars,
+            score: finalScore,
+            bonus: `+${dropBonus.toLocaleString()} DROPS BONUS`,
+            drops: `${dropsUsed} / ${maxDrops}`,
+            dropsLabel: 'DROPS USED',
+            best: finalScore > prevBest ? 'NEW' : prevBest.toLocaleString(),
+            showMap: true
+        });
 
         setTimeout(() => {
             if (modalVictory) modalVictory.classList.add('visible');

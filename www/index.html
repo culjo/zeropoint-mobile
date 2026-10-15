@@ -432,42 +432,37 @@
         <!-- ========================================== -->
         <!-- MODAL: ADVENTURE LEVEL VICTORY             -->
         <!-- ========================================== -->
-        <div id="modal-victory" class="overlay">
-            <div class="modal-card victory-card">
-                <div class="victory-header">
-                    <span class="victory-badge">MISSION SUCCESS</span>
-                    <h2 id="victory-title">Sector 01 Cleared!</h2>
+        <div id="modal-victory" class="overlay win-screen" role="dialog" aria-modal="true" aria-labelledby="victory-title">
+            <div class="win-rays" aria-hidden="true"></div>
+            <div class="win-body">
+                <span class="win-kicker" id="victory-kicker">MISSION SUCCESS</span>
+                <h2 class="win-title" id="victory-title">Mission Cleared</h2>
+
+                <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="winStarGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff3a8"></stop><stop offset=".45" stop-color="#f9d423"></stop><stop offset="1" stop-color="#e8b80f"></stop></linearGradient></defs></svg>
+                <div class="win-stars" id="victory-stars-container" role="img" aria-label="3 of 3 stars">
+                    <span class="win-star s1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6.2 6.6.8-4.9 4.6 1.3 6.6L12 17.4l-5.9 3.3 1.3-6.6L2.5 9.5l6.6-.8z"></path></svg></span>
+                    <span class="win-star s2"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6.2 6.6.8-4.9 4.6 1.3 6.6L12 17.4l-5.9 3.3 1.3-6.6L2.5 9.5l6.6-.8z"></path></svg></span>
+                    <span class="win-star s3"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6.2 6.6.8-4.9 4.6 1.3 6.6L12 17.4l-5.9 3.3 1.3-6.6L2.5 9.5l6.6-.8z"></path></svg></span>
                 </div>
 
-                <div class="victory-stars-row" id="victory-stars-container">
-                    <span class="vic-star active">⭐</span>
-                    <span class="vic-star active">⭐</span>
-                    <span class="vic-star active">⭐</span>
+                <div class="win-score-block">
+                    <span class="win-label">FINAL SCORE</span>
+                    <span class="win-score" id="vic-score">0</span>
+                    <span class="win-bonus" id="vic-bonus">+0 DROPS BONUS</span>
                 </div>
 
-                <div class="victory-stats-grid">
-                    <div class="vic-stat-card">
-                        <span class="label">Final Score</span>
-                        <span id="vic-score" class="num">4,850</span>
-                    </div>
-                    <div class="vic-stat-card">
-                        <span class="label">Drops Used</span>
-                        <span id="vic-drops" class="num">8 / 15</span>
-                    </div>
-                    <div class="vic-stat-card">
-                        <span class="label">Drops Bonus</span>
-                        <span id="vic-bonus" class="num">+1,400</span>
-                    </div>
-                    <div class="vic-stat-card">
-                        <span class="label">Max Cascade</span>
-                        <span id="vic-cascade" class="num">3x</span>
-                    </div>
+                <div class="win-chips">
+                    <div class="win-chip"><b id="vic-drops">0 / 0</b><span id="vic-drops-label">DROPS USED</span></div>
+                    <div class="win-chip"><b id="vic-cascade" class="c-purple">1x</b><span>MAX CASCADE</span></div>
+                    <div class="win-chip"><b id="vic-best" class="c-gold">NEW</b><span>BEST SCORE</span></div>
                 </div>
+            </div>
 
-                <div class="victory-actions">
-                    <button id="btn-vic-next" class="btn-large btn-primary">Next Sector ➜</button>
-                    <button id="btn-vic-replay" class="btn-large btn-secondary">Replay Sector 🔄</button>
-                    <button id="btn-vic-map" class="btn-large btn-secondary">Sector Map 🗺️</button>
+            <div class="win-actions">
+                <button type="button" id="btn-vic-next" class="win-next"><span id="vic-next-label">Next mission</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"></path></svg></button>
+                <div class="win-actions-row">
+                    <button type="button" id="btn-vic-replay" class="win-ghost"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path></svg> Replay</button>
+                    <button type="button" id="btn-vic-map" class="win-ghost"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="18" r="2.5"></circle><circle cx="18" cy="6" r="2.5"></circle><circle cx="17" cy="17" r="2"></circle><path d="M8 16.5L16 7.5M8.5 18h6.5"></path></svg> Map</button>
                 </div>
             </div>
         </div>
@@ -547,34 +542,39 @@
         <!-- ========================================== -->
         <!-- MODAL: GAME OVER (Classic Containment Breach)-->
         <!-- ========================================== -->
-        <div id="modal-gameover" class="overlay">
-            <div class="modal-card" style="text-align: center;">
-                <h2 style="font-size: 1.8rem; color: var(--danger);">CONTAINMENT BREACH</h2>
-                <p style="color: var(--text-muted);">The reactor exceeded critical threshold capacity!</p>
+        <div id="modal-gameover" class="overlay breach-screen" role="dialog" aria-modal="true" aria-labelledby="breach-title">
+            <div class="breach-body">
+                <span class="breach-kicker" id="go-kicker">REACTOR OVERLOAD</span>
+                <h2 class="breach-title" id="breach-title" aria-label="Containment breach">
+                    <span class="g1" aria-hidden="true">BREACH</span>
+                    <span class="g2" aria-hidden="true">BREACH</span>
+                    <span class="g0" aria-hidden="true">BREACH</span>
+                </h2>
+                <p class="breach-reason" id="go-reason">The reactor exceeded critical threshold capacity!</p>
 
-                <div class="game-over-stats">
-                    <div class="game-over-card">
-                        <span class="label">Final Score</span>
-                        <div id="go-score" class="num">0</div>
-                    </div>
-                    <div class="game-over-card">
-                        <span class="label">Best Score</span>
-                        <div id="go-best" class="num">0</div>
-                    </div>
-                    <div class="game-over-card">
-                        <span class="label">Max Cascade</span>
-                        <div id="go-cascade" class="num">1x</div>
-                    </div>
-                    <div class="game-over-card">
-                        <span class="label">Zero Points Triggered</span>
-                        <div id="go-zeroes" class="num">0</div>
-                    </div>
+                <div class="breach-score-block">
+                    <span class="breach-label">SCORE</span>
+                    <span class="breach-score" id="go-score">0</span>
+                    <span class="breach-best" id="go-best">🏆 BEST 0</span>
                 </div>
 
-                <div class="game-over-actions">
-                    <button id="btn-play-again" class="btn-large btn-primary">Reignite Reactor</button>
-                    <button id="btn-go-menu" class="btn-large btn-secondary">Return to Menu</button>
+                <div class="breach-stats">
+                    <span><b id="go-cascade" class="c-purple">1x</b> cascade</span>
+                    <span><b id="go-zeroes" class="c-cyan">0</b> zero blasts</span>
                 </div>
+
+                <div class="breach-retry-wrap">
+                    <span class="breach-ring" aria-hidden="true"></span>
+                    <button type="button" id="btn-play-again" class="breach-retry" aria-label="Retry">
+                        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path></svg>
+                        <span>RETRY</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="breach-links">
+                <button type="button" id="btn-go-menu" class="breach-link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg> Menu</button>
+                <button type="button" id="btn-go-map" class="breach-link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="18" r="2.5"></circle><circle cx="18" cy="6" r="2.5"></circle><circle cx="17" cy="17" r="2"></circle><path d="M8 16.5L16 7.5M8.5 18h6.5"></path></svg> Map</button>
             </div>
         </div>
 
