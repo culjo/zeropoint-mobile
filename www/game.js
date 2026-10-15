@@ -162,9 +162,15 @@
     const btnTouchSwap = document.getElementById('btn-touch-swap');
 
     // Pause Modal
-    const pauseModeName = document.getElementById('pause-mode-name');
-    const pauseModeDetail = document.getElementById('pause-mode-detail');
-    const pauseBountyDetail = document.getElementById('pause-bounty-detail');
+    // Pause screen (objective core)
+    const pauseRing = document.getElementById('pause-ring');
+    const pauseRingLabel = document.getElementById('pause-ring-label');
+    const pauseRingValue = document.getElementById('pause-ring-value');
+    const pauseRingSub = document.getElementById('pause-ring-sub');
+    const pauseOrbs = document.getElementById('pause-orbs');
+    const pauseTitle = document.getElementById('pause-title');
+    const pauseChip = document.getElementById('pause-chip');
+    const pauseGoals = document.getElementById('pause-goals');
     const btnPauseResume = document.getElementById('btn-pause-resume');
     const btnPauseRestart = document.getElementById('btn-pause-restart');
     const btnPauseCodex = document.getElementById('btn-pause-codex');
@@ -1208,6 +1214,141 @@
         }
     }
 
+    const TUTORIAL_STEP_TITLES = [
+        'Cancel opposites to zero',
+        'Merge & double matching numbers',
+        'Cross Laser power blast',
+        'Tactical orbs: flip sign'
+    ];
+
+    // Builds the pause screen model for the active mode: ring (objective), title/chip,
+    // and goals (star goals for adventure/challenges, run goals for classic, steps for the tutorial).
+    function getPauseModel() {
+        const lvl = activeAdventureLevel;
+        const isNode = gameMode === 'adventure' && lvl && lvl.sectorNum;
+
+        if (isTutorial) {
+            const step = Math.max(1, Math.min(4, tutorialStep || 1));
+            return {
+                accent: '#f9d423', chip: 'ACADEMY TRAINING', title: 'Flight Training',
+                ringLabel: 'TRAINING', ringValue: `${step} / 4`, ringSub: TUTORIAL_STEP_TITLES[step - 1],
+                pct: Math.round(((step - 1) / 4) * 100),
+                goals: TUTORIAL_STEP_TITLES.map((t, i) => {
+                    const n = i + 1;
+                    const state = n < step ? 'done' : (n === step ? 'track' : 'todo');
+                    return { glyph: state === 'done' ? '✓' : String(n), label: t, detail: state === 'done' ? 'Done' : (state === 'track' ? 'Now' : ''), state };
+                }),
+                restart: 'Restart training', exit: 'Exit to missions'
+            };
+        }
+
+        if (gameMode === 'adventure' && lvl) {
+            const obj = lvl.objective || { target: 1, label: 'Objective' };
+            const tgt = obj.target || 1;
+            const cur = Math.min(adventureProgress, tgt);
+            const met = adventureObjectiveMet || adventureProgress >= tgt;
+            let value = `${cur} / ${tgt}`;
+            if (obj.type === 'synthesis_tier') value = met ? 'Done' : `+${cur} / +${tgt}`;
+            else if (obj.type === 'activate_frenzy' || obj.type === 'trigger_laser') value = met ? 'Done' : '0 / 1';
+            const pct = met ? 100 : Math.round((cur / tgt) * 100);
+
+            const dropsOk = dropsUsed <= lvl.targetDropsForStar;
+            const scoreOk = score >= lvl.targetScoreForStar;
+            const goals = [
+                { glyph: '★', label: 'Complete the objective', detail: met ? 'Done' : value, state: met ? 'done' : 'progress' },
+                { glyph: '★', label: `Finish within ${lvl.targetDropsForStar} drops`, detail: dropsOk ? `${dropsUsed} used · on track` : `${dropsUsed} used · missed`, state: dropsOk ? 'track' : 'todo' },
+                { glyph: '★', label: `Score ${lvl.targetScoreForStar.toLocaleString()}+ points`, detail: scoreOk ? `${score.toLocaleString()} ✓` : `${score.toLocaleString()} / ${lvl.targetScoreForStar.toLocaleString()}`, state: scoreOk ? 'done' : 'progress' }
+            ];
+            let accent = '#c471ed';
+            if (isNode && typeof NodeGenerator !== 'undefined') {
+                const meta = NodeGenerator.SECTOR_METADATA[lvl.sectorNum - 1];
+                accent = meta ? meta.color : '#00f2fe';
+            }
+            return {
+                accent,
+                chip: isNode ? `ADVENTURE · NODE ${lvl.id}` : `CHALLENGE · ${String(lvl.sector || '').replace(/^Sector\s*/i, '').toUpperCase()}`,
+                title: String(lvl.title || '').replace(/^(Sector Boss|Bonus):\s*/, ''),
+                ringLabel: 'OBJECTIVE', ringValue: value, ringSub: obj.label || lvl.desc || '',
+                pct, goals,
+                restart: isNode ? 'Restart node' : 'Restart mission',
+                exit: isNode ? 'Exit to star map' : 'Exit to missions'
+            };
+        }
+
+        // Classic survival
+        const best = career.highScore || 0;
+        const isNewBest = score > best && best > 0;
+        const goals = [];
+        if (currentBounty) {
+            const done = currentBounty.progress >= currentBounty.target;
+            const reward = String(currentBounty.rewardText || '').replace(/\s*PTS/i, '').replace(/\s*[•·]\s*/g, ' · ');
+            goals.push({ glyph: '◎', label: currentBounty.title, detail: `${currentBounty.progress}/${currentBounty.target} · ${reward}`, state: done ? 'done' : 'progress' });
+        }
+        const swapIn = Math.max(1, 8 - dropsSinceSwapCharge);
+        goals.push({ glyph: '⇄', label: 'Next swap token', detail: `in ${swapIn} drop${swapIn === 1 ? '' : 's'}`, state: 'track' });
+        goals.push({ glyph: '↑', label: 'Dark matter rises', detail: `in ${movesUntilRise} drop${movesUntilRise === 1 ? '' : 's'}`, state: movesUntilRise <= 1 ? 'todo' : 'progress' });
+        return {
+            accent: '#00f2fe', chip: 'CLASSIC SURVIVAL', title: `Score ${score.toLocaleString()}`,
+            ringLabel: best > 0 ? `BEST ${best.toLocaleString()}` : 'FIRST RUN',
+            ringValue: best > 0 ? (isNewBest ? 'NEW!' : `${Math.min(100, Math.round((score / best) * 100))}%`) : score.toLocaleString(),
+            ringSub: best > 0 ? (isNewBest ? 'New best score' : 'of your best score') : 'points so far',
+            pct: best > 0 ? Math.min(100, Math.round((score / best) * 100)) : 100,
+            goals, restart: 'Restart run', exit: 'Exit to menu'
+        };
+    }
+
+    function renderPauseScreen() {
+        if (!modalPause) return;
+        const m = getPauseModel();
+        const n = parseInt(m.accent.slice(1), 16);
+        const tint = (a) => `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+        modalPause.style.setProperty('--pause-accent', m.accent);
+        modalPause.style.setProperty('--pause-haze', tint(0.14));
+        modalPause.style.setProperty('--pause-glow', tint(0.3));
+        modalPause.style.setProperty('--pause-dash', tint(0.25));
+        modalPause.style.setProperty('--pause-chip', tint(0.12));
+        modalPause.style.setProperty('--pause-pct', `${m.pct}%`);
+        if (pauseRingLabel) pauseRingLabel.textContent = m.ringLabel;
+        if (pauseRingValue) pauseRingValue.textContent = m.ringValue;
+        if (pauseRingSub) pauseRingSub.textContent = m.ringSub;
+        if (pauseRing) pauseRing.setAttribute('aria-label', `${m.ringLabel}: ${m.ringValue}`);
+        if (pauseTitle) pauseTitle.textContent = m.title;
+        if (pauseChip) pauseChip.textContent = m.chip;
+        if (btnPauseRestart) btnPauseRestart.setAttribute('aria-label', m.restart);
+        if (btnPauseQuit) btnPauseQuit.setAttribute('aria-label', m.exit);
+
+        // Goal medals orbit the top of the ring (up to 4)
+        if (pauseOrbs) {
+            const orbGoals = m.goals.slice(0, 4);
+            const n = orbGoals.length;
+            pauseOrbs.innerHTML = orbGoals.map((g, i) => {
+                const a = (-90 + (i - (n - 1) / 2) * 36) * Math.PI / 180;
+                const x = 50 + 50 * Math.cos(a);
+                const y = 50 + 50 * Math.sin(a);
+                return `<span class="pause-orb is-${g.state}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%">${g.glyph}</span>`;
+            }).join('');
+        }
+
+        if (pauseGoals) {
+            pauseGoals.innerHTML = '';
+            m.goals.forEach(g => {
+                const row = document.createElement('div');
+                row.className = `pause-goal is-${g.state}`;
+                const glyph = document.createElement('span');
+                glyph.className = 'pause-goal-glyph';
+                glyph.textContent = g.glyph;
+                const label = document.createElement('span');
+                label.className = 'pause-goal-label';
+                label.textContent = g.label;
+                const detail = document.createElement('span');
+                detail.className = 'pause-goal-detail';
+                detail.textContent = g.detail;
+                row.append(glyph, label, detail);
+                pauseGoals.appendChild(row);
+            });
+        }
+    }
+
     function togglePause(forceState) {
         if (currentScreen !== 'game' || isGameOver) return;
         if (modalVictory && modalVictory.classList.contains('visible')) return;
@@ -1215,25 +1356,7 @@
         isPaused = (forceState !== undefined) ? forceState : !isPaused;
 
         if (isPaused) {
-            if (pauseModeName) {
-                pauseModeName.textContent = isTutorial 
-                    ? 'Academy Flight Training' 
-                    : (gameMode === 'classic' 
-                        ? 'Classic Survival' 
-                        : (activeAdventureLevel && activeAdventureLevel.sectorNum 
-                            ? `Node ${activeAdventureLevel.id}: ${activeAdventureLevel.title}` 
-                            : `${activeAdventureLevel.sector}: ${activeAdventureLevel.title}`));
-            }
-            if (pauseModeDetail) {
-                pauseModeDetail.textContent = isTutorial ? `Step ${tutorialStep} / 4 • Score: ${score.toLocaleString()}` : `Score: ${score.toLocaleString()} • Cascade: ${maxCombo}x • Zeroes: ${totalZeroPoints}`;
-            }
-            if (pauseBountyDetail) {
-                const showBounty = gameMode === 'classic' && !isTutorial && currentBounty;
-                pauseBountyDetail.style.display = showBounty ? '' : 'none';
-                if (showBounty) {
-                    pauseBountyDetail.textContent = `🎯 Bounty: ${currentBounty.title} — ${currentBounty.desc} (${currentBounty.progress}/${currentBounty.target}) • Reward: ${currentBounty.rewardText}`;
-                }
-            }
+            renderPauseScreen();
             if (modalPause) modalPause.classList.add('visible');
         } else {
             if (modalPause) modalPause.classList.remove('visible');
