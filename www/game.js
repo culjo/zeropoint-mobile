@@ -87,6 +87,19 @@
     const btnAdvToHome = document.getElementById('btn-adv-to-home');
     const advHeaderStars = document.getElementById('adv-header-stars');
     const adventureLevelsGrid = document.getElementById('adventure-levels-grid');
+    const challengesKicker = document.getElementById('challenges-kicker');
+    const chalTraining = document.getElementById('chal-training');
+    const chalTrainingStars = document.getElementById('chal-training-stars');
+    const chalSheet = document.getElementById('chal-sheet');
+    const chalSheetKicker = document.getElementById('chal-sheet-kicker');
+    const chalSheetTitle = document.getElementById('chal-sheet-title');
+    const chalSheetDesc = document.getElementById('chal-sheet-desc');
+    const chalSheetStars = document.getElementById('chal-sheet-stars');
+    const chalSheetChips = document.getElementById('chal-sheet-chips');
+    const btnChalLaunch = document.getElementById('btn-chal-launch');
+    const chalSheetCta = document.getElementById('chal-sheet-cta');
+    const chalSheetLocked = document.getElementById('chal-sheet-locked');
+    const chalSheetLockedText = document.getElementById('chal-sheet-locked-text');
 
     // Node Preview Modal DOM Elements
     const nodePreviewSectorBadge = document.getElementById('node-preview-sector-badge');
@@ -429,7 +442,7 @@
         if (homeCardHighscore) homeCardHighscore.textContent = `BEST ${best.toLocaleString()}`;
         if (homeCardStars) homeCardStars.textContent = `SECTOR ${career.currentSector || 1} - ${totalNodeStars} ★`;
         if (homeCardChallengeStars) homeCardChallengeStars.textContent = `${totalChallengeStars} / ${maxChallengeStars} ★`;
-        if (challengesHeaderStars) challengesHeaderStars.textContent = `⭐ ${totalChallengeStars} / ${maxChallengeStars}`;
+        if (challengesHeaderStars) challengesHeaderStars.textContent = `★ ${totalChallengeStars}/${maxChallengeStars}`;
         if (advHeaderStars) advHeaderStars.textContent = `⭐ ${totalChallengeStars} / ${maxChallengeStars}`;
         if (advNodesStarsPill) advNodesStarsPill.textContent = `★ ${totalNodeStars}`;
 
@@ -853,70 +866,136 @@
     // ==========================================================
     // TACTICAL CHALLENGES RENDERER (Handcrafted Campaign)
     // ==========================================================
+    // Challenges mission grid state
+    let selectedChallengeId = null; // level id, or 'train' for the academy
+
+    const CHALLENGE_GLYPHS = {
+        annihilations: () => '0',
+        synthesis_tier: (o) => `+${o.target}`,
+        clear_dark_matter: () => '◈',
+        trigger_laser: () => '✚',
+        activate_frenzy: () => 'ϟ'
+    };
+
+    function starsHtml(n) {
+        return [1, 2, 3].map(k => `<span class="${k <= n ? '' : 'off'}">★</span>`).join('');
+    }
+
+    function getChallengeStatus(lvl) {
+        const stars = career.levelStars[lvl.id] || 0;
+        const unlocked = lvl.id <= career.unlockedLevel;
+        const isBoss = /boss/i.test(lvl.sector || '');
+        const state = isBoss ? (unlocked ? 'boss-open' : 'boss') : (stars > 0 ? 'cleared' : (unlocked ? 'current' : 'locked'));
+        return { stars, unlocked, isBoss, state };
+    }
+
     function renderChallenges() {
         const gridEl = challengesLevelsGrid || adventureLevelsGrid;
         if (!gridEl) return;
         gridEl.innerHTML = '';
 
-        ADVENTURE_LEVELS.forEach(lvl => {
-            if (lvl.isTutorial) {
-                const stars = career.levelStars[lvl.id] || 0;
-                const starsDisplay = [1, 2, 3].map(i => i <= stars ? '⭐' : '☆').join('');
+        const missions = ADVENTURE_LEVELS.filter(l => !l.isTutorial);
+        const training = ADVENTURE_LEVELS.find(l => l.isTutorial);
 
-                const card = document.createElement('div');
-                card.className = 'level-card training-card unlocked';
-                card.innerHTML = `
-                    <div class="level-header">
-                        <span class="level-num-badge">🎓 TRAINING</span>
-                        <span class="level-stars-display">${starsDisplay}</span>
-                    </div>
-                    <div class="level-title">${lvl.title}</div>
-                    <div class="level-desc">${lvl.desc}</div>
-                    <div class="level-meta-row">
-                        <span class="level-drop-budget">🎯 4 Guided Steps</span>
-                        <button class="btn-level-play">
-                            ${stars > 0 ? 'Replay Training ➜' : 'Start Training ➜'}
-                        </button>
-                    </div>
-                `;
-                card.addEventListener('click', () => {
-                    startTutorialMode();
-                });
-                gridEl.appendChild(card);
-                return;
+        // Default selection: the first unlocked, unplayed mission (else the last unlocked one)
+        const isValidSelection = selectedChallengeId === 'train' || missions.some(l => l.id === selectedChallengeId);
+        if (!isValidSelection) {
+            const next = missions.find(l => { const st = getChallengeStatus(l); return st.unlocked && st.stars === 0; });
+            const lastOpen = [...missions].reverse().find(l => getChallengeStatus(l).unlocked);
+            selectedChallengeId = next ? next.id : (lastOpen ? lastOpen.id : 'train');
+        }
+
+        if (chalTrainingStars && training) chalTrainingStars.innerHTML = starsHtml(career.levelStars[training.id] || 0);
+        if (chalTraining) chalTraining.classList.toggle('is-selected', selectedChallengeId === 'train');
+
+        // Group missions by sector number ("Sector 01-2" -> "01")
+        const groups = [];
+        missions.forEach(lvl => {
+            const m = /Sector\s*(\d+)/i.exec(lvl.sector || '');
+            const key = m ? m[1] : '01';
+            let g = groups.find(x => x.key === key);
+            if (!g) groups.push(g = { key, levels: [] });
+            g.levels.push(lvl);
+        });
+        if (challengesKicker) challengesKicker.textContent = groups.length > 1 ? `CHALLENGES · ${missions.length} MISSIONS` : `CHALLENGES · SECTOR ${groups[0] ? groups[0].key : '01'}`;
+
+        groups.forEach(group => {
+            if (groups.length > 1) {
+                const earned = group.levels.reduce((a, l) => a + (career.levelStars[l.id] || 0), 0);
+                const head = document.createElement('div');
+                head.className = 'chal-sector-head';
+                head.innerHTML = `<span class="chal-sector-name">SECTOR ${group.key}</span><span class="chal-sector-stars">★ ${earned}/${group.levels.length * 3}</span>`;
+                gridEl.appendChild(head);
             }
-
-            const isUnlocked = lvl.id <= career.unlockedLevel;
-            const stars = career.levelStars[lvl.id] || 0;
-            const starsDisplay = [1, 2, 3].map(i => i <= stars ? '⭐' : '☆').join('');
-
-            const card = document.createElement('div');
-            card.className = `level-card ${isUnlocked ? 'unlocked' : 'locked'}`;
-            card.innerHTML = `
-                <div class="level-header">
-                    <span class="level-num-badge">${lvl.sector}</span>
-                    <span class="level-stars-display">${starsDisplay}</span>
-                </div>
-                <div class="level-title">${lvl.title}</div>
-                <div class="level-desc">${lvl.desc}</div>
-                <div class="level-meta-row">
-                    <span class="level-drop-budget">🎯 Limit: ${lvl.maxDrops} Drops</span>
-                    <button class="btn-level-play" ${!isUnlocked ? 'disabled' : ''}>
-                        ${isUnlocked ? (stars > 0 ? 'Replay ➜' : 'Launch ➜') : '🔒 Locked'}
-                    </button>
-                </div>
-            `;
-
-            if (isUnlocked) {
-                card.addEventListener('click', () => {
-                    startAdventureLevel(lvl.id);
+            let missionNum = 0;
+            group.levels.forEach(lvl => {
+                const st = getChallengeStatus(lvl);
+                if (!st.isBoss) missionNum++;
+                const obj = lvl.objective || {};
+                const glyph = (CHALLENGE_GLYPHS[obj.type] || (() => '★'))(obj);
+                const locked = !st.unlocked;
+                const tile = document.createElement('button');
+                tile.type = 'button';
+                tile.className = `chal-tile is-${st.state}${st.isBoss ? ' is-boss-tile' : ''}${selectedChallengeId === lvl.id ? ' is-selected' : ''}`;
+                tile.dataset.levelId = lvl.id;
+                tile.setAttribute('aria-label', `${lvl.title}${locked ? ', locked' : st.stars ? `, ${st.stars} stars` : ''}`);
+                const lockIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>';
+                const corner = locked ? `<span class="chal-tile-lock">${lockIcon}</span>` : `<span class="chal-stars">${starsHtml(st.stars)}</span>`;
+                tile.innerHTML = `
+                    <span class="chal-tile-top"><span class="chal-tile-num">${st.isBoss ? 'SECTOR BOSS' : `MISSION ${missionNum}`}</span>${corner}</span>
+                    <span class="chal-tile-glyph">${glyph}</span>
+                    <span class="chal-tile-title"></span>`;
+                tile.querySelector('.chal-tile-title').textContent = lvl.title;
+                tile.addEventListener('click', () => {
+                    sfx.init();
+                    sfx.playMove();
+                    triggerHaptic('tick');
+                    selectChallenge(lvl.id);
                 });
-            }
-
-            gridEl.appendChild(card);
+                gridEl.appendChild(tile);
+            });
         });
 
+        renderChallengeSheet();
         updateCareerDisplays();
+    }
+
+    function selectChallenge(id) {
+        selectedChallengeId = id;
+        if (chalTraining) chalTraining.classList.toggle('is-selected', id === 'train');
+        const gridEl = challengesLevelsGrid || adventureLevelsGrid;
+        if (gridEl) gridEl.querySelectorAll('.chal-tile').forEach(el => {
+            el.classList.toggle('is-selected', Number(el.dataset.levelId) === id);
+        });
+        renderChallengeSheet();
+    }
+
+    function renderChallengeSheet() {
+        if (!chalSheet) return;
+        const isTrain = selectedChallengeId === 'train';
+        const lvl = isTrain ? ADVENTURE_LEVELS.find(l => l.isTutorial) : ADVENTURE_LEVELS.find(l => l.id === selectedChallengeId);
+        if (!lvl) return;
+        const st = isTrain ? { stars: career.levelStars[lvl.id] || 0, unlocked: true, isBoss: false, state: 'train' } : getChallengeStatus(lvl);
+
+        chalSheet.dataset.kind = isTrain ? 'train' : (st.isBoss ? 'boss' : (st.state === 'cleared' ? 'cleared' : (st.unlocked ? 'current' : 'locked')));
+        const code = String(lvl.sector || '').replace(/^Sector\s*/i, '').toUpperCase();
+        if (chalSheetKicker) chalSheetKicker.textContent = isTrain ? 'ACADEMY · TRAINING' : (st.isBoss ? `SECTOR BOSS · ${code.replace(/-BOSS$/, '')}` : `MISSION ${code}`);
+        if (chalSheetTitle) chalSheetTitle.textContent = lvl.title;
+        if (chalSheetDesc) chalSheetDesc.textContent = lvl.desc;
+        if (chalSheetStars) chalSheetStars.innerHTML = starsHtml(st.stars);
+        if (chalSheetChips) {
+            chalSheetChips.innerHTML = isTrain
+                ? '<span class="chal-chip">4 guided steps</span>'
+                : `<span class="chal-chip">↓ ${lvl.maxDrops} drops</span><span class="chal-chip">★ within ${lvl.targetDropsForStar} drops</span><span class="chal-chip">★ ${lvl.targetScoreForStar}+ pts</span>`;
+        }
+        if (btnChalLaunch) btnChalLaunch.hidden = !st.unlocked;
+        if (chalSheetCta) chalSheetCta.textContent = st.stars > 0 ? 'REPLAY' : 'LAUNCH';
+        if (chalSheetLocked) {
+            chalSheetLocked.hidden = st.unlocked;
+            if (!st.unlocked && chalSheetLockedText) {
+                chalSheetLockedText.textContent = st.isBoss ? 'Clear every mission to face the boss' : 'Clear the previous mission to unlock';
+            }
+        }
     }
 
     // Alias for backward compatibility
@@ -1451,6 +1530,16 @@
 
         // Challenges Screen Buttons
         if (btnChallengesToHome) btnChallengesToHome.addEventListener('click', () => showScreen('home'));
+        if (chalTraining) chalTraining.addEventListener('click', () => {
+            sfx.init();
+            sfx.playMove();
+            triggerHaptic('tick');
+            selectChallenge('train');
+        });
+        if (btnChalLaunch) btnChalLaunch.addEventListener('click', () => {
+            if (selectedChallengeId === 'train') startTutorialMode();
+            else if (selectedChallengeId !== null) startAdventureLevel(selectedChallengeId);
+        });
         if (btnAdvToHome) btnAdvToHome.addEventListener('click', () => showScreen('home'));
 
         // Game Arena Buttons
