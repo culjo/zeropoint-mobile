@@ -15,27 +15,23 @@
         <!-- SCREEN 1: HOME (Title Gateway & Mode Select) -->
         <!-- ========================================== -->
         <section id="screen-home" class="screen-view active">
+            <!-- Menu A: one big Play — hero + Adventure primary + Classic / Challenges tiles -->
             <header class="home-topbar">
-                <div class="app-brand-pill">
-                    <span class="brand-quantum-dot"></span>
-                    <span class="brand-text">ZERO POINT</span>
-                </div>
                 <div class="home-top-controls">
                     <button id="btn-home-sound" class="btn-icon" aria-label="Toggle Sound" title="Sound Mute/Unmute">
-                        <svg class="icon-sound-on" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                        <svg class="icon-sound-on" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M11 5 6 9H2v6h4l5 4zM19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
                         </svg>
-                        <svg class="icon-sound-off" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
-                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                        <svg class="icon-sound-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;" aria-hidden="true">
+                            <path d="M11 5 6 9H2v6h4l5 4z"></path>
                             <line x1="23" y1="9" x2="17" y2="15"></line>
                             <line x1="17" y1="9" x2="23" y2="15"></line>
                         </svg>
                     </button>
                     <button id="btn-home-settings" class="btn-icon" aria-label="Settings" title="Settings">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <circle cx="12" cy="12" r="3"></circle>
-                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                         </svg>
                     </button>
                 </div>
@@ -49,65 +45,63 @@
                 </div>
                 <h1 class="home-title">ZERO POINT</h1>
                 <p class="home-tagline">Quantum Math Cascade</p>
-                <div class="career-pill">
-                    <span id="home-best-pill">🏆 Best: 0 pts</span>
-                    <span class="pill-divider">•</span>
-                    <span id="home-stars-pill">⭐ 0/15 Stars</span>
-                </div>
             </div>
 
-            <!-- Mode Selection Cards -->
-            <div class="mode-cards-container">
-                <div class="mode-card mode-adventure" id="card-play-adventure">
-                    <div class="mode-header">
-                        <span class="mode-badge badge-adventure">🚀 CONSTELLATION MAP</span>
-                        <span id="home-card-stars" class="mode-stat">⭐ 0 Nodes</span>
-                    </div>
-                    <h2 class="mode-title">Adventure Mode</h2>
-                    <p class="mode-desc">Chart connected sector nodes across the cosmos. Master evolving objectives, rising flux, and unique particle rules.</p>
-                    <button class="btn-mode-action">Star Map ➜</button>
-                </div>
-
-                <div class="mode-card mode-challenges" id="card-play-challenges">
-                    <div class="mode-header">
-                        <span class="mode-badge badge-challenges">🎯 PUZZLE MISSIONS</span>
-                        <span id="home-card-challenge-stars" class="mode-stat">⭐ 0 / 15</span>
-                    </div>
-                    <h2 class="mode-title">Challenges</h2>
-                    <p class="mode-desc">Conquer handcrafted tactical missions, breach dark matter blockades, and defeat Sector Bosses.</p>
-                    <button class="btn-mode-action">Tactical Board ➜</button>
-                </div>
-
-                <div class="mode-card mode-classic" id="card-play-classic">
-                    <div class="mode-header">
-                        <span class="mode-badge badge-classic">⚡ SURVIVAL</span>
-                        <span id="home-card-highscore" class="mode-stat">Best: 0</span>
-                    </div>
-                    <h2 class="mode-title">Classic Mode</h2>
-                    <p class="mode-desc">Survive the rising reactor pressure, trigger cascading fusions, and charge Singularity Frenzy.</p>
-                    <button class="btn-mode-action">Ignite Reactor ➜</button>
-                </div>
-            </div>
-
-            <!-- Interactive Tutorial Banner -->
-            <button id="btn-home-tutorial" class="btn-tutorial-banner">
-                <span class="tutorial-banner-icon">🎓</span>
-                <div class="tutorial-banner-text">
-                    <span class="tutorial-banner-title">Interactive Training Level</span>
-                    <span class="tutorial-banner-sub">Learn Zero Blasts & Merging step-by-step (2 mins) ➜</span>
-                </div>
-            </button>
-
-            <!-- Secondary Actions -->
-            <div class="home-bottom-actions">
-                <button id="btn-open-codex" class="btn-nav">
-                    <span class="btn-nav-icon">📖</span>
-                    <span>Quantum Academy (Learn)</span>
+            <div class="home-play-zone">
+                <!-- Primary: Adventure -->
+                <button type="button" class="menu-play-primary" id="card-play-adventure" aria-label="Play Adventure">
+                    <span class="menu-play-badge">
+                        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                            <ellipse cx="12" cy="12" rx="10" ry="4"></ellipse>
+                            <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)"></ellipse>
+                            <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(120 12 12)"></ellipse>
+                            <circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"></circle>
+                        </svg>
+                    </span>
+                    <span class="menu-play-text">
+                        <span class="menu-play-pill" id="home-card-stars">SECTOR 1 - 0 ★</span>
+                        <span class="menu-play-label">PLAY</span>
+                    </span>
+                    <span class="menu-play-go">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+                    </span>
                 </button>
-                <button id="btn-open-settings" class="btn-nav">
-                    <span class="btn-nav-icon">⚙️</span>
-                    <span>Settings & Audio</span>
-                </button>
+
+                <!-- Secondary: Classic + Challenges -->
+                <div class="menu-tiles">
+                    <button type="button" class="menu-tile menu-tile-classic" id="card-play-classic" aria-label="Play Classic">
+                        <span class="menu-tile-top">
+                            <span class="menu-tile-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"></path></svg>
+                            </span>
+                            <svg class="menu-tile-go" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+                        </span>
+                        <span class="menu-tile-name">Classic</span>
+                        <span class="menu-tile-stat" id="home-card-highscore">BEST 0</span>
+                    </button>
+                    <button type="button" class="menu-tile menu-tile-challenges" id="card-play-challenges" aria-label="Play Challenges">
+                        <span class="menu-tile-top">
+                            <span class="menu-tile-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><circle cx="12" cy="12" r="1.5" fill="currentColor"></circle></svg>
+                            </span>
+                            <svg class="menu-tile-go" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+                        </span>
+                        <span class="menu-tile-name">Challenges</span>
+                        <span class="menu-tile-stat" id="home-card-challenge-stars">0 / 15 ★</span>
+                    </button>
+                </div>
+
+                <!-- Tertiary links -->
+                <div class="menu-links">
+                    <button type="button" id="btn-home-tutorial" class="menu-link">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M2 10 12 5l10 5-10 5zM6 12v5c3 2 9 2 12 0v-5"></path></svg>
+                        How to play
+                    </button>
+                    <button type="button" id="btn-open-codex" class="menu-link">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 21V5"></path></svg>
+                        Academy
+                    </button>
+                </div>
             </div>
         </section>
 

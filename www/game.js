@@ -406,9 +406,9 @@
 
         if (homeBestPill) homeBestPill.textContent = `🏆 Best: ${best.toLocaleString()} pts`;
         if (homeStarsPill) homeStarsPill.textContent = `⭐ ${totalNodeStars} Stars (${clearedNodes} Nodes)`;
-        if (homeCardHighscore) homeCardHighscore.textContent = `Best: ${best.toLocaleString()}`;
-        if (homeCardStars) homeCardStars.textContent = `⭐ ${totalNodeStars} Stars (${clearedNodes} Cleared)`;
-        if (homeCardChallengeStars) homeCardChallengeStars.textContent = `⭐ ${totalChallengeStars} / ${maxChallengeStars}`;
+        if (homeCardHighscore) homeCardHighscore.textContent = `BEST ${best.toLocaleString()}`;
+        if (homeCardStars) homeCardStars.textContent = `SECTOR ${career.currentSector || 1} - ${totalNodeStars} ★`;
+        if (homeCardChallengeStars) homeCardChallengeStars.textContent = `${totalChallengeStars} / ${maxChallengeStars} ★`;
         if (challengesHeaderStars) challengesHeaderStars.textContent = `⭐ ${totalChallengeStars} / ${maxChallengeStars}`;
         if (advHeaderStars) advHeaderStars.textContent = `⭐ ${totalChallengeStars} / ${maxChallengeStars}`;
         if (advNodesStarsPill) advNodesStarsPill.textContent = `⭐ ${totalNodeStars} Stars`;
