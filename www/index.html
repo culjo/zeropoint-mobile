@@ -475,76 +475,72 @@
         <!-- ========================================== -->
         <!-- MODAL: SETTINGS                            -->
         <!-- ========================================== -->
-        <div id="modal-settings" class="overlay">
-            <div class="modal-card settings-card">
-                <div class="modal-header">
-                    <h2>QUANTUM SETTINGS</h2>
-                    <button id="btn-close-settings" class="btn-close">&times;</button>
+        <div id="modal-settings" class="overlay qs-overlay">
+            <div class="qs-sheet" role="dialog" aria-modal="true" aria-labelledby="qs-title">
+                <div class="qs-grabber" aria-hidden="true"></div>
+                <div class="qs-head">
+                    <div class="qs-title-group">
+                        <span class="qs-kicker">SYSTEM</span>
+                        <h2 id="qs-title">Settings</h2>
+                    </div>
+                    <button id="btn-close-settings" class="qs-close" aria-label="Close settings">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+                    </button>
                 </div>
 
-                <div class="settings-group">
-                    <h3>Audio & Sound</h3>
-                    <div class="setting-row">
-                        <div class="setting-label">
-                            <strong>Sound Effects</strong>
-                            <p>Collisions, lasers, fusions, and blasts</p>
-                        </div>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="setting-sfx-toggle" checked>
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
+                <label class="qs-row" for="setting-sfx-toggle">
+                    <span class="qs-ic" style="color:#00f2fe;background:rgba(0, 242, 254, 0.12)">♪</span>
+                    <span class="qs-text">
+                        <strong>Sound Effects</strong>
+                        <span>Collisions, lasers, fusions &amp; blasts</span>
+                    </span>
+                    <input type="checkbox" id="setting-sfx-toggle" class="qs-input" role="switch" checked>
+                    <span class="qs-switch" aria-hidden="true"><span class="qs-knob"></span></span>
+                </label>
+                <label class="qs-row" for="setting-bgm-toggle">
+                    <span class="qs-ic" style="color:#c471ed;background:rgba(196, 113, 237, 0.14)">∿</span>
+                    <span class="qs-text">
+                        <strong>Ambient Music</strong>
+                        <span>Procedural sci-fi drone</span>
+                    </span>
+                    <input type="checkbox" id="setting-bgm-toggle" class="qs-input" role="switch" checked>
+                    <span class="qs-switch" aria-hidden="true"><span class="qs-knob"></span></span>
+                </label>
+                <label class="qs-row" for="setting-vibration-toggle">
+                    <span class="qs-ic" style="color:#f9d423;background:rgba(249, 212, 35, 0.13)">⦿</span>
+                    <span class="qs-text">
+                        <strong>Haptics</strong>
+                        <span>Vibration on moves and impacts</span>
+                    </span>
+                    <input type="checkbox" id="setting-vibration-toggle" class="qs-input" role="switch" checked>
+                    <span class="qs-switch" aria-hidden="true"><span class="qs-knob"></span></span>
+                </label>
 
-                    <div class="setting-row">
-                        <div class="setting-label">
-                            <strong>Ambient Sci-Fi Drone</strong>
-                            <p>Procedural space synthesizer audio</p>
-                        </div>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="setting-bgm-toggle" checked>
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="settings-group">
-                    <h3>Visuals & Feel</h3>
-                    <div class="setting-row">
-                        <div class="setting-label">
-                            <strong>Screen Shake</strong>
-                            <p>Camera rumble on heavy detonations</p>
-                        </div>
-                        <select id="setting-shake-select" class="setting-select">
-                            <option value="high" selected>Full (Exciting)</option>
-                            <option value="mild">Mild</option>
-                            <option value="off">Off (Reduced Motion)</option>
-                        </select>
-                    </div>
-
-                    <div class="setting-row">
-                        <div class="setting-label">
-                            <strong>Haptic Feedback</strong>
-                            <p>Tactile vibration ticks on column moves and impacts</p>
-                        </div>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="setting-vibration-toggle" checked>
-                            <span class="toggle-slider"></span>
-                        </label>
+                <div class="qs-row qs-row-shake">
+                    <span class="qs-ic" style="color:#f9d423;background:rgba(249, 212, 35, 0.14)">≈</span>
+                    <span class="qs-text">
+                        <strong>Screen Shake</strong>
+                        <span>Camera rumble on big blasts</span>
+                    </span>
+                    <div class="qs-pills" id="setting-shake-pills" role="radiogroup" aria-label="Screen shake">
+                        <button type="button" class="qs-pill" data-shake="high" role="radio">Full</button>
+                        <button type="button" class="qs-pill" data-shake="mild" role="radio">Mild</button>
+                        <button type="button" class="qs-pill" data-shake="off" role="radio">Off</button>
                     </div>
                 </div>
 
-                <div class="settings-group">
-                    <h3>Career Data</h3>
-                    <div class="setting-row">
-                        <div class="setting-label">
-                            <strong>Reset Progress</strong>
-                            <p>Clear stars, unlocked levels, and high scores</p>
-                        </div>
-                        <button id="btn-reset-data" class="btn-danger-small">Reset All Data</button>
-                    </div>
-                </div>
+                <button type="button" id="btn-reset-data" class="qs-row qs-row-reset">
+                    <span class="qs-ic" style="color:#ff6b8a;background:rgba(255, 78, 80, 0.13)">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path></svg>
+                    </span>
+                    <span class="qs-text">
+                        <strong>Reset Progress</strong>
+                        <span>Clear stars, unlocked levels &amp; high scores</span>
+                    </span>
+                    <svg class="qs-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+                </button>
 
-                <button id="btn-settings-save" class="btn-large">Save & Close</button>
+                <button type="button" id="btn-settings-save" class="qs-done">Done</button>
             </div>
         </div>
 

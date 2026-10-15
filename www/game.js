@@ -207,7 +207,7 @@
     const settingSfxToggle = document.getElementById('setting-sfx-toggle');
     const settingBgmToggle = document.getElementById('setting-bgm-toggle');
     const settingVibrationToggle = document.getElementById('setting-vibration-toggle');
-    const settingShakeSelect = document.getElementById('setting-shake-select');
+    const settingShakePills = document.querySelectorAll('#setting-shake-pills .qs-pill');
     const btnResetData = document.getElementById('btn-reset-data');
 
     // Codex Elements
@@ -449,7 +449,7 @@
         if (settingSfxToggle && career.settings) settingSfxToggle.checked = !!career.settings.sfx;
         if (settingBgmToggle && career.settings) settingBgmToggle.checked = !!career.settings.bgm;
         if (settingVibrationToggle && career.settings) settingVibrationToggle.checked = career.settings.vibration !== false;
-        if (settingShakeSelect && career.settings) settingShakeSelect.value = career.settings.shake || 'high';
+        syncShakePills();
     }
 
     // Career & Navigation State
@@ -1599,6 +1599,15 @@
         }
     }
 
+    function syncShakePills() {
+        const level = (career.settings && career.settings.shake) || 'high';
+        settingShakePills.forEach((pill) => {
+            const on = pill.dataset.shake === level;
+            pill.classList.toggle('on', on);
+            pill.setAttribute('aria-checked', on ? 'true' : 'false');
+        });
+    }
+
     function syncAudioUI() {
         const isMuted = sfx ? sfx.muted : false;
         document.querySelectorAll('.icon-sound-on').forEach(el => el.style.display = isMuted ? 'none' : 'block');
@@ -1796,12 +1805,19 @@
             });
         }
 
-        if (settingShakeSelect) {
-            settingShakeSelect.addEventListener('change', (e) => {
-                career.settings.shake = e.target.value;
+        settingShakePills.forEach((pill) => {
+            pill.addEventListener('click', () => {
+                career.settings.shake = pill.dataset.shake;
                 saveCareerData();
+                syncShakePills();
+                if (sfx) sfx.playMove();
             });
-        }
+        });
+
+        // Tapping the dimmed backdrop above the sheet closes it
+        if (modalSettings) modalSettings.addEventListener('click', (e) => {
+            if (e.target === modalSettings) modalSettings.classList.remove('visible');
+        });
 
         if (btnResetData) {
             btnResetData.addEventListener('click', () => {
