@@ -3399,3 +3399,535 @@ input:checked + .toggle-slider:before {
 #screen-home .menu-link:active {
     color: var(--text-primary);
 }
+
+/* ==========================================================
+   Adventure Map — Map A (Constellation)
+   Starfield, world pills, glowing node graph, bottom node sheet.
+   --world is set per sector from NodeGenerator.SECTOR_METADATA.
+   ========================================================== */
+#screen-adventure-nodes {
+    --world: var(--cyan);
+    background: #06070d;
+    overflow: hidden;
+}
+
+#screen-adventure-nodes.screen-view {
+    padding: 8px 0 12px;
+}
+
+#screen-adventure-nodes.active {
+    height: 100%;
+    gap: 0;
+}
+
+#screen-adventure-nodes .adv-starfield {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(ellipse at 50% 30%, rgba(0, 242, 254, 0.10), transparent 60%),
+        radial-gradient(ellipse at 80% 75%, rgba(196, 113, 237, 0.10), transparent 55%),
+        radial-gradient(1px 1px at 12% 18%, rgba(255, 255, 255, 0.55), transparent),
+        radial-gradient(1px 1px at 37% 9%, rgba(255, 255, 255, 0.35), transparent),
+        radial-gradient(1.5px 1.5px at 74% 14%, rgba(255, 255, 255, 0.6), transparent),
+        radial-gradient(1px 1px at 88% 33%, rgba(255, 255, 255, 0.4), transparent),
+        radial-gradient(1px 1px at 22% 46%, rgba(255, 255, 255, 0.35), transparent),
+        radial-gradient(1.5px 1.5px at 61% 41%, rgba(255, 255, 255, 0.5), transparent),
+        radial-gradient(1px 1px at 8% 67%, rgba(255, 255, 255, 0.45), transparent),
+        radial-gradient(1px 1px at 47% 72%, rgba(255, 255, 255, 0.3), transparent),
+        radial-gradient(1.5px 1.5px at 92% 61%, rgba(255, 255, 255, 0.5), transparent),
+        radial-gradient(1px 1px at 31% 88%, rgba(255, 255, 255, 0.4), transparent),
+        radial-gradient(1px 1px at 69% 91%, rgba(255, 255, 255, 0.35), transparent),
+        radial-gradient(1px 1px at 55% 24%, rgba(255, 255, 255, 0.3), transparent);
+}
+
+#screen-adventure-nodes .adv-nodes-header {
+    position: relative;
+    padding: 0 16px;
+    margin: 0;
+    border: 0;
+}
+
+#screen-adventure-nodes #btn-adv-nodes-back {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+}
+
+#screen-adventure-nodes .adv-nodes-title-group {
+    gap: 3px;
+}
+
+#screen-adventure-nodes .adv-sector-badge {
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 2.4px;
+    color: var(--world);
+    background: none;
+    border: 0;
+    padding: 0;
+}
+
+#screen-adventure-nodes .adv-nodes-title-group h2 {
+    font-size: 20px;
+    white-space: nowrap;
+}
+
+#screen-adventure-nodes .stars-pill {
+    height: 32px;
+    box-sizing: border-box;
+    padding: 0 11px;
+    font-size: 13px;
+    font-weight: 900;
+    border-radius: 16px;
+    border-color: rgba(249, 212, 35, 0.45);
+    background: rgba(249, 212, 35, 0.14);
+}
+
+#screen-adventure-nodes .sector-nav-bar {
+    position: relative;
+    justify-content: center;
+    gap: 5px;
+    margin: 12px 16px 0;
+    padding: 0;
+    background: none;
+    border: 0;
+}
+
+#screen-adventure-nodes .btn-sector-nav {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(18, 23, 37, 0.8);
+    color: var(--text-primary);
+}
+
+#screen-adventure-nodes .btn-sector-nav:hover {
+    transform: none;
+}
+
+#screen-adventure-nodes .btn-sector-nav:disabled {
+    opacity: 0.3;
+}
+
+#screen-adventure-nodes .sector-pills {
+    display: flex;
+    gap: 5px;
+}
+
+#screen-adventure-nodes .sector-pill {
+    --pill: var(--cyan);
+    position: relative;
+    width: 32px;
+    height: 28px;
+    padding: 0;
+    border-radius: 9px;
+    border: 1.5px solid rgba(255, 255, 255, 0.1);
+    background: rgba(18, 23, 37, 0.8);
+    color: var(--text-primary);
+    font-family: var(--font-numbers);
+    font-size: 13px;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+#screen-adventure-nodes .sector-pill.is-locked {
+    color: rgba(240, 244, 252, 0.35);
+}
+
+#screen-adventure-nodes .sector-pill.is-active {
+    background: var(--pill);
+    border-color: var(--pill);
+    color: #06070d;
+    box-shadow: 0 0 14px var(--pill);
+}
+
+#screen-adventure-nodes .sector-pill-lock {
+    position: absolute;
+    right: -4px;
+    top: -5px;
+    width: 13px;
+    height: 13px;
+    border-radius: 7px;
+    background: #06070d;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#screen-adventure-nodes .sector-pill-lock svg {
+    width: 8px;
+    height: 8px;
+}
+
+/* Map area: fills the space between the world pills and the node sheet */
+#screen-adventure-nodes .adv-map-viewport {
+    flex: 1;
+    min-height: 0;
+    margin: 4px 8px 0;
+    overflow: visible;
+    background: none;
+    border: 0;
+    box-shadow: none;
+    border-radius: 0;
+}
+
+#screen-adventure-nodes .adv-map-canvas-container {
+    position: absolute;
+    inset: 22px 10px 26px;
+    min-height: 0;
+}
+
+#screen-adventure-nodes .adv-map-svg {
+    overflow: visible;
+}
+
+#screen-adventure-nodes .clink {
+    stroke-linecap: round;
+    fill: none;
+}
+
+#screen-adventure-nodes .clink-locked {
+    stroke: rgba(255, 255, 255, 0.13);
+    stroke-width: 2;
+    stroke-dasharray: 2 7;
+}
+
+#screen-adventure-nodes .clink-done {
+    stroke: var(--cyan);
+    stroke-width: 3;
+    filter: drop-shadow(0 0 4px rgba(0, 242, 254, 0.7));
+}
+
+#screen-adventure-nodes .clink-next {
+    stroke: rgba(0, 242, 254, 0.8);
+    stroke-width: 2;
+    stroke-dasharray: 6 6;
+    animation: clinkFlow 1s linear infinite;
+}
+
+#screen-adventure-nodes .clink-bonus {
+    stroke: rgba(249, 212, 35, 0.2);
+    stroke-width: 2;
+    stroke-dasharray: 3 5;
+}
+
+#screen-adventure-nodes .clink-bonus.is-open {
+    stroke: rgba(249, 212, 35, 0.75);
+}
+
+@keyframes clinkFlow {
+    to { stroke-dashoffset: -24; }
+}
+
+/* Nodes */
+#screen-adventure-nodes .cnode {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    font-family: var(--font-numbers);
+    -webkit-tap-highlight-color: transparent;
+}
+
+#screen-adventure-nodes .cnode-core {
+    position: relative;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-weight: 900;
+    font-size: 15px;
+    transition: transform 0.12s ease;
+}
+
+#screen-adventure-nodes .cnode:active .cnode-core {
+    transform: scale(0.92);
+}
+
+#screen-adventure-nodes .cnode.is-cleared .cnode-core {
+    width: 44px;
+    height: 44px;
+    background: #0f2433;
+    border: 2px solid var(--cyan);
+    color: var(--text-primary);
+    box-shadow: 0 0 14px rgba(0, 242, 254, 0.45);
+}
+
+#screen-adventure-nodes .cnode.is-current .cnode-core {
+    width: 52px;
+    height: 52px;
+    background: radial-gradient(circle, #7ff8ff, #00b4d8);
+    border: 2px solid #d8feff;
+    color: #06070d;
+    font-size: 18px;
+    box-shadow: 0 0 24px rgba(0, 242, 254, 0.8);
+}
+
+#screen-adventure-nodes .cnode.is-locked .cnode-core {
+    width: 40px;
+    height: 40px;
+    background: #121626;
+    border: 1.5px solid rgba(255, 255, 255, 0.12);
+    color: rgba(240, 244, 252, 0.35);
+}
+
+#screen-adventure-nodes .cnode.type-bonus .cnode-core {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    transform: rotate(45deg);
+    background: #1f1830;
+    border: 1.5px solid rgba(249, 212, 35, 0.75);
+    box-shadow: 0 0 12px rgba(249, 212, 35, 0.35);
+    color: var(--gold);
+    font-size: 11px;
+}
+
+#screen-adventure-nodes .cnode.type-bonus.is-locked .cnode-core {
+    border-color: rgba(249, 212, 35, 0.25);
+    box-shadow: none;
+    color: rgba(249, 212, 35, 0.45);
+}
+
+#screen-adventure-nodes .cnode.type-bonus .cnode-num {
+    transform: rotate(-45deg);
+}
+
+#screen-adventure-nodes .cnode.type-boss .cnode-core {
+    width: 66px;
+    height: 66px;
+    background: radial-gradient(circle, #2a0f2e 40%, #120814);
+    border: 2px solid rgba(255, 78, 80, 0.55);
+    box-shadow: 0 0 26px rgba(196, 113, 237, 0.35), inset 0 0 18px rgba(255, 78, 80, 0.3);
+    color: #ff6b8a;
+}
+
+#screen-adventure-nodes .cnode-ring {
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 242, 254, 0.7);
+    animation: cnodePulse 1.8s ease-out infinite;
+    pointer-events: none;
+}
+
+@keyframes cnodePulse {
+    0% { transform: scale(0.85); opacity: 0.9; }
+    100% { transform: scale(1.6); opacity: 0; }
+}
+
+#screen-adventure-nodes .cnode.is-selected .cnode-core::after {
+    content: '';
+    position: absolute;
+    inset: -7px;
+    border-radius: inherit;
+    border: 2px solid var(--gold);
+}
+
+#screen-adventure-nodes .cnode-stars {
+    display: flex;
+    gap: 1px;
+    font-family: var(--font-stack);
+    font-size: 9px;
+    line-height: 1;
+    color: var(--gold);
+}
+
+#screen-adventure-nodes .cnode-stars .off,
+#screen-adventure-nodes .node-sheet-stars .off {
+    color: rgba(255, 255, 255, 0.18);
+}
+
+/* Sealed world overlay */
+#screen-adventure-nodes .adv-world-sealed {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 0 40px;
+    text-align: center;
+    border-radius: 24px;
+    background: rgba(6, 7, 13, 0.78);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+}
+
+#screen-adventure-nodes .adv-world-sealed[hidden] {
+    display: none;
+}
+
+#screen-adventure-nodes .adv-world-sealed-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: 2px dashed var(--world);
+    color: var(--world);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#screen-adventure-nodes .adv-world-sealed-title {
+    font-size: 17px;
+    font-weight: 900;
+}
+
+#screen-adventure-nodes .adv-world-sealed-desc {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.45;
+    color: #a3acc6;
+}
+
+/* Bottom node sheet */
+#screen-adventure-nodes .node-sheet {
+    --sheet: rgba(0, 242, 254, 0.3);
+    --kicker: var(--cyan);
+    position: relative;
+    margin: 0 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    border-radius: 26px;
+    border: 1px solid var(--sheet);
+    background: rgba(14, 18, 30, 0.94);
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.6);
+    flex-shrink: 0;
+}
+
+#screen-adventure-nodes .node-sheet[data-kind="bonus"] {
+    --sheet: rgba(249, 212, 35, 0.35);
+    --kicker: var(--gold);
+}
+
+#screen-adventure-nodes .node-sheet[data-kind="boss"] {
+    --sheet: rgba(255, 78, 80, 0.35);
+    --kicker: #ff6b8a;
+}
+
+#screen-adventure-nodes .node-sheet-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+#screen-adventure-nodes .node-sheet-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+#screen-adventure-nodes .node-sheet-kicker {
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    color: var(--kicker);
+}
+
+#screen-adventure-nodes .node-sheet-title {
+    font-size: 20px;
+    font-weight: 900;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#screen-adventure-nodes .node-sheet-desc {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: #a3acc6;
+}
+
+#screen-adventure-nodes .node-sheet-stars {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+    font-size: 18px;
+    color: var(--gold);
+}
+
+#screen-adventure-nodes .node-sheet-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+#screen-adventure-nodes .node-chip {
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 10px;
+    border-radius: 13px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 11px;
+    font-weight: 800;
+    color: #a3acc6;
+}
+
+#screen-adventure-nodes .node-sheet-launch {
+    height: 58px;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    border-radius: 18px;
+    border: 2px solid #fff3a8;
+    background: linear-gradient(#ffe45c, var(--gold) 55%, #e8b80f);
+    box-shadow: 0 5px 0 #a8820a, 0 10px 22px rgba(249, 212, 35, 0.3);
+    color: #1a1302;
+    font-family: var(--font-stack);
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+
+#screen-adventure-nodes .node-sheet-launch:active {
+    transform: translateY(4px);
+    box-shadow: 0 1px 0 #a8820a, 0 6px 14px rgba(249, 212, 35, 0.25);
+}
+
+#screen-adventure-nodes .node-sheet-launch[hidden],
+#screen-adventure-nodes .node-sheet-locked[hidden] {
+    display: none;
+}
+
+#screen-adventure-nodes .node-sheet-locked {
+    height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 18px;
+    border: 1.5px dashed rgba(255, 255, 255, 0.15);
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 800;
+}

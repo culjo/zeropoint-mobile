@@ -65,6 +65,20 @@
     const advMapViewport = document.getElementById('adv-map-viewport');
     const advMapSvg = document.getElementById('adv-map-svg');
     const advMapNodesLayer = document.getElementById('adv-map-nodes-layer');
+    const sectorPills = document.getElementById('sector-pills');
+    const advWorldSealed = document.getElementById('adv-world-sealed');
+    const advWorldSealedTitle = document.getElementById('adv-world-sealed-title');
+    const advWorldSealedDesc = document.getElementById('adv-world-sealed-desc');
+    const nodeSheet = document.getElementById('node-sheet');
+    const nodeSheetKicker = document.getElementById('node-sheet-kicker');
+    const nodeSheetTitle = document.getElementById('node-sheet-title');
+    const nodeSheetDesc = document.getElementById('node-sheet-desc');
+    const nodeSheetStars = document.getElementById('node-sheet-stars');
+    const nodeSheetChips = document.getElementById('node-sheet-chips');
+    const btnNodeSheetLaunch = document.getElementById('btn-node-sheet-launch');
+    const nodeSheetCta = document.getElementById('node-sheet-cta');
+    const nodeSheetLocked = document.getElementById('node-sheet-locked');
+    const nodeSheetLockedText = document.getElementById('node-sheet-locked-text');
 
     // Challenges DOM Elements
     const btnChallengesToHome = document.getElementById('btn-challenges-to-home') || document.getElementById('btn-adv-to-home');
@@ -411,7 +425,7 @@
         if (homeCardChallengeStars) homeCardChallengeStars.textContent = `${totalChallengeStars} / ${maxChallengeStars} ★`;
         if (challengesHeaderStars) challengesHeaderStars.textContent = `⭐ ${totalChallengeStars} / ${maxChallengeStars}`;
         if (advHeaderStars) advHeaderStars.textContent = `⭐ ${totalChallengeStars} / ${maxChallengeStars}`;
-        if (advNodesStarsPill) advNodesStarsPill.textContent = `⭐ ${totalNodeStars} Stars`;
+        if (advNodesStarsPill) advNodesStarsPill.textContent = `★ ${totalNodeStars}`;
 
         if (settingSfxToggle && career.settings) settingSfxToggle.checked = !!career.settings.sfx;
         if (settingBgmToggle && career.settings) settingBgmToggle.checked = !!career.settings.bgm;
@@ -539,119 +553,203 @@
     // ==========================================================
     // CONSTELLATION NODE MAP RENDERER
     // ==========================================================
+    // Constellation map state (selected node per render)
+    let mapSelectedNodeId = null;
+    let mapGraphNodes = [];
+    let mapSectorUnlocked = true;
+
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const ICON_LOCK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>';
+    const ICON_BOSS = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9" opacity=".35"></circle><circle cx="12" cy="12" r="5.5" opacity=".65"></circle><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"></circle></svg>';
+
+    function isSectorUnlocked(sectorNum, unlockedSet) {
+        return sectorNum === 1 || unlockedSet.has(`${sectorNum}-1`);
+    }
+
+    function getNodeStatus(node, unlockedSet) {
+        const data = career.adventureNodes ? career.adventureNodes[node.id] : null;
+        const cleared = !!(data && data.cleared);
+        const stars = data ? (data.stars || 0) : 0;
+        const unlocked = cleared || unlockedSet.has(node.id) || node.id === '1-1';
+        return { cleared, stars, unlocked };
+    }
+
     function renderAdventureNodeMap(sectorNum = 1) {
         if (!advMapNodesLayer || !advMapSvg || typeof NodeGenerator === 'undefined') return;
 
+        const sectorCount = NodeGenerator.SECTOR_METADATA.length;
         currentViewingSector = sectorNum;
-        career.currentSector = sectorNum;
 
         const graph = NodeGenerator.getSectorGraph(sectorNum);
         const sectorMeta = graph.sectorMeta;
+        const unlockedSet = new Set(career.unlockedNodes || ['1-1']);
+        unlockedSet.add('1-1');
+        mapSectorUnlocked = isSectorUnlocked(sectorNum, unlockedSet);
+        if (mapSectorUnlocked) career.currentSector = sectorNum;
 
+        // Header + world colour
+        if (screenAdventureNodes) screenAdventureNodes.style.setProperty('--world', sectorMeta.color);
         if (advNodesSectorBadge) advNodesSectorBadge.textContent = `SECTOR 0${sectorNum}`;
         if (advNodesSectorTitle) advNodesSectorTitle.textContent = sectorMeta.name;
-        if (sectorIndicatorText) sectorIndicatorText.textContent = `Sector ${sectorNum} of ${NodeGenerator.SECTOR_METADATA.length}`;
-
+        if (sectorIndicatorText) sectorIndicatorText.textContent = `Sector ${sectorNum} of ${sectorCount}`;
         if (btnPrevSector) btnPrevSector.disabled = sectorNum <= 1;
-        if (btnNextSector) btnNextSector.disabled = sectorNum >= NodeGenerator.SECTOR_METADATA.length;
+        if (btnNextSector) btnNextSector.disabled = sectorNum >= sectorCount;
 
-        // Clear existing nodes and SVG links
+        // World pills
+        if (sectorPills) {
+            sectorPills.innerHTML = '';
+            NodeGenerator.SECTOR_METADATA.forEach((meta, i) => {
+                const num = i + 1;
+                const open = isSectorUnlocked(num, unlockedSet);
+                const pill = document.createElement('button');
+                pill.type = 'button';
+                pill.className = `sector-pill${num === sectorNum ? ' is-active' : ''}${open ? '' : ' is-locked'}`;
+                pill.style.setProperty('--pill', meta.color);
+                pill.setAttribute('role', 'tab');
+                pill.setAttribute('aria-selected', num === sectorNum ? 'true' : 'false');
+                pill.setAttribute('aria-label', `Sector ${num}: ${meta.name}${open ? '' : ' (locked)'}`);
+                pill.innerHTML = `${num}${open ? '' : `<span class="sector-pill-lock">${ICON_LOCK}</span>`}`;
+                pill.addEventListener('click', () => {
+                    if (num === currentViewingSector) return;
+                    sfx.playMove();
+                    triggerHaptic('tick');
+                    renderAdventureNodeMap(num);
+                });
+                sectorPills.appendChild(pill);
+            });
+        }
+
+        // Sealed world overlay
+        if (advWorldSealed) {
+            advWorldSealed.hidden = mapSectorUnlocked;
+            if (!mapSectorUnlocked) {
+                const prevMeta = NodeGenerator.SECTOR_METADATA[sectorNum - 2];
+                if (advWorldSealedTitle) advWorldSealedTitle.textContent = `${sectorMeta.name} is sealed`;
+                if (advWorldSealedDesc) advWorldSealedDesc.textContent = prevMeta
+                    ? `Defeat the boss of ${prevMeta.name} to open this world.`
+                    : 'Clear the previous world to open this one.';
+            }
+        }
+
         advMapNodesLayer.innerHTML = '';
         advMapSvg.innerHTML = '';
 
-        // Unlocked node IDs set
-        const unlockedSet = new Set(career.unlockedNodes || ['1-1']);
-        unlockedSet.add('1-1'); // Root node is always unlocked
+        const statusById = new Map();
+        graph.nodes.forEach(n => statusById.set(n.id, getNodeStatus(n, unlockedSet)));
 
-        // Draw SVG Links first
-        const nodeMap = new Map();
-        graph.nodes.forEach(n => nodeMap.set(n.id, n));
+        // "Current" = first unlocked, uncleared main-path node (else the first open bonus rift)
+        const firstOpen = (pred) => graph.nodes.find(n => pred(n) && statusById.get(n.id).unlocked && !statusById.get(n.id).cleared);
+        const currentNode = mapSectorUnlocked ? (firstOpen(n => n.type !== 'bonus') || firstOpen(n => n.type === 'bonus')) : null;
+        const currentId = currentNode ? currentNode.id : null;
 
+        // Links
+        const nodeById = new Map(graph.nodes.map(n => [n.id, n]));
         graph.links.forEach(link => {
-            const fromNode = nodeMap.get(link.from);
-            const toNode = nodeMap.get(link.to);
-            if (!fromNode || !toNode) return;
-
-            const isToUnlocked = unlockedSet.has(toNode.id);
-            const isFromCleared = career.adventureNodes && career.adventureNodes[fromNode.id]?.cleared;
-
-            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            line.setAttribute('x1', `${fromNode.x}%`);
-            line.setAttribute('y1', `${fromNode.y}%`);
-            line.setAttribute('x2', `${toNode.x}%`);
-            line.setAttribute('y2', `${toNode.y}%`);
-
-            if (link.isBonusBranch) {
-                line.setAttribute('class', 'map-link-bonus');
-            } else if (isFromCleared && isToUnlocked) {
-                line.setAttribute('class', 'map-link-active');
-            } else {
-                line.setAttribute('class', 'map-link-locked');
-            }
+            const from = nodeById.get(link.from);
+            const to = nodeById.get(link.to);
+            if (!from || !to) return;
+            const toStatus = statusById.get(to.id);
+            let cls = 'clink clink-locked';
+            if (link.isBonusBranch) cls = `clink clink-bonus${toStatus.unlocked ? ' is-open' : ''}`;
+            else if (toStatus.cleared) cls = 'clink clink-done';
+            else if (to.id === currentId) cls = 'clink clink-next';
+            const line = document.createElementNS(SVG_NS, 'line');
+            line.setAttribute('x1', from.x);
+            line.setAttribute('y1', from.y);
+            line.setAttribute('x2', to.x);
+            line.setAttribute('y2', to.y);
+            line.setAttribute('vector-effect', 'non-scaling-stroke');
+            line.setAttribute('class', cls);
             advMapSvg.appendChild(line);
         });
 
-        // Draw Nodes
+        // Nodes
+        mapGraphNodes = graph.nodes;
         graph.nodes.forEach(node => {
-            const isCleared = career.adventureNodes && career.adventureNodes[node.id]?.cleared;
-            const nodeData = career.adventureNodes ? career.adventureNodes[node.id] : null;
-            const stars = nodeData ? (nodeData.stars || 0) : 0;
-            const isUnlocked = unlockedSet.has(node.id) || isCleared;
-            const isCurrent = isUnlocked && !isCleared;
+            const st = statusById.get(node.id);
+            const isCurrent = node.id === currentId;
+            const state = st.cleared ? 'is-cleared' : (isCurrent || st.unlocked ? 'is-current' : 'is-locked');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = `cnode ${state} type-${node.type}`;
+            btn.dataset.nodeId = node.id;
+            btn.style.left = `${node.x}%`;
+            btn.style.top = `${node.y}%`;
+            btn.setAttribute('aria-label', `${node.type === 'boss' ? 'Boss node' : node.type === 'bonus' ? 'Bonus rift' : 'Node'} ${node.id}${st.cleared ? `, ${st.stars} stars` : st.unlocked ? '' : ', locked'}`);
 
-            const nodeEl = document.createElement('div');
-            let classList = `map-node ${isUnlocked ? 'node-unlocked' : 'node-locked'}`;
-            if (isCurrent) classList += ' node-current';
-            if (isCleared) classList += ' node-cleared';
-            if (node.type === 'bonus') classList += ' node-bonus';
-            if (node.type === 'boss') classList += ' node-boss';
-            nodeEl.className = classList;
+            let inner;
+            if (node.type === 'boss') inner = ICON_BOSS;
+            else if (!st.unlocked && node.type !== 'bonus') inner = ICON_LOCK;
+            else inner = `<span class="cnode-num">${node.num}</span>`;
 
-            nodeEl.style.left = `${node.x}%`;
-            nodeEl.style.top = `${node.y}%`;
-
-            let displayNum = node.num;
-            if (node.type === 'boss') displayNum = '👑';
-            else if (node.type === 'bonus') displayNum = '✦';
-
-            let starBadgeHtml = '';
-            if (isCleared && stars > 0) {
-                const starsStr = [1, 2, 3].map(i => i <= stars ? '⭐' : '☆').join('');
-                starBadgeHtml = `<div class="node-star-badge">${starsStr}</div>`;
-            }
-
-            nodeEl.innerHTML = `
-                <span class="node-label-pill">${node.id}</span>
-                <span class="node-num-label">${!isUnlocked ? '🔒' : displayNum}</span>
-                ${starBadgeHtml}
-            `;
-
-            if (isUnlocked) {
-                nodeEl.addEventListener('click', () => {
-                    sfx.init();
-                    sfx.playMove();
-                    triggerHaptic('tick');
-                    openNodePreview(node.config);
-                });
-            }
-
-            advMapNodesLayer.appendChild(nodeEl);
+            const starsHtml = st.cleared
+                ? `<span class="cnode-stars">${[1, 2, 3].map(k => `<span class="${k <= st.stars ? '' : 'off'}">★</span>`).join('')}</span>`
+                : '';
+            btn.innerHTML = `<span class="cnode-core">${isCurrent ? '<span class="cnode-ring"></span>' : ''}${inner}</span>${starsHtml}`;
+            btn.addEventListener('click', () => {
+                sfx.init();
+                sfx.playMove();
+                triggerHaptic('tick');
+                selectMapNode(node.id);
+            });
+            advMapNodesLayer.appendChild(btn);
         });
 
         updateCareerDisplays();
+        const lastCleared = [...graph.nodes].reverse().find(n => statusById.get(n.id).cleared && n.type !== 'bonus');
+        selectMapNode(currentId || (lastCleared ? lastCleared.id : graph.nodes[0].id));
+    }
 
-        // Auto-scroll to active node or bottom
-        setTimeout(() => {
-            if (advMapViewport) {
-                const currentNodeEl = advMapNodesLayer.querySelector('.node-current');
-                if (currentNodeEl) {
-                    const topPos = currentNodeEl.offsetTop - (advMapViewport.clientHeight / 2);
-                    advMapViewport.scrollTo({ top: Math.max(0, topPos), behavior: 'smooth' });
-                } else {
-                    advMapViewport.scrollTo({ top: advMapViewport.scrollHeight, behavior: 'smooth' });
-                }
+    function selectMapNode(nodeId) {
+        const node = mapGraphNodes.find(n => n.id === nodeId);
+        if (!node) return;
+        mapSelectedNodeId = nodeId;
+        advMapNodesLayer.querySelectorAll('.cnode').forEach(el => {
+            el.classList.toggle('is-selected', el.dataset.nodeId === nodeId && !el.classList.contains('is-current'));
+        });
+        renderNodeSheet(node);
+    }
+
+    function renderNodeSheet(node) {
+        if (!nodeSheet) return;
+        const unlockedSet = new Set(career.unlockedNodes || ['1-1']);
+        unlockedSet.add('1-1');
+        const st = getNodeStatus(node, unlockedSet);
+        const config = node.config;
+        const canPlay = mapSectorUnlocked && st.unlocked;
+
+        nodeSheet.dataset.kind = node.type === 'boss' ? 'boss' : (node.type === 'bonus' ? 'bonus' : 'node');
+        if (nodeSheetKicker) nodeSheetKicker.textContent = node.type === 'boss'
+            ? `BOSS · NODE ${node.id}`
+            : (node.type === 'bonus' ? `BONUS RIFT · ${node.num}` : `NODE ${node.id}`);
+        if (nodeSheetTitle) nodeSheetTitle.textContent = (config.title || '').replace(/^(Sector Boss|Bonus):\s*/, '');
+        if (nodeSheetDesc) nodeSheetDesc.textContent = config.desc || '';
+        if (nodeSheetStars) {
+            nodeSheetStars.setAttribute('aria-label', `${st.stars} of 3 stars`);
+            nodeSheetStars.innerHTML = [1, 2, 3].map(k => `<span class="${k <= st.stars ? '' : 'off'}">★</span>`).join('');
+        }
+
+        if (nodeSheetChips) {
+            const chips = [];
+            if (config.maxDrops) chips.push(`<span class="node-chip">↓ ${config.maxDrops} drops</span>`);
+            if (config.rules && config.rules.fluxRate) chips.push(`<span class="node-chip">↑ Flux every ${config.rules.fluxRate}</span>`);
+            (config.rules?.modifiers || []).forEach(m => chips.push(`<span class="node-chip">${m.icon} ${m.label}</span>`));
+            if (config.targetScoreForStar) chips.push(`<span class="node-chip">★ ${config.targetScoreForStar}+ pts</span>`);
+            nodeSheetChips.innerHTML = chips.join('');
+        }
+
+        if (btnNodeSheetLaunch) btnNodeSheetLaunch.hidden = !canPlay;
+        if (nodeSheetCta) nodeSheetCta.textContent = st.cleared ? 'REPLAY' : 'LAUNCH';
+        if (nodeSheetLocked) {
+            nodeSheetLocked.hidden = canPlay;
+            if (!canPlay && nodeSheetLockedText) {
+                nodeSheetLockedText.textContent = !mapSectorUnlocked
+                    ? 'World sealed'
+                    : (node.type === 'boss' ? 'Clear every node to face the boss'
+                        : node.type === 'bonus' ? 'Clear the node it branches from'
+                        : 'Clear the previous node to unlock');
             }
-        }, 80);
+        }
     }
 
     function openNodePreview(config) {
@@ -1211,7 +1309,13 @@
             }
         });
 
-        // Node Preview Modal Actions
+        // Node sheet: launch the selected node
+        if (btnNodeSheetLaunch) btnNodeSheetLaunch.addEventListener('click', () => {
+            const node = mapGraphNodes.find(n => n.id === mapSelectedNodeId);
+            if (node && node.config) startNodeLevel(node.config);
+        });
+
+        // Node Preview Modal Actions (legacy modal, no longer opened from the map)
         if (btnLaunchNode) btnLaunchNode.addEventListener('click', () => {
             if (modalNodePreview) modalNodePreview.classList.remove('visible');
             if (pendingNodeConfig) {

@@ -109,36 +109,63 @@
         <!-- SCREEN 2: ADVENTURE CONSTELLATION MAP      -->
         <!-- ========================================== -->
         <section id="screen-adventure-nodes" class="screen-view">
+            <div class="adv-starfield" aria-hidden="true"></div>
+
             <header class="adv-nodes-header">
-                <button id="btn-adv-nodes-back" class="btn-icon" title="Back to Home">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="19" y1="12" x2="5" y2="12"></line>
-                        <polyline points="12 19 5 12 12 5"></polyline>
-                    </svg>
+                <button id="btn-adv-nodes-back" class="btn-icon" aria-label="Back to menu" title="Back to Home">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
                 </button>
                 <div class="adv-nodes-title-group">
                     <span class="adv-sector-badge" id="adv-nodes-sector-badge">SECTOR 01</span>
                     <h2 id="adv-nodes-sector-title">Subatomic Genesis</h2>
                 </div>
-                <div class="adv-nodes-stats">
-                    <span id="adv-nodes-stars-pill" class="stars-pill">⭐ 0 Stars</span>
-                </div>
+                <span id="adv-nodes-stars-pill" class="stars-pill">★ 0</span>
             </header>
 
-            <!-- Sector Navigator Bar -->
-            <div class="sector-nav-bar">
-                <button id="btn-prev-sector" class="btn-sector-nav" title="Previous Sector">◀</button>
-                <div class="sector-indicator" id="sector-indicator-text">Sector 1 of 2</div>
-                <button id="btn-next-sector" class="btn-sector-nav" title="Next Sector">▶</button>
+            <!-- World switcher: ‹ numbered sector pills › -->
+            <div class="sector-nav-bar" role="tablist" aria-label="Worlds">
+                <button id="btn-prev-sector" class="btn-sector-nav" aria-label="Previous world">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+                </button>
+                <div class="sector-pills" id="sector-pills"></div>
+                <button id="btn-next-sector" class="btn-sector-nav" aria-label="Next world">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg>
+                </button>
             </div>
 
-            <!-- Constellation Map Viewport -->
+            <!-- Constellation map: links (SVG) + node buttons, positioned from NodeGenerator layout % -->
             <div class="adv-map-viewport" id="adv-map-viewport">
                 <div class="adv-map-canvas-container" id="adv-map-canvas-container">
-                    <svg class="adv-map-svg" id="adv-map-svg"></svg>
-                    <div class="adv-map-nodes-layer" id="adv-map-nodes-layer">
-                        <!-- Populated dynamically by game.js via NodeGenerator -->
+                    <svg class="adv-map-svg" id="adv-map-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+                    <div class="adv-map-nodes-layer" id="adv-map-nodes-layer"></div>
+                </div>
+                <div class="adv-world-sealed" id="adv-world-sealed" hidden>
+                    <span class="adv-world-sealed-icon">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+                    </span>
+                    <span class="adv-world-sealed-title" id="adv-world-sealed-title">Ion Nebula is sealed</span>
+                    <span class="adv-world-sealed-desc" id="adv-world-sealed-desc">Defeat the boss of Subatomic Genesis to open this world.</span>
+                </div>
+            </div>
+
+            <!-- Selected node sheet (replaces the node preview modal) -->
+            <div class="node-sheet" id="node-sheet">
+                <div class="node-sheet-head">
+                    <div class="node-sheet-text">
+                        <span class="node-sheet-kicker" id="node-sheet-kicker">NODE 1-1</span>
+                        <span class="node-sheet-title" id="node-sheet-title">Subatomic Spark</span>
+                        <span class="node-sheet-desc" id="node-sheet-desc">Trigger 3 Zero Blasts</span>
                     </div>
+                    <span class="node-sheet-stars" id="node-sheet-stars" aria-label="0 of 3 stars"><span>★</span><span>★</span><span>★</span></span>
+                </div>
+                <div class="node-sheet-chips" id="node-sheet-chips"></div>
+                <button type="button" class="node-sheet-launch" id="btn-node-sheet-launch">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+                    <span id="node-sheet-cta">LAUNCH</span>
+                </button>
+                <div class="node-sheet-locked" id="node-sheet-locked" hidden>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+                    <span id="node-sheet-locked-text">Clear the previous node to unlock</span>
                 </div>
             </div>
         </section>
