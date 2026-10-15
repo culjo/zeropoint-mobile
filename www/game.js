@@ -1399,6 +1399,29 @@
         ctx.restore();
     }
 
+    // Node to launch from the success screen's Next button (adventure node runs)
+    let victoryNextNode = null;
+
+    // Next node on the sector's main path. A bonus node continues from the
+    // node it branched off; a cleared boss leads into the next sector's first node.
+    function getNextNodeConfig(level) {
+        if (!level || !level.sectorNum || typeof NodeGenerator === 'undefined') return null;
+        const graph = NodeGenerator.getSectorGraph(level.sectorNum);
+        const self = graph.nodes.find(n => n.id === level.id);
+        const fromId = self && self.type === 'bonus' ? self.branchOf : level.id;
+        const link = graph.links.find(l => l.from === fromId && !l.isBonusBranch);
+        if (link) {
+            const next = graph.nodes.find(n => n.id === link.to);
+            return next ? next.config : null;
+        }
+        if (level.isBoss && level.sectorNum < NodeGenerator.SECTOR_METADATA.length) {
+            const nextSector = level.sectorNum + 1;
+            const root = NodeGenerator.getSectorGraph(nextSector).nodes.find(n => n.id === `${nextSector}-1`);
+            return root ? root.config : null;
+        }
+        return null;
+    }
+
     function setVictoryNextLabel(text) {
         const label = document.getElementById('vic-next-label');
         if (label) label.textContent = text;
@@ -1763,7 +1786,17 @@
         if (btnVicNext) btnVicNext.addEventListener('click', () => {
             if (modalVictory) modalVictory.classList.remove('visible');
             if (activeAdventureLevel && activeAdventureLevel.sectorNum) {
-                showScreen('adventure-nodes');
+                const next = victoryNextNode;
+                victoryNextNode = null;
+                if (next) {
+                    if (next.sectorNum && next.sectorNum !== career.currentSector) {
+                        career.currentSector = next.sectorNum;
+                        saveCareerData();
+                    }
+                    startNodeLevel(next);
+                } else {
+                    showScreen('adventure-nodes');
+                }
             } else if (isTutorial || (activeAdventureLevel && activeAdventureLevel.isTutorial)) {
                 startAdventureLevel(1);
             } else if (activeAdventureLevel && activeAdventureLevel.id < ADVENTURE_LEVELS[ADVENTURE_LEVELS.length - 1].id) {
@@ -3111,7 +3144,8 @@
 
             saveCareerData();
 
-            setVictoryNextLabel('Return to map');
+            victoryNextNode = getNextNodeConfig(activeAdventureLevel);
+            setVictoryNextLabel(victoryNextNode ? 'Next mission' : 'Return to map');
         } else {
             // Handcrafted Challenge Level
             const lvlId = activeAdventureLevel.id;
