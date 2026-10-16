@@ -12,10 +12,12 @@
     const DANGER_ROW = 1; // Row index where warning fires (0 is game over top)
     const MOVES_PER_RISE = 5;
 
-    // Drag & Place (Labs): drag.html sets data-gameplay="drag" on <body>. Orbs are dragged up from a
-    // two-slot tray instead of dropped from the launcher, and swaps happen by sliding a board tile.
-    const DRAG_MODE = document.body.dataset.gameplay === 'drag';
-    const LABS_DRAG_FLAG = 'zeropoint_flag_drag_place';
+    // Main gameplay (drag & place): maingameplay.html — the app's start page — sets
+    // data-gameplay="maingameplay" on <body>. Orbs are dragged up from a two-slot tray instead of
+    // dropped from the launcher, and swaps happen by sliding a board tile. index.html keeps the
+    // classic drop controls, reachable from the Labs switch in debug mode.
+    const MAIN_GAMEPLAY = document.body.dataset.gameplay === 'maingameplay';
+    const DEBUG_MODE_KEY = 'zeropoint_debug_mode';
 
     // Canvas & Rendering Context
     const canvas = document.getElementById('game-canvas');
@@ -177,11 +179,12 @@
     const btnTouchFrenzy = document.getElementById('btn-touch-frenzy');
     const btnTouchSwap = document.getElementById('btn-touch-swap');
 
-    // Drag & Place tray (drag.html only) and the Labs switch shown on both entry pages
+    // Drag & place tray (maingameplay.html only) and the debug-mode Labs switch on both entry pages
     const dragTraySlots = [document.getElementById('drag-slot-0'), document.getElementById('drag-slot-1')];
     const dragGhost = document.getElementById('drag-ghost');
     const labsSwitch = document.getElementById('labs-switch');
-    const settingLabsDragToggle = document.getElementById('setting-labs-drag-toggle');
+    const settingDebugToggle = document.getElementById('setting-debug-toggle');
+    const homeTitle = document.querySelector('#screen-home .home-title');
 
     // Pause Modal
     // Pause screen (objective core)
@@ -528,7 +531,7 @@
     let heldOrb = null;
     let nextQueue = [];
 
-    // Drag & Place: two tray orbs (a used slot refills instantly), the orb being dragged,
+    // Main gameplay: two tray orbs (a used slot refills instantly), the orb being dragged,
     // and a board tile being slid onto a neighbour to swap
     let dragTray = [null, null];
     let activeDrag = null;     // { source: 'tray' | 'hold', slot, orb, col, ghostY, overHold }
@@ -1411,8 +1414,8 @@
     }
 
     function startTutorialMode() {
-        // Lessons are written for the classic drop controls, so they run on the classic page
-        if (DRAG_MODE) {
+        // Lessons are written for the classic drop controls, so they run on the classic page (index.html)
+        if (MAIN_GAMEPLAY) {
             window.location.href = 'index.html';
             return;
         }
@@ -1686,7 +1689,7 @@
 
     // ---------- First-launch welcome ----------
     function shouldOfferTutorial() {
-        if (DRAG_MODE) return false; // lessons are written for the classic drop controls
+        if (MAIN_GAMEPLAY) return false; // lessons are written for the classic drop controls
         if (!career || career.tutorialDone || career.tutorialSkipped) return false;
         const hasProgress = (career.highScore || 0) > 0
             || (career.levelStars && career.levelStars[0])
@@ -2216,10 +2219,26 @@
             });
         }
 
-        if (settingLabsDragToggle) {
-            settingLabsDragToggle.addEventListener('change', (e) => {
-                setLabsDragEnabled(e.target.checked);
+        if (settingDebugToggle) {
+            settingDebugToggle.addEventListener('change', (e) => {
+                setDebugMode(e.target.checked);
                 if (sfx) sfx.playMove();
+            });
+        }
+
+        // Hidden gesture: tap the NULLFALL title 5 times quickly to toggle debug mode
+        if (homeTitle) {
+            let taps = [];
+            homeTitle.addEventListener('click', () => {
+                const now = Date.now();
+                taps = taps.filter((t) => now - t < 2500);
+                taps.push(now);
+                if (taps.length >= 5) {
+                    taps = [];
+                    setDebugMode(!isDebugMode());
+                    triggerHaptic('swap');
+                    if (sfx) sfx.playPowerup();
+                }
             });
         }
 
@@ -2355,10 +2374,10 @@
         setupFullscreenUI();
         setupScreenFlow();
 
-        // Labs flag can also be flipped from the URL: index.html?labs=drag (on) / ?labs=off
-        const labsParam = new URLSearchParams(window.location.search).get('labs');
-        if (labsParam === 'drag') setLabsDragEnabled(true);
-        else if (labsParam === 'off') setLabsDragEnabled(false);
+        // Debug mode can also be flipped from the URL: ?debug=1 (on) / ?debug=0 (off)
+        const debugParam = new URLSearchParams(window.location.search).get('debug');
+        if (debugParam === '1') setDebugMode(true);
+        else if (debugParam === '0') setDebugMode(false);
         syncLabsUI();
 
         showScreen('home');
@@ -2383,8 +2402,8 @@
         // Square cells sized to whichever axis is tighter: +1.2 rows at the top for the launcher and
         // +1 row at the bottom for the Dark Matter banner. Extra width centers the board; extra
         // height becomes drop space above it.
-        // Drag & Place has no launcher, so it only keeps a sliver of headroom for floating text.
-        const cell = Math.min(rect.width / COLS, rect.height / (ROWS + (DRAG_MODE ? 1.3 : 2.2)));
+        // Main gameplay has no launcher, so it only keeps a sliver of headroom for floating text.
+        const cell = Math.min(rect.width / COLS, rect.height / (ROWS + (MAIN_GAMEPLAY ? 1.3 : 2.2)));
         cellW = cell;
         cellH = cell;
         boardOffsetX = (rect.width - cell * COLS) / 2;
@@ -2455,7 +2474,7 @@
         if (!isTutorial) {
             nextQueue = [generateOrb(), generateOrb(), generateOrb()];
             currentOrb = generateOrb();
-            if (DRAG_MODE) {
+            if (MAIN_GAMEPLAY) {
                 // The tray replaces the launcher; currentOrb is only set while an orb is dragged
                 dragTray = [generateOrb(), generateOrb()];
                 currentOrb = null;
@@ -2538,7 +2557,7 @@
     }
 
     // Drop Logic
-    // opts (Drag & Place): startY = where the released orb is, dragSource = tray slot / hold it came from.
+    // opts (main gameplay): startY = where the released orb is, dragSource = tray slot / hold it came from.
     // Returns true when the orb was launched.
     function dropActiveOrb(opts = {}) {
         if (isProcessing || isGameOver || activeProjectile || !currentOrb) return false;
@@ -2683,8 +2702,8 @@
                 frenzyTurnsRemaining--;
             }
 
-            // Advance queue (Drag & Place already refilled its tray slot when the orb was released)
-            if (DRAG_MODE && !isTutorial) {
+            // Advance queue (main gameplay already refilled its tray slot when the orb was released)
+            if (MAIN_GAMEPLAY && !isTutorial) {
                 currentOrb = null;
                 canHold = true;
             } else if (!isTutorial) {
@@ -4077,8 +4096,8 @@
         frenzySpecialIndex++;
 
         // Load ONLY this 1 special into the active launcher; upcoming queue remains untouched!
-        // (Drag & Place: it takes the first tray slot instead.)
-        if (DRAG_MODE) dragTray[0] = { ...special };
+        // (Main gameplay: it takes the first tray slot instead.)
+        if (MAIN_GAMEPLAY) dragTray[0] = { ...special };
         else currentOrb = { ...special };
 
         addFloatingText(`🔥 OVERDRIVE: ${special.label}! 🔥`, canvas.width / (2 * dpr), boardOffsetY + cellH * 3, '#ffd700', 1.5);
@@ -4381,7 +4400,7 @@
                 }
             }
 
-            // Drag & Place: the neighbour the slid tile will trade places with
+            // Main gameplay: the neighbour the slid tile will trade places with
             const target = boardSwapDrag && boardSwapDrag.target;
             if (target) {
                 ctx.setLineDash([]);
@@ -4551,14 +4570,14 @@
             if (btnTouchHold) btnTouchHold.classList.remove('has-content');
         }
 
-        // Update Next Queue UI (drag.html has no NEXT preview: the tray shows the orbs)
+        // Update Next Queue UI (maingameplay.html has no NEXT preview: the tray shows the orbs)
         if (nextSlot1) renderQueueSlot(nextSlot1, nextQueue[0]);
         if (nextSlot2) renderQueueSlot(nextSlot2, nextQueue[1]);
 
-        if (DRAG_MODE) renderDragTray();
+        if (MAIN_GAMEPLAY) renderDragTray();
     }
 
-    // Drag & Place tray: HOLD (label inside when empty) · two orbs. A lifted orb leaves its slot empty.
+    // Main gameplay tray: HOLD (label inside when empty) · two orbs. A lifted orb leaves its slot empty.
     function renderDragTray() {
         dragTraySlots.forEach((el, i) => {
             if (!el) return;
@@ -4600,7 +4619,7 @@
     function setupInputs() {
         // Mouse Hover & Click
         canvas.addEventListener('mousemove', (e) => {
-            if (DRAG_MODE) return;
+            if (MAIN_GAMEPLAY) return;
             if (isProcessing || isGameOver || isPaused || currentScreen !== 'game') return;
             const rect = canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
@@ -4632,7 +4651,7 @@
         }
 
         canvas.addEventListener('click', (e) => {
-            if (DRAG_MODE) return;
+            if (MAIN_GAMEPLAY) return;
             if (isProcessing || isGameOver || isPaused || currentScreen !== 'game') return;
             // Prevent synthetic duplicate click right after mobile touchend
             if (Date.now() - lastTouchTime < 500) return;
@@ -4654,7 +4673,7 @@
         });
 
         canvas.addEventListener('touchstart', (e) => {
-            if (DRAG_MODE) return;
+            if (MAIN_GAMEPLAY) return;
             if (isProcessing || isGameOver || isPaused || currentScreen !== 'game') return;
             if (e.touches.length > 1) return; // Ignore multitouch gestures
             if (e.cancelable) e.preventDefault();
@@ -4685,7 +4704,7 @@
         }, { passive: false });
 
         canvas.addEventListener('touchmove', (e) => {
-            if (DRAG_MODE) return;
+            if (MAIN_GAMEPLAY) return;
             if (!isTouchingCanvas || isProcessing || isGameOver || isPaused || currentScreen !== 'game' || isSwapModeActive) return;
             if (e.cancelable) e.preventDefault(); // Prevents pull-to-refresh & screen dragging
 
@@ -4746,8 +4765,8 @@
             }
 
             if (isGameOver || isPaused || currentScreen !== 'game') return;
-            // Drag & Place has no aim/drop/hold/swap keys; Overdrive and restart still work
-            if (DRAG_MODE && !['f', 'F', 'r', 'R'].includes(e.key)) return;
+            // Main gameplay has no aim/drop/hold/swap keys; Overdrive and restart still work
+            if (MAIN_GAMEPLAY && !['f', 'F', 'r', 'R'].includes(e.key)) return;
 
             if (e.code === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
                 if (aimCol > 0) {
@@ -4792,7 +4811,7 @@
             swapHold();
         };
 
-        if (DRAG_MODE) {
+        if (MAIN_GAMEPLAY) {
             setupDragInputs();
         } else {
             if (btnSwapToken) btnSwapToken.addEventListener('click', handleSwapButtonClick);
@@ -4834,7 +4853,7 @@
         });
     }
 
-    // ---------- Drag & Place input (drag.html) ----------
+    // ---------- Main gameplay input: drag & place (maingameplay.html) ----------
     // Tray orb → drag up onto a column (it falls onto that column's stack) or onto HOLD.
     // HOLD orb → drag onto a column. Board tile → slide onto a neighbour to swap (spends a token).
     function setupDragInputs() {
@@ -5029,24 +5048,28 @@
         }
     }
 
-    // ---------- Labs flag: Drag & Place ----------
-    function isLabsDragEnabled() {
-        try { return localStorage.getItem(LABS_DRAG_FLAG) === '1'; } catch (e) { return false; }
+    // ---------- Debug mode (shows the Labs switch between main gameplay and classic drop) ----------
+    function isDebugMode() {
+        try { return localStorage.getItem(DEBUG_MODE_KEY) === '1'; } catch (e) { return false; }
     }
 
-    function setLabsDragEnabled(on) {
+    function setDebugMode(on) {
         try {
-            if (on) localStorage.setItem(LABS_DRAG_FLAG, '1');
-            else localStorage.removeItem(LABS_DRAG_FLAG);
-        } catch (e) { /* storage unavailable: the switch just won't persist */ }
+            if (on) localStorage.setItem(DEBUG_MODE_KEY, '1');
+            else localStorage.removeItem(DEBUG_MODE_KEY);
+        } catch (e) { /* storage unavailable: debug mode just won't persist */ }
         syncLabsUI();
     }
 
-    // index.html shows the "Drag & Place" switch only when the flag is on; drag.html always shows its way back
+    // The Labs switch and the Settings "Debug mode" row only appear while debug mode is on
     function syncLabsUI() {
-        const on = isLabsDragEnabled();
-        if (settingLabsDragToggle) settingLabsDragToggle.checked = on;
-        if (labsSwitch) labsSwitch.hidden = !(on || DRAG_MODE);
+        const on = isDebugMode();
+        if (settingDebugToggle) {
+            settingDebugToggle.checked = on;
+            const row = settingDebugToggle.closest('.qs-row');
+            if (row) row.hidden = !on;
+        }
+        if (labsSwitch) labsSwitch.hidden = !on;
     }
 
     // Main Game Loop (60 FPS)
@@ -5368,7 +5391,7 @@
 
     function drawAimerAndPreview() {
         if (isGameOver || isSwapModeActive || dropCancelArmed) return;
-        if (DRAG_MODE && !activeDrag) return; // only preview while an orb is held over the board
+        if (MAIN_GAMEPLAY && !activeDrag) return; // only preview while an orb is held over the board
         const col = aimCol;
         const centerX = boardOffsetX + col * cellW + cellW / 2;
 
@@ -6050,7 +6073,7 @@
     }
 
     function drawLauncher() {
-        if (isGameOver || DRAG_MODE) return;
+        if (isGameOver || MAIN_GAMEPLAY) return;
         const col = aimCol;
         const centerX = boardOffsetX + col * cellW + cellW / 2;
         const centerY = cellH * 0.55;

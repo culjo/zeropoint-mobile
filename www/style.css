@@ -6670,7 +6670,7 @@ input:checked + .toggle-slider:before {
     #screen-game .drop-cancel-hint { transition: none; }
 }
 
-/* ===== Labs switch (Home top bar): jumps between the classic page and drag.html ===== */
+/* ===== Labs switch (Home top bar, debug mode only): jumps between maingameplay.html and classic index.html ===== */
 #screen-home .labs-switch {
     margin-right: auto;
     display: inline-flex;
@@ -6701,4 +6701,9 @@ input:checked + .toggle-slider:before {
     font-size: 10px;
     font-weight: 900;
     letter-spacing: 1px;
+}
+
+/* Settings rows that are only listed in debug mode */
+#modal-settings .qs-row[hidden] {
+    display: none;
 }

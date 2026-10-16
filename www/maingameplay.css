@@ -1,5 +1,5 @@
 /* =====================================================================
-   Drag & Place (Labs) — styles that only drag.html loads.
+   Main gameplay (drag & place) — styles that only maingameplay.html loads.
    Tray: HOLD · two orbs · swap counter. Orbs reuse the .next-orb tile
    colours (q-pos / q-neg / q-special) set by renderQueueSlot().
    ===================================================================== */

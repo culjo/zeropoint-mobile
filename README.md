@@ -21,7 +21,9 @@ ZeroPoint-Mobile/
 ├── android/                 # Native Android Studio project (Gradle)
 ├── ios/                     # Native Xcode workspace (Swift / SPM / Pods)
 ├── www/                     # Web game assets deployed into native WebViews
-│   ├── index.html           # Mobile-optimized entry point
+│   ├── maingameplay.html    # App start page: drag & place gameplay (capacitor appStartPath)
+│   ├── maingameplay.css     # Tray / drag styles used only by maingameplay.html
+│   ├── index.html           # Classic drop controls (Labs switch, debug mode only)
 │   ├── style.css           # Mobile touch styling & responsive layout
 │   ├── game.js             # Core physics, math fusions, and game loop
 │   ├── audio.js            # Web Audio API procedural sound synthesizer

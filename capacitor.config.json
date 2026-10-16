@@ -3,7 +3,8 @@
   "appName": "Nullfall",
   "webDir": "www",
   "server": {
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "appStartPath": "maingameplay.html"
   },
   "plugins": {
     "StatusBar": {
