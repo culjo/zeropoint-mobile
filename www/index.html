@@ -524,10 +524,9 @@
                     <span class="win-bonus" id="vic-bonus">+0 DROPS BONUS</span>
                 </div>
 
-                <div class="win-chips">
-                    <div class="win-chip"><b id="vic-drops">0 / 0</b><span id="vic-drops-label">DROPS USED</span></div>
-                    <div class="win-chip"><b id="vic-cascade" class="c-purple">1x</b><span>MAX CASCADE</span></div>
-                    <div class="win-chip"><b id="vic-best" class="c-gold">NEW</b><span>BEST SCORE</span></div>
+                <div class="win-goals" id="vic-goals" role="list" aria-label="Star goals">
+                    <span class="win-goals-title">HOW YOU EARNED YOUR STARS</span>
+                    <div class="win-goals-list" id="vic-goals-list"></div>
                 </div>
             </div>
 
@@ -634,6 +633,12 @@
                 <div class="breach-stats">
                     <span><b id="go-cascade" class="c-purple">1x</b> cascade</span>
                     <span><b id="go-zeroes" class="c-cyan">0</b> zero blasts</span>
+                </div>
+
+                <div class="breach-why" id="breach-why" hidden>
+                    <span class="breach-why-title">WHY THE NODE WASN'T CLEARED</span>
+                    <div class="breach-why-list" id="breach-why-list"></div>
+                    <span class="breach-why-tip" id="breach-why-tip"></span>
                 </div>
 
                 <div class="breach-retry-wrap">

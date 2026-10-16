@@ -1764,12 +1764,42 @@
         if (vicCascade) vicCascade.textContent = `${maxCombo}x`;
         if (vicBest) vicBest.textContent = v.best;
         if (victoryStarsContainer) {
+            // Each star lights for its own goal (objective · drops · score) when flags are given
             victoryStarsContainer.querySelectorAll('.win-star').forEach((el, i) => {
-                el.classList.toggle('off', i >= v.stars);
+                el.classList.toggle('off', v.starFlags ? !v.starFlags[i] : i >= v.stars);
             });
             victoryStarsContainer.setAttribute('aria-label', `${v.stars} of 3 stars`);
         }
+        renderVictoryGoals(v.goals || []);
         if (btnVicMap) btnVicMap.hidden = !v.showMap;
+    }
+
+    // "How you earned your stars": one row per star goal with its real value
+    function renderVictoryGoals(goals) {
+        const wrap = document.getElementById('vic-goals');
+        const list = document.getElementById('vic-goals-list');
+        if (!wrap || !list) return;
+        list.innerHTML = '';
+        wrap.hidden = goals.length === 0;
+        goals.forEach((g) => {
+            const row = document.createElement('div');
+            row.className = `win-goal ${g.got ? 'got' : 'miss'}`;
+            row.setAttribute('role', 'listitem');
+            row.innerHTML = '<span class="win-goal-star" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.2 6.6.8-4.9 4.6 1.3 6.6L12 17.4l-5.9 3.3 1.3-6.6L2.5 9.5l6.6-.8z"></path></svg></span>';
+            const text = document.createElement('span');
+            text.className = 'win-goal-text';
+            const b = document.createElement('b');
+            b.textContent = g.title;
+            const sub = document.createElement('span');
+            sub.textContent = g.sub;
+            text.append(b, sub);
+            const val = document.createElement('span');
+            val.className = 'win-goal-val';
+            val.textContent = g.val;
+            row.append(text, val);
+            row.setAttribute('aria-label', `${g.got ? 'Earned' : 'Missed'}: ${g.title}, ${g.sub}`);
+            list.appendChild(row);
+        });
     }
 
     function restartCurrentGame() {
@@ -3560,10 +3590,80 @@
         if (goCascade) goCascade.textContent = `${maxCombo}x`;
         if (goZeroes) goZeroes.textContent = totalZeroPoints;
         if (btnGoMap) btnGoMap.hidden = !isAdventureRun || isTutorial || !!(activeAdventureLevel && activeAdventureLevel.isGraduation);
+        renderBreachWhy(isAdventureRun && !isTutorial, outOfDrops);
 
         setTimeout(() => {
             if (modalGameOver) modalGameOver.classList.add('visible');
         }, 400);
+    }
+
+    // Fail tips per objective type (shown under the breach reasons)
+    const OBJECTIVE_FAIL_TIPS = {
+        annihilations: 'Look for opposite numbers that touch, like +3 and −3.',
+        synthesis_tier: 'Merge matching numbers to grow them before they run out.',
+        clear_dark_matter: 'Blast beside a core twice to shatter it.',
+        trigger_laser: 'Build a ±4 pair first, then cancel it.',
+        activate_frenzy: 'Chain blasts together to charge Overdrive faster.'
+    };
+
+    function renderBreachWhy(show, outOfDrops) {
+        const panel = document.getElementById('breach-why');
+        const list = document.getElementById('breach-why-list');
+        const tip = document.getElementById('breach-why-tip');
+        const stats = document.querySelector('#modal-gameover .breach-stats');
+        if (modalGameOver) modalGameOver.classList.toggle('has-why', !!show);
+        if (stats) stats.hidden = !!show;
+        if (!panel || !list) return;
+        panel.hidden = !show;
+        if (!show) return;
+
+        const lvl = activeAdventureLevel;
+        const obj = lvl && lvl.objective;
+        const meta = obj ? OBJECTIVE_META[obj.type] : null;
+        list.innerHTML = '';
+        const row = (glyph, glyphClass, title, pct, value) => {
+            const r = document.createElement('div');
+            r.className = 'breach-why-row';
+            const g = document.createElement('span');
+            g.className = `breach-why-icon ${glyphClass}`;
+            g.setAttribute('aria-hidden', 'true');
+            g.textContent = glyph;
+            const t = document.createElement('span');
+            t.className = 'breach-why-text';
+            const b = document.createElement('b');
+            b.textContent = title;
+            const bar = document.createElement('span');
+            bar.className = 'breach-why-bar';
+            const fill = document.createElement('i');
+            fill.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+            bar.appendChild(fill);
+            t.append(b, bar);
+            const v = document.createElement('span');
+            v.className = 'breach-why-val';
+            v.textContent = value;
+            r.append(g, t, v);
+            list.appendChild(r);
+        };
+
+        let remaining = null;
+        if (obj) {
+            const { cur, tgt, text } = getObjectiveCounts(obj);
+            remaining = Math.max(0, tgt - cur);
+            row(getObjectiveGlyph(obj), obj.type === 'clear_dark_matter' ? 'dm' : 'obj',
+                meta ? meta.short(obj) : (lvl.desc || 'Objective'), tgt ? (cur / tgt) * 100 : 0, text);
+        }
+        if (outOfDrops) {
+            row('↓', 'drops', 'Drops ran out', 100, `${dropsUsed}/${maxDrops}`);
+        } else {
+            row('⚠', 'drops', 'A tile crossed the red line', 100, 'BREACH');
+        }
+
+        if (tip) {
+            const base = obj ? (OBJECTIVE_FAIL_TIPS[obj.type] || '') : '';
+            const close = remaining === 1 ? 'So close: just 1 to go. ' : '';
+            const overload = !outOfDrops ? 'Keep stacks low and clear the tallest column first. ' : '';
+            tip.textContent = `💡 ${close}${overload}${base}`.trim();
+        }
     }
 
     function triggerAdventureVictory() {
@@ -3576,6 +3676,7 @@
         const star2 = dropsUsed <= activeAdventureLevel.targetDropsForStar ? 1 : 0;
         const star3 = score >= activeAdventureLevel.targetScoreForStar ? 1 : 0;
         const totalStars = star1 + star2 + star3;
+        const starScore = score;
 
         const prevBest = getStoredLevelBest(activeAdventureLevel);
         const dropsLeft = Math.max(0, maxDrops - dropsUsed);
@@ -3644,7 +3745,34 @@
             setVictoryNextLabel(lvlId < ADVENTURE_LEVELS.length ? 'Next mission' : 'All missions complete');
         }
 
+        const lvlObj = activeAdventureLevel.objective;
+        const objMeta = lvlObj ? OBJECTIVE_META[lvlObj.type] : null;
+        const dropTarget = activeAdventureLevel.targetDropsForStar;
+        const scoreTarget = activeAdventureLevel.targetScoreForStar;
+        const goals = [
+            {
+                got: true,
+                title: objMeta ? objMeta.short(lvlObj) : (activeAdventureLevel.desc || 'Complete the objective'),
+                sub: 'Objective complete',
+                val: lvlObj ? getObjectiveCounts(lvlObj).text : '✓'
+            },
+            {
+                got: !!star2,
+                title: `Finish within ${dropTarget} drops`,
+                sub: star2 ? `Done in ${dropsUsed} drops` : `Used ${dropsUsed} · ${dropsUsed - dropTarget} over · replay for this star`,
+                val: String(dropsUsed)
+            },
+            {
+                got: !!star3,
+                title: `Score ${scoreTarget.toLocaleString()}+`,
+                sub: star3 ? `You scored ${starScore.toLocaleString()}` : `${(scoreTarget - starScore).toLocaleString()} short · replay for this star`,
+                val: starScore.toLocaleString()
+            }
+        ];
+
         renderVictoryScreen({
+            goals,
+            starFlags: [true, !!star2, !!star3],
             kicker: `${getLevelCode(activeAdventureLevel)} · SUCCESS`,
             title: activeAdventureLevel.title,
             stars: totalStars,

@@ -6495,3 +6495,99 @@ input:checked + .toggle-slider:before {
 .obj-intro-rule-icon.drops { background: rgba(255, 107, 138, 0.14); color: #ff6b8a; }
 .obj-intro-rule-icon.star { background: rgba(249, 212, 35, 0.14); color: #f9d423; }
 .obj-intro-rule-text { flex: 1; font-size: 13px; font-weight: 800; color: #f0f4fc; }
+
+/* ==========================================================
+   Result screens — objectives (Success A checklist, Breach A why)
+   ========================================================== */
+#modal-victory .win-stars { transform: scale(0.88); transform-origin: 50% 0; height: 130px; margin-top: 14px; }
+#modal-victory .win-score { font-size: 42px; }
+
+#modal-victory .win-goals {
+    position: relative;
+    margin-top: 16px;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+#modal-victory .win-goals[hidden] { display: none; }
+#modal-victory .win-goals-title {
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    color: #8892b0;
+    text-align: left;
+}
+#modal-victory .win-goals-list { display: flex; flex-direction: column; gap: 6px; }
+#modal-victory .win-goal {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    text-align: left;
+}
+#modal-victory .win-goal.got {
+    background: linear-gradient(90deg, rgba(249, 212, 35, 0.12), rgba(255, 255, 255, 0.03));
+    border-color: rgba(249, 212, 35, 0.35);
+}
+#modal-victory .win-goal-star { width: 26px; height: 26px; flex-shrink: 0; }
+#modal-victory .win-goal-star svg { width: 100%; height: 100%; display: block; }
+#modal-victory .win-goal.got .win-goal-star path { fill: #f9d423; }
+#modal-victory .win-goal.got .win-goal-star { filter: drop-shadow(0 2px 0 #a8820a); }
+#modal-victory .win-goal.miss .win-goal-star path { fill: #232a3f; }
+#modal-victory .win-goal-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+#modal-victory .win-goal-text b { font-size: 13px; font-weight: 900; color: #f0f4fc; }
+#modal-victory .win-goal-text span { font-size: 11px; font-weight: 600; color: #a3acc6; }
+#modal-victory .win-goal-val {
+    font-family: 'Lato', sans-serif;
+    font-size: 14px;
+    font-weight: 900;
+    white-space: nowrap;
+    color: #8892b0;
+}
+#modal-victory .win-goal.got .win-goal-val { color: #f9d423; }
+
+#modal-gameover .breach-stats[hidden] { display: none; }
+#modal-gameover .breach-why {
+    margin-top: 18px;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 14px;
+    border-radius: 18px;
+    background: rgba(18, 12, 16, 0.85);
+    border: 1px solid rgba(255, 78, 80, 0.28);
+    text-align: left;
+}
+#modal-gameover .breach-why[hidden] { display: none; }
+#modal-gameover .breach-why-title { font-size: 10px; font-weight: 900; letter-spacing: 2px; color: #ff6b8a; }
+#modal-gameover .breach-why-list { display: flex; flex-direction: column; gap: 8px; }
+#modal-gameover .breach-why-row { display: flex; align-items: center; gap: 10px; }
+#modal-gameover .breach-why-icon {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Lato', sans-serif;
+    font-size: 14px;
+    font-weight: 900;
+}
+#modal-gameover .breach-why-icon.obj { background: #0f2433; border: 1.5px solid #00f2fe; color: #7ff8ff; }
+#modal-gameover .breach-why-icon.dm { background: repeating-linear-gradient(135deg, #1f2537 0 5px, #171c2b 5px 10px); border: 1.5px solid #ff6b8a; color: #ff8a8c; }
+#modal-gameover .breach-why-icon.drops { background: rgba(255, 107, 138, 0.14); color: #ff6b8a; }
+#modal-gameover .breach-why-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+#modal-gameover .breach-why-text b { font-size: 13px; font-weight: 900; color: #f0f4fc; }
+#modal-gameover .breach-why-bar { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+#modal-gameover .breach-why-bar i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #ff4e50, #ff9aa8); }
+#modal-gameover .breach-why-val { font-family: 'Lato', sans-serif; font-size: 14px; font-weight: 900; color: #ff8a8c; white-space: nowrap; }
+#modal-gameover .breach-why-tip { margin-top: 2px; font-size: 12px; font-weight: 700; color: #f9d423; }
+#modal-gameover.has-why .breach-score-block { margin-top: 18px; }
+#modal-gameover.has-why .breach-retry-wrap { margin-top: 24px; }
