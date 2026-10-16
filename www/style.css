@@ -5793,15 +5793,15 @@ input:checked + .toggle-slider:before {
 
 /* On-board callout: rises from where the progress happened */
 .obj-callout {
-    position: absolute;
-    z-index: 6;
+    position: fixed;
+    z-index: 900;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 4px;
     pointer-events: none;
     transform: translate(-50%, -50%);
-    animation: objCallout 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    will-change: transform, opacity;
 }
 
 .obj-callout .badge {
@@ -5857,14 +5857,6 @@ input:checked + .toggle-slider:before {
 .obj-callout.gold .badge { border-color: #f9d423; background: linear-gradient(#3a3210, #251f08); box-shadow: 0 4px 0 #5c4a06, 0 0 22px rgba(249, 212, 35, 0.6); }
 .obj-callout.gold .badge .g { background: #f9d423; color: #1a1302; }
 .obj-callout.gold .label { color: #ffe45c; text-shadow: 0 0 8px rgba(249, 212, 35, 0.6), 0 1px 2px rgba(0, 0, 0, 0.8); }
-
-@keyframes objCallout {
-    0% { transform: translate(-50%, -30%) scale(0.6); opacity: 0; }
-    18% { transform: translate(-50%, -80%) scale(1.1); opacity: 1; }
-    30% { transform: translate(-50%, -85%) scale(1); opacity: 1; }
-    75% { transform: translate(-50%, -105%) scale(1); opacity: 1; }
-    100% { transform: translate(-50%, -125%) scale(0.95); opacity: 0; }
-}
 
 /* ==========================================================
    Objective — Intro A (mission card)
@@ -6032,6 +6024,30 @@ input:checked + .toggle-slider:before {
 
 #screen-game .cockpit-hold-unit.hold-pop { animation: holdPop 0.42s cubic-bezier(0.16, 1, 0.3, 1); }
 #screen-game .cockpit-hold-unit.hold-pop .hold-slot { animation: holdSlotFlash 0.5s ease-out; }
+
+/* Floating "+N" score chips that fly into the HUD score */
+.score-fly {
+    position: fixed;
+    z-index: 900;
+    pointer-events: none;
+    white-space: nowrap;
+    font-family: 'Lato', 'Inter', sans-serif;
+    font-size: 20px;
+    font-weight: 900;
+    color: #ffe45c;
+    -webkit-text-stroke: 1px #6b4f04;
+    text-shadow: 0 2px 0 #a8820a, 0 0 14px rgba(249, 212, 35, 0.75);
+    transform: translate(-50%, -50%);
+    will-change: transform, opacity;
+}
+.score-fly.score-fly-big { font-size: 26px; }
+
+@keyframes scoreHit {
+    0% { color: #ffffff; text-shadow: 0 0 0 rgba(249, 212, 35, 0); }
+    30% { color: #ffe45c; text-shadow: 0 0 16px rgba(249, 212, 35, 0.9); }
+    100% { text-shadow: 0 0 0 rgba(249, 212, 35, 0); }
+}
+#score-val.score-pop.score-hit { animation: scorePop 0.42s cubic-bezier(0.16, 1, 0.3, 1), scoreHit 0.5s ease-out; }
 
 @media (prefers-reduced-motion: reduce) {
     #score-val.score-pop,
@@ -6591,3 +6607,14 @@ input:checked + .toggle-slider:before {
 #modal-gameover .breach-why-tip { margin-top: 2px; font-size: 12px; font-weight: 700; color: #f9d423; }
 #modal-gameover.has-why .breach-score-block { margin-top: 18px; }
 #modal-gameover.has-why .breach-retry-wrap { margin-top: 24px; }
+
+/* Objective strip: count flashes when a flying badge lands */
+@keyframes objNumHit {
+    0% { transform: scale(1); }
+    35% { transform: scale(1.35); color: #ffffff; text-shadow: 0 0 14px rgba(0, 242, 254, 0.9); }
+    100% { transform: scale(1); }
+}
+#adventure-objective-card.obj-strip.bump .adv-obj-progress { display: inline-block; animation: objNumHit 0.45s cubic-bezier(0.16, 1, 0.3, 1); }
+@media (prefers-reduced-motion: reduce) {
+    #adventure-objective-card.obj-strip.bump .adv-obj-progress { animation: none; }
+}

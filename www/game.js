@@ -530,6 +530,12 @@
     let screenFlashColor = '#ffffff';
     let floatingTexts = [];
     let screenShake = 0;
+    let scoreShown = 0;        // value the HUD has caught up to (flyers add on arrival)
+    let scoreFlySession = 0;   // bumped on reset so stale flyers don't add
+    let lastScoreFlyAt = 0;
+    let objDisplay = null;     // objective state the strip shows while badges are in flight
+    let objFlyersInFlight = 0;
+    let scoreFlyStagger = 0;
 
     // Rendering Metrics
     let cellW = 0;
@@ -1744,6 +1750,7 @@
     }
 
     function renderVictoryScreen(v) {
+        clearFlyingChips();
         const kicker = document.getElementById('victory-kicker');
         const vicBest = document.getElementById('vic-best');
         const dropsLabel = document.getElementById('vic-drops-label');
@@ -2350,6 +2357,7 @@
     function startNewGame() {
         grid = Array(ROWS).fill(null).map(() => Array(COLS).fill(null));
         score = 0;
+        resetScoreFlyers();
         setScoreDisplay(0, true);
         lastCoreHighlight = false;
         combo = 1;
@@ -2683,7 +2691,7 @@
             }
 
             addFloatingText('⚫ GRAVITATIONAL CRUSH!', boardOffsetX + col * cellW + cellW / 2, boardOffsetY + cellH * 2.5, '#ffd700', 1.4);
-            addScore(100);
+            addScore(100, { x: boardOffsetX + col * cellW + cellW / 2, y: boardOffsetY + cellH * 2.5 });
         } else if (sub === 'supernova_core') {
             // Supernova Core: Detonates Tier 4 Supernova Crater at target area
             sfx.playAnnihilate(combo, 4);
@@ -2694,7 +2702,7 @@
             const epicR = Math.max(0, Math.min(ROWS - 1, row >= 0 ? row : ROWS - 1));
             damageSupernovaArea(epicR, col, epicR, col);
             addFloatingText('🌟 SUPERNOVA CORE!', boardOffsetX + col * cellW + cellW / 2, boardOffsetY + epicR * cellH, '#ffd700', 1.45);
-            addScore(120);
+            addScore(120, { x: boardOffsetX + col * cellW + cellW / 2, y: boardOffsetY + epicR * cellH });
         } else if (sub === 'antimatter_nuke') {
             // Antimatter Nuke: Heavy 3x3 blast
             sfx.playAnnihilate(combo, 3);
@@ -2702,7 +2710,7 @@
             const epicR = Math.max(0, Math.min(ROWS - 1, row >= 0 ? row : ROWS - 1));
             damageSupernovaArea(epicR, col, epicR, col);
             addFloatingText('💥 ANTIMATTER NUKE!', boardOffsetX + col * cellW + cellW / 2, boardOffsetY + epicR * cellH, '#ff4e50', 1.35);
-            addScore(90);
+            addScore(90, { x: boardOffsetX + col * cellW + cellW / 2, y: boardOffsetY + epicR * cellH });
         } else if (sub === 'zero') {
             // Singularity Bomb: clears 3x3 radius
             sfx.playAnnihilate(3);
@@ -2716,7 +2724,7 @@
                 }
             }
             addFloatingText('0 SINGULARITY!', boardOffsetX + col * cellW + cellW / 2, boardOffsetY + row * cellH, '#c471ed');
-            addScore(40);
+            addScore(40, { x: boardOffsetX + col * cellW + cellW / 2, y: boardOffsetY + row * cellH });
         } else if (targetTile) {
             sfx.playSpecial();
             if (sub === 'invert') {
@@ -2919,7 +2927,7 @@
                         (xA + xB) / 2, 
                         (yA + yB) / 2 - cellH * 0.2, 
                         fusedVal > 0 ? 'var(--cyan)' : 'var(--orange)');
-                    addScore(5 * (chainStep + 1));
+                    addScore(5 * (chainStep + 1), { x: xB, y: yB });
                     addOverdriveCharge(2);
                     checkBountyProgress('synthesis', 1);
 
@@ -3154,7 +3162,7 @@
 
         // Tier-scaled score bonus (Base 10 for Tier 1)
         const baseScore = 10 * Math.pow(2, tier - 1);
-        addScore(baseScore * combo * (chainStep + 1));
+        addScore(baseScore * combo * (chainStep + 1), { x, y });
 
         // Balanced Overdrive charge: Tier 1 (+2%), Tier 2 (+4%), Tier 3 (+7%), Tier 4 (+12%), Tier 5 (+18%)
         const tierChargeTable = [0, 2, 4, 7, 12, 18];
@@ -3191,7 +3199,7 @@
                 const val = (Math.random() < 0.5 ? 1 : -1) * (Math.floor(Math.random() * 4) + 1);
                 grid[r][c] = createTile(val);
                 addFloatingText('SHATTERED!', nx, ny, '#fff');
-                addScore(15);
+                addScore(15, { x: nx, y: ny });
                 checkAdventureObjective('clear_dark_matter', 1, { x: nx, y: ny });
             } else {
                 target.flash = 0.8;
@@ -3334,14 +3342,14 @@
         };
     }
 
-    function getObjectiveCounts(obj) {
+    function getObjectiveCounts(obj, progress = adventureProgress, met = adventureObjectiveMet) {
         if (obj.type === 'synthesis_tier') {
-            return { cur: adventureObjectiveMet ? obj.target : adventureProgress, tgt: obj.target, text: adventureObjectiveMet ? 'DONE' : `+${adventureProgress || 0}/+${obj.target}` };
+            return { cur: met ? obj.target : progress, tgt: obj.target, text: met ? 'DONE' : `+${progress || 0}/+${obj.target}` };
         }
         if (obj.type === 'trigger_laser' || obj.type === 'activate_frenzy') {
-            return { cur: adventureObjectiveMet ? 1 : 0, tgt: 1, text: adventureObjectiveMet ? 'DONE' : '0/1' };
+            return { cur: met ? 1 : 0, tgt: 1, text: met ? 'DONE' : '0/1' };
         }
-        const cur = Math.min(adventureProgress, obj.target);
+        const cur = Math.min(progress, obj.target);
         return { cur, tgt: obj.target, text: `${cur}/${obj.target}` };
     }
 
@@ -3378,8 +3386,22 @@
         }
 
         const advanced = adventureProgress > prevProgress || (adventureObjectiveMet && !prevMet);
-        updateAdventureObjectiveUI(advanced);
-        if (advanced) showObjectiveCallout(obj, pos);
+        // Hold the strip at its old value until the flying badge lands
+        if (advanced && !objDisplay) objDisplay = { progress: prevProgress, met: prevMet };
+        const snap = { progress: adventureProgress, met: adventureObjectiveMet };
+        const session = scoreFlySession;
+        const flew = advanced && showObjectiveCallout(obj, pos, () => {
+            if (session !== scoreFlySession) return;
+            objFlyersInFlight = Math.max(0, objFlyersInFlight - 1);
+            objDisplay = objFlyersInFlight > 0 ? snap : null;
+            updateAdventureObjectiveUI(true);
+        });
+        if (flew) {
+            objFlyersInFlight++;
+        } else {
+            if (objFlyersInFlight === 0) objDisplay = null;
+            updateAdventureObjectiveUI(advanced);
+        }
     }
 
     function updateAdventureObjectiveUI(bump = false) {
@@ -3388,19 +3410,20 @@
         if (!obj) return;
 
         const meta = OBJECTIVE_META[obj.type];
-        const { cur, tgt, text } = getObjectiveCounts(obj);
+        const met = objDisplay ? objDisplay.met : adventureObjectiveMet;
+        const { cur, tgt, text } = objDisplay ? getObjectiveCounts(obj, objDisplay.progress, met) : getObjectiveCounts(obj);
         const countable = obj.type === 'annihilations' || obj.type === 'clear_dark_matter';
-        const oneToGo = countable && !adventureObjectiveMet && tgt - cur === 1;
+        const oneToGo = countable && !met && tgt - cur === 1;
 
         const glyphEl = document.getElementById('adv-obj-glyph');
         const togoEl = document.getElementById('adv-obj-togo');
-        if (glyphEl) glyphEl.textContent = adventureObjectiveMet ? '✓' : getObjectiveGlyph(obj);
+        if (glyphEl) glyphEl.textContent = met ? '✓' : getObjectiveGlyph(obj);
         if (advObjDesc) advObjDesc.textContent = meta ? meta.short(obj) : activeAdventureLevel.desc;
         if (advObjProgress) advObjProgress.textContent = text;
         if (togoEl) togoEl.hidden = !oneToGo;
         if (adventureObjectiveCard) {
             adventureObjectiveCard.classList.toggle('one-to-go', oneToGo);
-            adventureObjectiveCard.classList.toggle('complete', adventureObjectiveMet);
+            adventureObjectiveCard.classList.toggle('complete', met);
             if (bump) {
                 adventureObjectiveCard.classList.remove('bump');
                 void adventureObjectiveCard.offsetWidth;
@@ -3411,35 +3434,54 @@
         lastCoreHighlight = SHOW_LAST_CORE_MARKER && obj.type === 'clear_dark_matter' && !adventureObjectiveMet && countRemainingDarkMatter() === 1;
     }
 
-    // Badge that rises from where the objective progressed ("◈ 3/4 · CORE SHATTERED")
-    function showObjectiveCallout(obj, pos) {
+    // Badge pops where the objective progressed ("◈ 3/4"), then flies into the
+    // objective strip, which updates and bumps when it lands. Returns false when
+    // it couldn't fly (strip hidden, reduced motion) so the caller updates at once.
+    function showObjectiveCallout(obj, pos, onArrive) {
         const host = document.getElementById('canvas-container');
-        if (!host) return;
-        const meta = OBJECTIVE_META[obj.type];
+        const target = advObjProgress && advObjProgress.getBoundingClientRect();
+        const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (!host || !target || !target.width || reduce || typeof document.body.animate !== 'function') return false;
+
         const { cur, tgt } = getObjectiveCounts(obj);
         const left = Math.max(0, tgt - cur);
         const point = pos || { x: boardOffsetX + (COLS * cellW) / 2, y: boardOffsetY + (ROWS * cellH) / 2 };
+        const hr = host.getBoundingClientRect();
+        const sx = hr.left + Math.min(Math.max(point.x, 50), host.clientWidth - 50);
+        const sy = hr.top + Math.max(point.y, 40);
+        const tx = target.left + target.width / 2;
+        const ty = target.top + target.height / 2;
 
         const el = document.createElement('div');
         el.className = 'obj-callout' + (adventureObjectiveMet || left === 1 ? ' gold' : '');
-        el.style.left = `${Math.min(Math.max(point.x, 70), host.clientWidth - 70)}px`;
-        el.style.top = `${Math.max(point.y, 60)}px`;
+        el.style.left = `${sx}px`;
+        el.style.top = `${sy}px`;
         const badge = document.createElement('span');
         badge.className = 'badge';
         const g = document.createElement('span');
         g.className = 'g';
-        g.textContent = getObjectiveGlyph(obj);
+        g.textContent = adventureObjectiveMet ? '✓' : getObjectiveGlyph(obj);
         const n = document.createElement('span');
         n.className = 'n';
         n.textContent = obj.type === 'synthesis_tier' && !adventureObjectiveMet ? `+${cur}` : `${cur}/${tgt}`;
         badge.append(g, n);
-        const label = document.createElement('span');
-        label.className = 'label';
-        label.textContent = adventureObjectiveMet ? 'OBJECTIVE COMPLETE!' : (left === 1 ? `${meta ? meta.event : 'PROGRESS'} · 1 TO GO` : (meta ? meta.event : 'PROGRESS'));
-        el.append(badge, label);
-        host.appendChild(el);
-        setTimeout(() => el.remove(), 1600);
+        el.append(badge);
+        document.body.appendChild(el);
+
+        const dx = tx - sx;
+        const dy = ty - sy;
+        const anim = el.animate([
+            { transform: 'translate(-50%, -50%) scale(0.5)', opacity: 0, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' },
+            { transform: 'translate(-50%, calc(-50% - 14px)) scale(1.1)', opacity: 1, offset: 0.22 },
+            { transform: 'translate(-50%, calc(-50% - 16px)) scale(1)', opacity: 1, offset: 0.36, easing: 'cubic-bezier(0.5, 0, 0.75, 0.3)' },
+            { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(0.45)`, opacity: 0.7 }
+        ], { duration: 780, fill: 'both' });
+        anim.onfinish = () => {
+            el.remove();
+            if (onArrive) onArrive();
+        };
         triggerHaptic(adventureObjectiveMet ? 'zero' : 'tick');
+        return true;
     }
 
     // ---------- Intro A: mission card before the first drop ----------
@@ -3579,6 +3621,7 @@
 
     function triggerGameOver(message = "The reactor exceeded critical threshold capacity!") {
         isGameOver = true;
+        clearFlyingChips();
         sfx.playGameOver();
         triggerScreenShake(18);
 
@@ -3715,6 +3758,8 @@
         const dropBonus = dropsLeft * 20;
         const finalScore = score + dropBonus;
         score = finalScore;
+        scoreFlySession++;
+        scoreShown = score;
         setScoreDisplay(score);
 
         addFloatingText('SECTOR CLEARED!', canvas.width / (2 * dpr), boardOffsetY + cellH * 2.5, 'var(--gold)', 1.5);
@@ -3859,7 +3904,65 @@
         retriggerClass(scoreVal, 'score-pop');
     }
 
-    function addScore(pts) {
+    // Floating "+N" chip that pops at the event, then flies into the HUD score
+    // Drop any chips still in flight (new run, or a result screen opening)
+    function clearFlyingChips() {
+        scoreFlySession++;
+        objDisplay = null;
+        objFlyersInFlight = 0;
+        document.querySelectorAll('.score-fly, .obj-callout').forEach((el) => el.remove());
+    }
+
+    function resetScoreFlyers() {
+        clearFlyingChips();
+        scoreShown = 0;
+    }
+
+    function spawnScoreFlyer(pts, x, y) {
+        const target = scoreVal && scoreVal.getBoundingClientRect();
+        const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (!target || !target.width || reduce || typeof document.body.animate !== 'function') return false;
+
+        const cr = canvas.getBoundingClientRect();
+        const sx = cr.left + x;
+        const sy = cr.top + y;
+        const tx = target.left + Math.min(target.width / 2, 22);
+        const ty = target.top + target.height / 2;
+
+        const el = document.createElement('span');
+        el.className = 'score-fly' + (pts >= 100 ? ' score-fly-big' : '');
+        el.textContent = `+${pts.toLocaleString()}`;
+        el.style.left = `${sx}px`;
+        el.style.top = `${sy}px`;
+        document.body.appendChild(el);
+
+        // Stagger chips spawned in the same burst so they arrive one after another
+        const now = performance.now();
+        scoreFlyStagger = now - lastScoreFlyAt < 120 ? Math.min(scoreFlyStagger + 90, 450) : 0;
+        lastScoreFlyAt = now;
+
+        const dx = tx - sx;
+        const dy = ty - sy;
+        const anim = el.animate([
+            { transform: 'translate(-50%, -50%) scale(0.4)', opacity: 0, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' },
+            { transform: 'translate(-50%, calc(-50% - 18px)) scale(1.15)', opacity: 1, offset: 0.18 },
+            { transform: 'translate(-50%, calc(-50% - 22px)) scale(1)', opacity: 1, offset: 0.4, easing: 'cubic-bezier(0.55, 0, 0.8, 0.4)' },
+            { transform: `translate(calc(-50% + ${dx * 0.45}px), calc(-50% + ${dy * 0.45 - 40}px)) scale(0.85)`, opacity: 1, offset: 0.72, easing: 'cubic-bezier(0.3, 0.4, 0.6, 1)' },
+            { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(0.45)`, opacity: 0.85 }
+        ], { duration: 1000, delay: scoreFlyStagger, fill: 'both' });
+
+        const session = scoreFlySession;
+        anim.onfinish = () => {
+            el.remove();
+            if (session !== scoreFlySession) return;
+            scoreShown += pts;
+            setScoreDisplay(Math.min(scoreShown, score));
+            retriggerClass(scoreVal, 'score-hit');
+        };
+        return true;
+    }
+
+    function addScore(pts, at = null) {
         score += pts;
         if (gameMode === 'classic') {
             if (score > career.highScore) {
@@ -3880,7 +3983,10 @@
                 }
             }
         }
-        setScoreDisplay(score);
+        if (!(at && spawnScoreFlyer(pts, at.x, at.y))) {
+            scoreShown += pts;
+            setScoreDisplay(Math.min(scoreShown, score));
+        }
     }
 
     function addOverdriveCharge(pts) {
@@ -5149,15 +5255,6 @@
                     ctx.shadowBlur = 8;
                     const nextVal = (orbVal * 2 > 0 ? '+' : '') + (orbVal * 2);
                     ctx.fillText(`✨ MERGE (➜ ${nextVal})`, centerX, ghostY - cellH / 2 - 4);
-                } else {
-                    // Standard drop indicator badge
-                    const tagColor = orbFlavor === 'pos' ? '#a5f3fc' : '#fecdd3';
-                    ctx.fillStyle = tagColor;
-                    ctx.font = '800 10px Inter, sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.shadowColor = orbFlavor === 'pos' ? '#00f2fe' : '#ff4e50';
-                    ctx.shadowBlur = 8;
-                    ctx.fillText('▼ LANDING', centerX, ghostY - cellH / 2 - 4);
                 }
 
                 // Render subtle low-opacity ghost tile (opacity 0.2)
