@@ -4,6 +4,7 @@ class SoundFX {
         this.ctx = null;
         this.muted = false;
         this.initialized = false;
+        this.noiseBuffer = null;
     }
 
     init() {
@@ -12,9 +13,46 @@ class SoundFX {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             this.ctx = new AudioContext();
             this.initialized = true;
+            this.warmUp();
         } catch (e) {
             console.warn("Web Audio not supported", e);
         }
+    }
+
+    // Start the audio hardware and build shared buffers up front (on the first
+    // menu tap) so the first in-game sound doesn't stall a frame.
+    warmUp() {
+        if (!this.ctx) return;
+        try {
+            this.resume();
+            const silent = this.ctx.createBuffer(1, 1, this.ctx.sampleRate);
+            const src = this.ctx.createBufferSource();
+            src.buffer = silent;
+            src.connect(this.ctx.destination);
+            src.start(0);
+            // Silent oscillator so the first real tone doesn't pay the node setup cost
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            gain.gain.setValueAtTime(0, now);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.02);
+            this.getNoiseBuffer();
+        } catch (e) {}
+    }
+
+    // One second of white noise, reused by every blast (offset varies per play)
+    getNoiseBuffer() {
+        if (!this.noiseBuffer && this.ctx) {
+            const size = this.ctx.sampleRate;
+            const buffer = this.ctx.createBuffer(1, size, this.ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < size; i++) data[i] = Math.random() * 2 - 1;
+            this.noiseBuffer = buffer;
+        }
+        return this.noiseBuffer;
     }
 
     resume() {
@@ -193,12 +231,9 @@ class SoundFX {
 
     playNoiseBlast(duration = 0.1, volume = 0.2) {
         if (!this.ctx) return;
-        const bufferSize = this.ctx.sampleRate * duration;
-        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-            data[i] = Math.random() * 2 - 1;
-        }
+        const buffer = this.getNoiseBuffer();
+        const len = Math.min(duration, buffer.duration);
+        const offset = Math.random() * Math.max(0, buffer.duration - len);
 
         const noise = this.ctx.createBufferSource();
         noise.buffer = buffer;
@@ -217,8 +252,7 @@ class SoundFX {
         filter.connect(gain);
         gain.connect(this.ctx.destination);
 
-        noise.start(now);
-        noise.stop(now + duration);
+        noise.start(now, offset, len);
     }
 
     playWarning() {

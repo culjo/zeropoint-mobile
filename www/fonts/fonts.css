@@ -1,0 +1,30 @@
+/* Bundled fonts (Latin subset from Google Fonts), so the app needs no network
+   at launch. Licenses: OFL-Inter.txt, OFL-Lato.txt (SIL Open Font License 1.1). */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url(inter-latin-var.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(lato-latin-400.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(lato-latin-700.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url(lato-latin-900.woff2) format('woff2');
+}
