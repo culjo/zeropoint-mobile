@@ -316,6 +316,12 @@
                         <span>⚡ QUANTUM SWAP: Tap 2 adjacent tiles &bull; [Esc] cancel</span>
                     </div>
                     <canvas id="game-canvas"></canvas>
+
+                    <!-- Shown while a drag is outside the board: releasing cancels the drop -->
+                    <div id="drop-cancel-hint" class="drop-cancel-hint" aria-hidden="true">
+                        <span class="dc-x"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
+                        <span>Release to cancel</span>
+                    </div>
                 </div>
 
                 <!-- Zone 3: Bottom Ergonomic Thumb Cockpit -->

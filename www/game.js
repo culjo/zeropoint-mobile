@@ -535,6 +535,7 @@
     let lastScoreFlyAt = 0;
     let objDisplay = null;     // objective state the strip shows while badges are in flight
     let objFlyersInFlight = 0;
+    let dropCancelArmed = false; // drag is outside the board; release won't drop
     let scoreFlyStagger = 0;
 
     // Rendering Metrics
@@ -2352,6 +2353,7 @@
         boardOffsetX = (rect.width - cell * COLS) / 2;
         boardOffsetY = rect.height - cell * (ROWS + 1);
         if (riseStatusBar) riseStatusBar.style.height = `${cell}px`;
+        if (canvas.parentElement) canvas.parentElement.style.setProperty('--rise-h', `${cell}px`);
     }
 
     function startNewGame() {
@@ -4526,6 +4528,21 @@
         let lastTouchTime = 0;
         let isTouchingCanvas = false;
         let touchCanceled = false;
+        const cancelHint = document.getElementById('drop-cancel-hint');
+        const canvasHost = document.getElementById('canvas-container');
+
+        // Arm / disarm the "release to cancel" state (side: 'top' | 'bottom')
+        function setDropCancel(armed, side = 'top') {
+            if (armed === dropCancelArmed && (!armed || (cancelHint && cancelHint.dataset.side === side))) return;
+            const entering = armed && !dropCancelArmed;
+            dropCancelArmed = armed;
+            if (cancelHint) {
+                cancelHint.dataset.side = side;
+                cancelHint.classList.toggle('show', armed);
+            }
+            if (canvasHost) canvasHost.classList.toggle('drop-cancel', armed);
+            if (entering) triggerHaptic('tick');
+        }
 
         canvas.addEventListener('click', (e) => {
             if (isProcessing || isGameOver || isPaused || currentScreen !== 'game') return;
@@ -4556,6 +4573,7 @@
             lastTouchTime = Date.now();
             isTouchingCanvas = true;
             touchCanceled = false;
+            setDropCancel(false);
 
             const rect = canvas.getBoundingClientRect();
             const touchX = e.touches[0].clientX - rect.left;
@@ -4585,12 +4603,14 @@
             const touchX = e.touches[0].clientX - rect.left;
             const touchY = e.touches[0].clientY - rect.top;
 
-            // If dragged upwards past the top header, safely cancel drop intent
-            if (touchY < -40) {
+            // If dragged up past the top header or down past the board, safely cancel drop intent
+            if (touchY < -40 || touchY > rect.height + 40) {
                 touchCanceled = true;
+                setDropCancel(true, touchY < 0 ? 'top' : 'bottom');
                 return;
             } else {
                 touchCanceled = false;
+                setDropCancel(false);
             }
 
             const col = Math.floor((touchX - boardOffsetX) / cellW);
@@ -4605,6 +4625,7 @@
             if (!isTouchingCanvas) return;
             isTouchingCanvas = false;
             lastTouchTime = Date.now();
+            setDropCancel(false);
 
             if (touchCanceled || isProcessing || isGameOver || isPaused || currentScreen !== 'game' || isSwapModeActive) return;
 
@@ -4615,6 +4636,7 @@
         canvas.addEventListener('touchcancel', () => {
             isTouchingCanvas = false;
             touchCanceled = true;
+            setDropCancel(false);
         });
 
         // Keyboard Controls
@@ -5034,7 +5056,7 @@
     }
 
     function drawAimerAndPreview() {
-        if (isGameOver || isSwapModeActive) return;
+        if (isGameOver || isSwapModeActive || dropCancelArmed) return;
         const col = aimCol;
         const centerX = boardOffsetX + col * cellW + cellW / 2;
 
