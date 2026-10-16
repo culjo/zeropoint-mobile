@@ -5828,16 +5828,32 @@
         }
     }
 
+    const FLOAT_TEXT_BASE_PX = 12;
+    const FLOAT_TEXT_SCALE_SPREAD = 0.4; // compresses the 1.0–1.65 scales to roughly 12–15px
+
     function drawFloatingTexts() {
+        const boardLeft = boardOffsetX;
+        const boardW = COLS * cellW;
+        const maxW = boardW - 16;
         for (const ft of floatingTexts) {
             ctx.save();
             ctx.globalAlpha = Math.max(0, ft.alpha);
-            ctx.font = `900 ${14 * (ft.scale || 1)}px 'Lato', 'Inter', sans-serif`;
+            let size = FLOAT_TEXT_BASE_PX * (1 + ((ft.scale || 1) - 1) * FLOAT_TEXT_SCALE_SPREAD);
+            ctx.font = `900 ${size}px 'Lato', 'Inter', sans-serif`;
+            // Shrink long banners to fit inside the board instead of clipping at the edge
+            let w = ctx.measureText(ft.text).width;
+            if (w > maxW && w > 0) {
+                size = Math.max(9, size * (maxW / w));
+                ctx.font = `900 ${size}px 'Lato', 'Inter', sans-serif`;
+                w = ctx.measureText(ft.text).width;
+            }
+            const half = w / 2;
+            const x = boardW > 0 ? Math.min(Math.max(ft.x, boardLeft + 8 + half), boardLeft + boardW - 8 - half) : ft.x;
             ctx.fillStyle = ft.color;
             ctx.textAlign = 'center';
             ctx.shadowColor = ft.color;
-            ctx.shadowBlur = 8;
-            ctx.fillText(ft.text, ft.x, ft.y);
+            ctx.shadowBlur = 6;
+            ctx.fillText(ft.text, x, ft.y);
             ctx.restore();
         }
     }
