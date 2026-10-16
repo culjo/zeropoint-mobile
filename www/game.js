@@ -1,5 +1,5 @@
 /**
- * ZERO POINT — Quantum Math Cascade
+ * NULLFALL — Puzzle Cascade
  * Core Game Engine
  */
 
@@ -1201,8 +1201,8 @@
         if (modalVictory) modalVictory.classList.remove('visible');
         if (modalGameOver) modalGameOver.classList.remove('visible');
 
-        if (gameModeDisplay) gameModeDisplay.textContent = 'ZERO POINT';
-        if (gameModeSub) gameModeSub.textContent = 'Quantum Math Cascade';
+        if (gameModeDisplay) gameModeDisplay.textContent = 'NULLFALL';
+        if (gameModeSub) gameModeSub.textContent = 'Puzzle Cascade';
         if (bountyCard) bountyCard.style.display = 'none';
         if (adventureObjectiveCard) adventureObjectiveCard.style.display = 'none';
         if (tutorialCard) tutorialCard.style.display = 'none';

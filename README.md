@@ -1,6 +1,6 @@
-# ZERO POINT — Mobile (Capacitor)
+# NULLFALL — Mobile (Capacitor)
 
-Dedicated standalone mobile application build for **Zero Point: Quantum Math Cascade**, powered by **Capacitor 7**.
+Dedicated standalone mobile application build for **Nullfall: Puzzle Cascade**, powered by **Capacitor 7**.
 
 ---
 
@@ -58,6 +58,6 @@ npm run cap:doctor
 ---
 
 ## ⚙️ Configuration
-- **App Name**: `Zero Point`
+- **App Name**: `Nullfall` (App Store title: "Nullfall: Puzzle Cascade")
 - **Bundle ID / App ID**: `com.pixelated.zeropoint`
 - **Platform Targets**: Android 14+ (API 34/35), iOS 17+

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Renders the Zero Point app icon sources in resources/icon/*.html with headless Chrome,
+# Renders the Nullfall app icon sources in resources/icon/*.html with headless Chrome,
 # then writes every iOS and Android launcher size with macOS `sips`.
 # Usage: scripts/generate-icons.sh   (macOS with Google Chrome; Lato Black is embedded in each source as a data URI)
 set -euo pipefail

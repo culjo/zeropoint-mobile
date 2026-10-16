@@ -1,4 +1,4 @@
-// Zero Point - Procedural Adventure Node Generator
+// Nullfall - Procedural Adventure Node Generator
 // Deterministic, seed-based procedural level generator for the Constellation Map.
 
 (function (root, factory) {

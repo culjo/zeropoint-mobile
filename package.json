@@ -1,7 +1,7 @@
 {
   "name": "zeropoint-mobile",
   "version": "1.0.0",
-  "description": "Zero Point - Quantum Math Cascade Mobile App",
+  "description": "Nullfall: Puzzle Cascade mobile app",
   "main": "www/index.html",
   "scripts": {
     "build": "echo 'Web assets ready in www/'",
