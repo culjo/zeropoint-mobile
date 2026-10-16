@@ -6079,3 +6079,400 @@ input:checked + .toggle-slider:before {
     #screen-game .cockpit-hold-unit.hold-pop,
     #screen-game .cockpit-hold-unit.hold-pop .hold-slot { animation: none; }
 }
+
+/* ==========================================================
+   Academy training — Style A (coach card + ghost hand)
+   ========================================================== */
+.c-pos { color: #7ff8ff; }
+.c-neg { color: #ff8a8c; }
+.c-sp { color: #d99bf5; }
+
+/* Training header replaces the score HUD */
+#screen-game .tut-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    align-self: stretch;
+    width: 100%;
+    box-sizing: border-box;
+    height: 44px;
+    flex-shrink: 0;
+}
+#screen-game .tut-header[hidden] { display: none; }
+#screen-game.tut-mode .game-header { display: none; }
+
+#screen-game .tut-exit { width: 40px; height: 40px; border-radius: 13px; }
+
+#screen-game .tut-pips { display: flex; gap: 5px; }
+#screen-game .tut-pip {
+    width: 26px;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.12);
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+#screen-game .tut-pip.on { background: #00f2fe; box-shadow: 0 0 8px rgba(0, 242, 254, 0.7); }
+#screen-game .tut-pip.done { background: #f9d423; }
+@keyframes tutPipPop { 0% { transform: scaleY(1); } 50% { transform: scaleY(2.2); } 100% { transform: scaleY(1); } }
+#screen-game .tut-pip.pop { animation: tutPipPop 0.45s ease-out; }
+
+#screen-game .tut-skip {
+    width: 52px;
+    background: none;
+    border: 0;
+    padding: 8px 0;
+    text-align: right;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 800;
+    color: #8892b0;
+    cursor: pointer;
+}
+
+/* Only show the rise bar in the Danger lesson; only show tools when a lesson uses them */
+#screen-game.tut-mode .rise-status-bar { visibility: hidden; }
+#screen-game.tut-mode.tut-rise .rise-status-bar { visibility: visible; }
+#screen-game.tut-mode .cockpit-hold-unit,
+#screen-game.tut-mode .cockpit-swap-unit { visibility: hidden; }
+#screen-game.tut-mode.tut-allow-hold .cockpit-hold-unit { visibility: visible; }
+#screen-game.tut-mode.tut-allow-swap .cockpit-swap-unit { visibility: visible; }
+#screen-game.tut-mode.tut-allow-swap.tut-swap-locked .cockpit-swap-unit { opacity: 0.35; pointer-events: none; }
+
+/* Coach card */
+#screen-game .mission-status-strip .tutorial-card.coach-card {
+    --coach: #00f2fe;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    padding: 12px 14px;
+    border-radius: 18px;
+    border-color: rgba(255, 255, 255, 0.14);
+    background: linear-gradient(180deg, #141a2c, #0b0e18);
+    box-shadow: 0 4px 0 #06080f;
+}
+#screen-game .coach-card .coach-kicker {
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    color: var(--coach);
+}
+#screen-game .coach-card .coach-line {
+    font-size: 16px;
+    font-weight: 900;
+    line-height: 1.3;
+    color: #f0f4fc;
+    white-space: normal;
+}
+#screen-game .coach-card .coach-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+}
+#screen-game .coach-card .coach-chips[hidden] { display: none; }
+#screen-game .coach-chip {
+    height: 24px;
+    padding: 0 8px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    font-family: 'Lato', sans-serif;
+    font-size: 12px;
+    font-weight: 900;
+    color: #f0f4fc;
+    white-space: nowrap;
+    border: 1.5px solid transparent;
+}
+#screen-game .coach-chip.pos { background: #0f2433; border-color: #00f2fe; }
+#screen-game .coach-chip.neg { background: #33141d; border-color: #ff4e50; }
+#screen-game .coach-chip.zero { background: #2a1640; border-color: #c471ed; border-radius: 12px; min-width: 24px; justify-content: center; padding: 0 6px; }
+#screen-game .coach-chip.sp { background: #1a1230; border-color: #c471ed; color: #d99bf5; }
+#screen-game .coach-chip.gold { background: #2a230a; border-color: #f9d423; color: #f9d423; }
+#screen-game .coach-op { font-size: 12px; font-weight: 900; color: #8892b0; }
+
+/* Ghost hand (viewport coordinates; left/top is the fingertip) */
+@keyframes tutTap { 0%, 100% { transform: translate(-14px, -6px) scale(1); } 45% { transform: translate(-14px, 2px) scale(0.92); } }
+@keyframes tutRipple { 0% { transform: translate(-50%, -50%) scale(0.4); opacity: 0.9; } 100% { transform: translate(-50%, -50%) scale(1.8); opacity: 0; } }
+.tut-hand {
+    position: fixed;
+    z-index: 95;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+.tut-hand[hidden] { display: none; }
+.tut-hand-svg {
+    position: absolute;
+    left: 0;
+    top: 0;
+    animation: tutTap 1.4s ease-in-out infinite;
+    filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.6));
+}
+.tut-hand-ripple {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    animation: tutRipple 1.4s ease-out infinite;
+}
+
+/* Try-again sheet */
+.tut-fail {
+    position: fixed;
+    inset: 0;
+    z-index: 105;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0 12px max(24px, calc(env(safe-area-inset-bottom) + 12px));
+    background: rgba(3, 4, 8, 0.45);
+}
+.tut-fail[hidden] { display: none; }
+@keyframes tutSheetUp { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.tut-fail-sheet {
+    width: 100%;
+    max-width: 520px;
+    box-sizing: border-box;
+    border-radius: 24px;
+    border: 1.5px solid rgba(255, 107, 138, 0.55);
+    background: linear-gradient(180deg, #1d0f17, #0e0a12);
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.6);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-family: 'Inter', sans-serif;
+    color: #f0f4fc;
+    animation: tutSheetUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.tut-fail-head { display: flex; align-items: center; gap: 10px; }
+.tut-fail-x {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 12px;
+    background: #ff4e50;
+    color: #1a0408;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 900;
+}
+.tut-fail-text { display: flex; flex-direction: column; gap: 2px; }
+.tut-fail-kicker { font-size: 10px; font-weight: 900; letter-spacing: 2px; color: #ff6b8a; }
+.tut-fail-title { font-size: 17px; font-weight: 900; }
+.tut-fail-body { margin: 0; font-size: 13px; line-height: 1.45; color: #c7b1b8; }
+.tut-fail-actions { display: flex; align-items: center; gap: 10px; }
+.tut-retry {
+    flex: 1;
+    height: 54px;
+    box-sizing: border-box;
+    border-radius: 20px;
+    background: linear-gradient(#ffe45c, #f9d423 55%, #e8b80f);
+    border: 2px solid #fff3a8;
+    box-shadow: 0 5px 0 #a8820a;
+    color: #1a1302;
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    font-weight: 900;
+    cursor: pointer;
+}
+.tut-retry:active { transform: translateY(4px); box-shadow: 0 1px 0 #a8820a; }
+.tut-showme {
+    background: none;
+    border: 0;
+    padding: 12px 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 800;
+    color: #8892b0;
+    cursor: pointer;
+}
+
+/* First-launch welcome */
+.tut-welcome {
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    box-sizing: border-box;
+    padding: max(54px, calc(env(safe-area-inset-top) + 24px)) 20px max(28px, calc(env(safe-area-inset-bottom) + 14px));
+    background: radial-gradient(circle at 50% 30%, rgba(196, 113, 237, 0.18), transparent 55%), #06070d;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: 'Inter', sans-serif;
+    color: #f0f4fc;
+    text-align: center;
+}
+.tut-welcome[hidden] { display: none; }
+.tut-welcome-logo {
+    position: relative;
+    margin-top: 6vh;
+    width: 150px;
+    height: 150px;
+    border-radius: 34px;
+    background: radial-gradient(circle at 50% 34%, #4a2a7a 0%, #24164a 45%, #0e0a1e 100%);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+}
+.twl-ledge, .twl-tile { position: absolute; left: 31px; width: 88px; height: 88px; border-radius: 23px; }
+.twl-ledge { top: 36px; background: #a8820a; }
+.twl-tile {
+    top: 28px;
+    box-sizing: border-box;
+    background: linear-gradient(#ffe45c, #f9d423 55%, #e8b80f);
+    border: 3px solid #fff3a8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Lato', sans-serif;
+    font-size: 64px;
+    font-weight: 900;
+    color: #1a1302;
+}
+.twl-orb {
+    position: absolute;
+    width: 42px;
+    height: 42px;
+    box-sizing: border-box;
+    border-radius: 12px;
+    border: 3px solid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Lato', sans-serif;
+    font-size: 21px;
+    font-weight: 900;
+    color: #f0f4fc;
+}
+.twl-orb.pos { left: 12px; top: 12px; background: #0f2433; border-color: #00f2fe; box-shadow: 0 0 12px rgba(0, 242, 254, 0.65); transform: rotate(-12deg); }
+.twl-orb.neg { right: 12px; bottom: 14px; background: #33141d; border-color: #ff4e50; box-shadow: 0 0 12px rgba(255, 78, 80, 0.65); transform: rotate(10deg); }
+.tut-welcome-kicker { margin-top: 28px; font-size: 11px; font-weight: 900; letter-spacing: 3px; color: #00f2fe; }
+.tut-welcome-title { margin: 6px 0 0; font-size: 28px; font-weight: 900; line-height: 1.15; letter-spacing: 0; }
+.tut-welcome-sub { margin: 10px 0 0; font-size: 13px; line-height: 1.45; color: #a3acc6; max-width: 300px; }
+.tut-welcome-lessons { margin-top: 26px; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.tut-welcome-lessons span {
+    width: 52px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    color: #8892b0;
+}
+.tut-welcome-lessons b {
+    width: 44px;
+    height: 44px;
+    border-radius: 13px;
+    background: rgba(18, 23, 37, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Lato', sans-serif;
+    font-size: 16px;
+    font-weight: 900;
+}
+.tut-welcome-actions {
+    margin-top: auto;
+    width: 100%;
+    max-width: 520px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+}
+.tut-welcome-start {
+    width: 100%;
+    height: 64px;
+    box-sizing: border-box;
+    border-radius: 22px;
+    background: linear-gradient(#ffe45c, #f9d423 55%, #e8b80f);
+    border: 2px solid #fff3a8;
+    box-shadow: 0 6px 0 #a8820a, 0 12px 26px rgba(249, 212, 35, 0.3);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: #1a1302;
+    font-family: 'Inter', sans-serif;
+    font-size: 17px;
+    font-weight: 900;
+    cursor: pointer;
+}
+.tut-welcome-start:active { transform: translateY(5px); box-shadow: 0 1px 0 #a8820a; }
+.tut-welcome-skip {
+    background: none;
+    border: 0;
+    padding: 10px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 800;
+    color: #8892b0;
+    cursor: pointer;
+}
+
+/* Real game: first Overdrive tip */
+.od-tip {
+    position: fixed;
+    inset: 0;
+    z-index: 115;
+    display: flex;
+    justify-content: center;
+    padding: max(130px, calc(env(safe-area-inset-top) + 100px)) 32px 0;
+    background: rgba(3, 4, 8, 0.45);
+}
+.od-tip[hidden] { display: none; }
+.od-tip-bubble {
+    position: relative;
+    align-self: flex-start;
+    width: 100%;
+    max-width: 330px;
+    box-sizing: border-box;
+    border-radius: 20px;
+    background: #f0f4fc;
+    color: #11131c;
+    padding: 14px 16px;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-family: 'Inter', sans-serif;
+    animation: tutSheetUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.od-tip-bubble::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: -8px;
+    width: 16px;
+    height: 16px;
+    margin-left: -8px;
+    background: #f0f4fc;
+    transform: rotate(45deg);
+}
+.od-tip-kicker { font-size: 10px; font-weight: 900; letter-spacing: 2px; color: #a8820a; }
+.od-tip-title { font-size: 16px; font-weight: 900; line-height: 1.3; }
+.od-tip-body { font-size: 12px; line-height: 1.45; color: #4a5068; }
+.od-tip-ok {
+    align-self: flex-end;
+    margin-top: 4px;
+    height: 34px;
+    padding: 0 16px;
+    border-radius: 12px;
+    border: 0;
+    background: #11131c;
+    color: #f9d423;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 900;
+    cursor: pointer;
+}

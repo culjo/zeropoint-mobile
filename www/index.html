@@ -224,6 +224,13 @@
         <!-- ========================================== -->
         <section id="screen-game" class="screen-view">
             <div id="app">
+                <!-- Zone 0: Training header (tutorial only): exit · lesson pips · skip -->
+                <div class="tut-header" id="tut-header" hidden>
+                    <button type="button" id="btn-tut-exit" class="btn-icon tut-exit" aria-label="Exit training"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+                    <div class="tut-pips" id="tut-pips" role="progressbar" aria-label="Training progress"></div>
+                    <button type="button" id="btn-tut-skip" class="tut-skip">Skip</button>
+                </div>
+
                 <!-- Zone 1: Compact Arcade HUD (score left · next + overdrive centre · pause right) -->
                 <header class="game-header hud-compact">
                     <div class="hud-score-block" id="stat-pill-best">
@@ -261,13 +268,10 @@
                 <!-- Zone 1C: Contextual Objective / Tutorial Strip (hidden in Classic; bounty lives on the pause screen) -->
                 <div class="mission-status-strip" id="mission-status-strip">
                     <!-- Tutorial Step Card (Shown in Tutorial Mode) -->
-                    <div class="tutorial-card" id="tutorial-card" style="display: none;">
-                        <div class="tutorial-header">
-                            <span class="tutorial-badge" id="tutorial-step-badge">STEP 1 / 4</span>
-                            <span class="tutorial-tag">🎓 ACADEMY</span>
-                            <span class="tutorial-title" id="tutorial-title">Opposites Cancel to Zero</span>
-                        </div>
-                        <div class="tutorial-desc" id="tutorial-desc">Drop your <strong>-3</strong> orb onto the <strong>+3</strong> tile in Column 3 to trigger a Zero Blast!</div>
+                    <div class="tutorial-card coach-card" id="tutorial-card" style="display: none;" role="status" aria-live="polite">
+                        <span class="coach-kicker" id="tutorial-step-badge">LESSON 1 · ZERO BLAST</span>
+                        <span class="coach-line" id="tutorial-title">Opposites cancel. Drop −3 on its match.</span>
+                        <div class="coach-chips" id="tutorial-desc"></div>
                     </div>
 
                     <!-- Adventure Mode Objective Bar (Shown in Adventure Mode) -->
@@ -389,6 +393,66 @@
                 </div>
                 <span class="obj-intro-tap">TAP TO START</span>
                 <div class="obj-intro-timer" aria-hidden="true"><div class="obj-intro-timer-fill" id="obj-intro-timer-fill"></div></div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TRAINING: try-again sheet                   -->
+        <!-- ========================================== -->
+        <!-- Ghost hand: points at a column, cell or button during training (fixed, viewport coords) -->
+        <div class="tut-hand" id="tut-hand" hidden aria-hidden="true"><span class="tut-hand-ripple"></span><svg class="tut-hand-svg" width="54" height="62" viewBox="0 0 54 62" aria-hidden="true"><path d="M16 6c0-3.3 2.7-6 6-6s6 2.7 6 6v18l3-1c3-1 6 .6 7 3.6l.4 1.2 2.3-.8c3-1 6.2.7 7.1 3.7l.5 1.5c3-.7 6 1 6.8 4l2 7c2.6 9.5-3 19.3-12.5 21.9l-3 .8C33 67 23 63 18 55L5 34c-1.7-2.8-.8-6.4 2-8.1 2.6-1.6 6-.9 7.8 1.6L16 29z" fill="#f0f4fc" stroke="#0b0e18" stroke-width="2"/></svg></div>
+
+        <div class="tut-fail" id="tut-fail" role="alertdialog" aria-modal="true" aria-labelledby="tut-fail-title" hidden>
+            <div class="tut-fail-sheet">
+                <div class="tut-fail-head">
+                    <span class="tut-fail-x" aria-hidden="true">✕</span>
+                    <span class="tut-fail-text">
+                        <span class="tut-fail-kicker">NOT QUITE</span>
+                        <span class="tut-fail-title" id="tut-fail-title">Try that again</span>
+                    </span>
+                </div>
+                <p class="tut-fail-body" id="tut-fail-body"></p>
+                <div class="tut-fail-actions">
+                    <button type="button" id="btn-tut-retry" class="tut-retry">↻ Try again</button>
+                    <button type="button" id="btn-tut-showme" class="tut-showme">Show me</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TRAINING: first-launch welcome              -->
+        <!-- ========================================== -->
+        <div class="tut-welcome" id="tut-welcome" role="dialog" aria-modal="true" aria-labelledby="tut-welcome-title" hidden>
+            <div class="tut-welcome-logo" aria-hidden="true">
+                <span class="twl-ledge"></span><span class="twl-tile">0</span>
+                <span class="twl-orb pos">+4</span><span class="twl-orb neg">-4</span>
+            </div>
+            <span class="tut-welcome-kicker">WELCOME, PILOT</span>
+            <h2 class="tut-welcome-title" id="tut-welcome-title">Learn Zero Point<br>It's Easy</h2>
+            <p class="tut-welcome-sub">Six quick hands-on lessons. Make mistakes, that's how it sticks.</p>
+            <div class="tut-welcome-lessons">
+                <span><b style="color:#c471ed">0</b>BLAST</span>
+                <span><b style="color:#f9d423">×2</b>MERGE</span>
+                <span><b style="color:#00f2fe">2x</b>CHAIN</span>
+                <span><b style="color:#ff6b8a">◈</b>DANGER</span>
+                <span><b style="color:#00f2fe">⇆</b>TOOLS</span>
+                <span><b style="color:#c471ed">±</b>FLIP</span>
+            </div>
+            <div class="tut-welcome-actions">
+                <button type="button" id="btn-tut-welcome-start" class="tut-welcome-start">Start training <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg></button>
+                <button type="button" id="btn-tut-welcome-skip" class="tut-welcome-skip">Skip — I've played before</button>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- REAL GAME: first Overdrive tip              -->
+        <!-- ========================================== -->
+        <div class="od-tip" id="od-tip" role="dialog" aria-modal="true" aria-labelledby="od-tip-title" hidden>
+            <div class="od-tip-bubble">
+                <span class="od-tip-kicker">⚡ NEW · OVERDRIVE READY</span>
+                <span class="od-tip-title" id="od-tip-title">Your next orb is a Frenzy orb</span>
+                <span class="od-tip-body">Every blast charges the Overdrive bar. At 100% you get one Frenzy special that clears a big chunk of the board. Drop it where the board is most crowded.</span>
+                <button type="button" id="btn-od-tip-ok" class="od-tip-ok">Got it</button>
             </div>
         </div>
 

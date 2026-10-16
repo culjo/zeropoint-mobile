@@ -360,6 +360,9 @@
             adventureNodes: {}, // { [nodeId]: { cleared: true, stars: 3, bestScore: 210, bestDrops: 5 } }
             unlockedNodes: ['1-1'],
             currentSector: 1,
+            tutorialDone: false,
+            tutorialSkipped: false,
+            seenOverdriveTip: false,
             settings: {
                 sfx: true,
                 bgm: false, // ambient music off by default until the new soundtrack lands
@@ -554,6 +557,19 @@
         if (screenId !== 'game' && isTutorial) {
             isTutorial = false;
             if (tutorialCard) tutorialCard.style.display = 'none';
+        }
+        if (screenId !== 'game') {
+            hideTutHand();
+            hideTutFail();
+        }
+        if (screenGame) {
+            const training = screenId === 'game' && isTutorial;
+            screenGame.classList.toggle('tut-mode', training);
+            if (!training) screenGame.classList.remove('tut-rise', 'tut-allow-hold', 'tut-allow-swap', 'tut-swap-locked');
+            const tutHeader = document.getElementById('tut-header');
+            if (tutHeader) tutHeader.hidden = !training;
+            const hintEl = screenGame.querySelector('.cockpit-hint');
+            if (hintEl) hintEl.innerHTML = training ? 'Tap a column<br>to drop' : 'Drag to aim<br>Release to drop';
         }
 
         if (screenId === 'home') {
@@ -1192,7 +1208,9 @@
     }
 
     function startAdventureLevel(levelId) {
-        const lvl = ADVENTURE_LEVELS.find(l => l.id === levelId) || ADVENTURE_LEVELS[1] || ADVENTURE_LEVELS[0];
+        const lvl = levelId === GRADUATION_LEVEL.id
+            ? GRADUATION_LEVEL
+            : (ADVENTURE_LEVELS.find(l => l.id === levelId) || ADVENTURE_LEVELS[1] || ADVENTURE_LEVELS[0]);
         if (lvl.isTutorial) {
             startTutorialMode();
             return;
@@ -1233,8 +1251,144 @@
         showObjectiveIntro(lvl);
     }
 
+    // ==========================================================
+    // ACADEMY TRAINING — six hands-on lessons (can fail → try again)
+    // ==========================================================
+    // Each lesson sets a board and an orb queue, then runs one or more phases.
+    // A phase passes or fails from what happened during the player's turn
+    // (blasts, merges, chain depth, hold, swap, flip, breach).
+    const TUT_LESSONS = [
+        {
+            kicker: 'LESSON 1 · ZERO BLAST', color: '#00f2fe',
+            board: { '7,1': 3, '7,4': 2 }, orbs: [-3],
+            phases: [{
+                line: 'Opposites cancel. Drop −3 on its match.',
+                chips: [['−3', 'neg'], '+', ['+3', 'pos'], '=', ['0', 'zero']],
+                hint: { col: 1 },
+                check: (t) => t.blasts > 0 ? 'pass' : (t.dropped ? 'fail' : null),
+                fail: { title: 'No opposite there', body: 'Only exact opposites make 0. Find the <b class="c-pos">+3</b> and drop on it.' }
+            }]
+        },
+        {
+            kicker: 'LESSON 2 · MERGE', color: '#f9d423',
+            board: { '7,2': 2, '7,0': -1, '7,5': 1 }, orbs: [2, -4],
+            phases: [{
+                line: 'Same numbers merge and double. Drop +2 on the +2.',
+                chips: [['+2', 'pos'], '&', ['+2', 'pos'], '=', ['+4', 'pos']],
+                hint: { col: 2 },
+                check: (t) => t.merges.includes(4) ? 'pass' : (t.dropped ? 'fail' : null),
+                fail: { title: 'No merge', body: 'Only identical numbers merge. Drop your <b class="c-pos">+2</b> right on the <b class="c-pos">+2</b>.' }
+            }, {
+                line: 'Now cancel the +4 with −4. Big blasts fire a Cross Laser!',
+                chips: [['−4', 'neg'], '+', ['+4', 'pos'], '=', ['CROSS LASER', 'gold']],
+                hint: { find: 4 },
+                check: (t) => t.maxMag >= 4 ? 'pass' : (t.dropped ? 'fail' : null),
+                fail: { title: '−4 needs the +4', body: 'Drop <b class="c-neg">−4</b> right next to the <b class="c-pos">+4</b> you built.' }
+            }]
+        },
+        {
+            kicker: 'LESSON 3 · CHAIN', color: '#00f2fe',
+            board: { '7,2': -2, '7,3': 1, '6,3': 2 }, orbs: [-1],
+            phases: [{
+                line: 'One drop, two blasts. Find the drop that sets off a chain.',
+                chips: [['2x', 'gold'], '→', ['3x', 'gold'], '→', ['4x', 'gold'], '· chains multiply your score'],
+                hint: { col: 4 },
+                check: (t) => t.chain >= 2 ? 'pass' : (t.dropped ? 'fail' : null),
+                fail: (t) => t.blasts === 1
+                    ? { title: 'Only one blast', body: 'Close! Find the drop where a falling tile lands next to its opposite.' }
+                    : { title: 'No blast', body: 'Drop <b class="c-neg">−1</b> beside the <b class="c-pos">+1</b>, then watch the <b class="c-pos">+2</b> fall onto the <b class="c-neg">−2</b>.' }
+            }]
+        },
+        {
+            kicker: 'LESSON 4 · DANGER', color: '#ff6b8a',
+            board: { '1,4': 3, '2,4': 1, '3,4': 3, '4,4': 1, '5,4': 3, '6,4': 1, '7,4': 3 }, orbs: [-3],
+            rise: true,
+            phases: [{
+                line: 'Dark Matter pushes the board up after this drop. Clear the tall stack before it crosses the red line.',
+                chips: [],
+                hint: { col: 4 },
+                check: (t) => t.breach ? 'fail' : (t.dropped ? (t.blasts > 0 ? 'pass' : 'fail') : null),
+                fail: { title: 'Breach!', body: 'A tile crossed the red line and the reactor blew. Blast the top of the tall stack first.' }
+            }]
+        },
+        {
+            kicker: 'LESSON 5 · TOOLS', color: '#c471ed',
+            board: { '7,1': 3, '7,2': -2, '7,3': -3, '7,4': 4 }, orbs: [1, -1],
+            phases: [{
+                line: 'This +1 fits nowhere. Tap HOLD to save it for later.',
+                chips: [],
+                hint: { target: 'hold' }, tools: { hold: true, swap: false },
+                check: (t) => t.held ? 'pass' : (t.dropped ? 'fail' : null),
+                fail: { title: 'That +1 had nowhere to go', body: 'When an orb doesn\'t fit, tap <b>HOLD</b> to stash it for later.' }
+            }, {
+                line: 'Now tap SWAP and swap the −2 and −3 so the −3 touches the +3.',
+                chips: [['−2', 'neg'], '⇆', ['−3', 'neg'], '→', ['−3', 'neg'], '+', ['+3', 'pos'], '=', ['0', 'zero']],
+                hint: { target: 'swap' }, tools: { hold: false, swap: true },
+                check: (t) => (t.swapped && t.blasts > 0) ? 'pass' : ((t.swapped || t.dropped) ? 'fail' : null),
+                fail: { title: 'No blast yet', body: 'Swap the <b class="c-neg">−2</b> and <b class="c-neg">−3</b> so the <b class="c-neg">−3</b> sits right next to the <b class="c-pos">+3</b>.' }
+            }]
+        },
+        {
+            kicker: 'LESSON 6 · FLIP', color: '#c471ed',
+            board: { '7,2': 3, '7,4': -2 }, orbs: ['invert', 3],
+            phases: [{
+                line: '± flips a sign. Drop it on the +3.',
+                chips: [['±', 'sp'], '→', ['+3', 'pos'], '=', ['−3', 'neg']],
+                hint: { col: 2 },
+                check: (t) => t.flipFrom !== null ? (t.flipFrom === 3 ? 'pass' : 'fail') : (t.dropped ? 'fail' : null),
+                fail: { title: 'Flip the +3', body: 'Drop <b class="c-sp">±</b> straight onto the <b class="c-pos">+3</b> to turn it into <b class="c-neg">−3</b>.' }
+            }, {
+                line: 'Now cancel it. Drop your +3 on the −3.',
+                chips: [['+3', 'pos'], '+', ['−3', 'neg'], '=', ['0', 'zero']],
+                hint: { col: 2 },
+                check: (t) => t.blasts > 0 ? 'pass' : (t.dropped ? 'fail' : null),
+                fail: { title: '+3 needs the −3', body: 'Drop your <b class="c-pos">+3</b> beside the <b class="c-neg">−3</b> you just flipped.' }
+            }]
+        }
+    ];
+
+    // Graduation: a short free-play round on the real HUD, then into Adventure.
+    const GRADUATION_LEVEL = {
+        id: 'academy-grad',
+        isGraduation: true,
+        title: 'Flight Training Passed',
+        sector: 'Academy',
+        desc: 'Trigger 3 Zero Blasts',
+        maxDrops: 10,
+        targetDropsForStar: 7,
+        targetScoreForStar: 200,
+        objective: { type: 'annihilations', target: 3, label: 'Zero Blasts' },
+        setupBoard: (g) => {
+            const preset = { '7,0': 2, '7,1': -1, '7,2': 3, '7,3': -2, '7,4': 1, '7,5': -3, '6,1': 2, '6,4': -1 };
+            Object.entries(preset).forEach(([k, v]) => { const [r, c] = k.split(',').map(Number); g[r][c] = createTile(v); });
+        }
+    };
+
+    let tutLesson = 1;
+    let tutPhase = 0;
+    let tutBusy = false;
+    let tutRisePending = false;
+    let tutTurn = null;
+
+    function newTutTurn() {
+        return { dropped: false, swapped: false, held: false, blasts: 0, maxMag: 0, merges: [], chain: 0, flipFrom: null, breach: false };
+    }
+    function tutRecordBlast(magnitude) { if (tutTurn) { tutTurn.blasts++; tutTurn.maxMag = Math.max(tutTurn.maxMag, magnitude); } }
+    function tutRecordMerge(value) { if (tutTurn) tutTurn.merges.push(value); }
+    function tutRecordFlip(fromValue) { if (tutTurn && tutTurn.flipFrom === null) tutTurn.flipFrom = fromValue; }
+
+    function tutPhaseDef() {
+        const lesson = TUT_LESSONS[tutLesson - 1];
+        return lesson ? lesson.phases[tutPhase] : null;
+    }
+    function tutToolAllowed(tool) {
+        const ph = tutPhaseDef();
+        return !!(ph && ph.tools && ph.tools[tool]);
+    }
+
     function startTutorialMode() {
         hideObjectiveIntro();
+        hideTutWelcome();
         gameMode = 'adventure';
         isTutorial = true;
         activeAdventureLevel = ADVENTURE_LEVELS.find(l => l.isTutorial) || ADVENTURE_LEVELS[0];
@@ -1248,134 +1402,285 @@
         if (modalPause) modalPause.classList.remove('visible');
         if (modalVictory) modalVictory.classList.remove('visible');
         if (modalGameOver) modalGameOver.classList.remove('visible');
-
-        if (gameModeDisplay) gameModeDisplay.textContent = 'ACADEMY';
-        if (gameModeSub) gameModeSub.textContent = 'Flight Training Level';
         if (bountyCard) bountyCard.style.display = 'none';
         if (adventureObjectiveCard) adventureObjectiveCard.style.display = 'none';
         if (tutorialCard) tutorialCard.style.display = 'flex';
-        if (bestLabel) bestLabel.textContent = 'Training';
-        if (bestVal) bestVal.textContent = 'Step 1/4';
-        if (turnCounterLabel) turnCounterLabel.textContent = 'Phase';
-        if (riseCounter) riseCounter.textContent = 'Guided';
 
         showScreen('game');
         startNewGame();
-        loadTutorialStep(1);
+        loadLesson(1);
     }
 
-    function loadTutorialStep(step) {
-        tutorialStep = step;
-        tutorialStepCompleted = false;
+    function loadLesson(n) {
+        const lesson = TUT_LESSONS[n - 1];
+        if (!lesson) return;
+        tutLesson = n;
+        tutPhase = 0;
+        tutBusy = false;
+        tutorialTargetCol = null;
+        hideTutFail();
+
         grid = Array(ROWS).fill(null).map(() => Array(COLS).fill(null));
+        Object.entries(lesson.board).forEach(([k, v]) => {
+            const [r, c] = k.split(',').map(Number);
+            grid[r][c] = createTile(v);
+        });
         particles = [];
         shockwaves = [];
         laserBeams = [];
         activeMergeAnimations = [];
         activeZeroPointCollapses = [];
+        floatingTexts = [];
         activeProjectile = null;
-        canHold = false;
+        isProcessing = false;
+        isSwapModeActive = false;
+        firstSwapTile = null;
+        if (swapBanner) swapBanner.style.display = 'none';
+        heldOrb = null;
+        swapTokens = 1;
+        combo = 1;
+        tutRisePending = !!lesson.rise;
+        aimCol = Math.floor(COLS / 2);
 
-        if (step === 1) {
-            tutorialTargetCol = 2; // Column 3 (0-indexed 2)
-            grid[ROWS - 1][2] = createTile(3);
-            aimCol = 2;
-            currentOrb = { type: 'number', value: -3, label: '-3' };
-            nextQueue = [
-                { type: 'number', value: 2, label: '+2' },
-                { type: 'number', value: -4, label: '-4' },
-                { type: 'special', subType: 'invert', label: '±' }
-            ];
-            if (tutorialStepBadge) tutorialStepBadge.textContent = 'STEP 1 / 4';
-            if (tutorialTitle) tutorialTitle.textContent = 'Cancel Opposites to Zero (Zero Blast)';
-            if (tutorialDesc) tutorialDesc.innerHTML = 'Dropping opposite numbers (like <strong>-3</strong> and <strong>+3</strong>) cancels them to zero. Drop your <strong>-3</strong> orb onto Column 3!';
-            if (bestVal) bestVal.textContent = 'Step 1/4';
-        } else if (step === 2) {
-            tutorialTargetCol = 3; // Column 4 (0-indexed 3)
-            grid[ROWS - 1][3] = createTile(2);
-            aimCol = 3;
-            currentOrb = { type: 'number', value: 2, label: '+2' };
-            nextQueue = [
-                { type: 'number', value: -4, label: '-4' },
-                { type: 'special', subType: 'invert', label: '±' },
-                { type: 'number', value: 3, label: '+3' }
-            ];
-            if (tutorialStepBadge) tutorialStepBadge.textContent = 'STEP 2 / 4';
-            if (tutorialTitle) tutorialTitle.textContent = 'Merge & Double Matching Numbers';
-            if (tutorialDesc) tutorialDesc.innerHTML = 'Dropping identical numbers merges and doubles them (<strong>+2</strong> + <strong>+2</strong> = <strong>+4</strong>). Drop your <strong>+2</strong> orb onto Column 4!';
-            if (bestVal) bestVal.textContent = 'Step 2/4';
-        } else if (step === 3) {
-            tutorialTargetCol = 3; // Column 4
-            grid[ROWS - 1][3] = createTile(4);
-            grid[ROWS - 1][0] = createTile(-2);
-            grid[ROWS - 1][1] = createTile(2);
-            grid[ROWS - 1][5] = createTile(-2);
-            aimCol = 3;
-            currentOrb = { type: 'number', value: -4, label: '-4' };
-            nextQueue = [
-                { type: 'special', subType: 'invert', label: '±' },
-                { type: 'number', value: 3, label: '+3' },
-                { type: 'number', value: 1, label: '+1' }
-            ];
-            if (tutorialStepBadge) tutorialStepBadge.textContent = 'STEP 3 / 4';
-            if (tutorialTitle) tutorialTitle.textContent = 'Cross Laser Power Blast';
-            if (tutorialDesc) tutorialDesc.innerHTML = 'Canceling <strong>±4 or higher</strong> unleashes a Cross Laser that vaporizes entire rows and columns! Drop <strong>-4</strong> onto <strong>+4</strong> in Column 4!';
-            if (bestVal) bestVal.textContent = 'Step 3/4';
-        } else if (step === 4) {
-            tutorialTargetCol = 2; // Column 3
-            grid[ROWS - 1][2] = createTile(3);
-            aimCol = 2;
-            currentOrb = { type: 'special', subType: 'invert', label: '±' };
-            nextQueue = [
-                { type: 'number', value: 3, label: '+3' },
-                { type: 'number', value: 1, label: '+1' },
-                { type: 'number', value: 2, label: '+2' }
-            ];
-            if (tutorialStepBadge) tutorialStepBadge.textContent = 'STEP 4 / 4';
-            if (tutorialTitle) tutorialTitle.textContent = 'Tactical Orbs: [±] Flip Sign';
-            if (tutorialDesc) tutorialDesc.innerHTML = 'Special orbs modify existing tiles. Drop the <strong>[±] Flip Sign</strong> orb on Column 3 to invert <strong>+3</strong> to <strong>-3</strong>!';
-            if (bestVal) bestVal.textContent = 'Step 4/4';
-        }
+        const orbs = lesson.orbs.map(tutMakeOrb);
+        currentOrb = orbs[0];
+        nextQueue = orbs.slice(1);
+        while (nextQueue.length < 3) nextQueue.push(generateOrb());
 
-        updateHUD();
+        renderTutPips();
+        applyTutPhase();
     }
 
-    function restoreTutorialStateForStep(step) {
-        if (!isTutorial || tutorialStepCompleted) return;
+    function tutMakeOrb(v) {
+        if (v === 'invert') return { type: 'special', subType: 'invert', label: '±' };
+        return { type: 'number', value: v, label: v > 0 ? `+${v}` : `${v}` };
+    }
 
-        if (step === 1) {
-            if (!grid[ROWS - 1][2] || grid[ROWS - 1][2].value !== 3) {
-                grid[ROWS - 1][2] = createTile(3);
-            }
-            currentOrb = { type: 'number', value: -3, label: '-3' };
-            addFloatingText("Drop -3 onto Column 3! 🎯", canvas.width / (2 * dpr), boardOffsetY + cellH * 2.5, '#ffd700', 1.25);
-        } else if (step === 2) {
-            if (!grid[ROWS - 1][3] || grid[ROWS - 1][3].value !== 2) {
-                grid[ROWS - 1][3] = createTile(2);
-            }
-            currentOrb = { type: 'number', value: 2, label: '+2' };
-            addFloatingText("Drop +2 onto Column 4! 🎯", canvas.width / (2 * dpr), boardOffsetY + cellH * 2.5, '#ffd700', 1.25);
-        } else if (step === 3) {
-            if (!grid[ROWS - 1][3] || grid[ROWS - 1][3].value !== 4) {
-                grid[ROWS - 1][3] = createTile(4);
-            }
-            currentOrb = { type: 'number', value: -4, label: '-4' };
-            addFloatingText("Drop -4 onto Column 4! 🎯", canvas.width / (2 * dpr), boardOffsetY + cellH * 2.5, '#ffd700', 1.25);
-        } else if (step === 4) {
-            const targetTile = grid[ROWS - 1][2];
-            if (!targetTile) {
-                grid[ROWS - 1][2] = createTile(3);
-                currentOrb = { type: 'special', subType: 'invert', label: '±' };
-                addFloatingText("Drop [±] onto Column 3! 🎯", canvas.width / (2 * dpr), boardOffsetY + cellH * 2.5, '#ffd700', 1.25);
-            } else if (targetTile.value === 3) {
-                currentOrb = { type: 'special', subType: 'invert', label: '±' };
-                addFloatingText("Drop [±] onto Column 3! 🎯", canvas.width / (2 * dpr), boardOffsetY + cellH * 2.5, '#ffd700', 1.25);
-            } else if (targetTile.value === -3) {
-                currentOrb = { type: 'number', value: 3, label: '+3' };
-                addFloatingText("Drop +3 onto Column 3! 🎯", canvas.width / (2 * dpr), boardOffsetY + cellH * 2.5, '#ffd700', 1.25);
-            }
+    function applyTutPhase() {
+        const lesson = TUT_LESSONS[tutLesson - 1];
+        const ph = tutPhaseDef();
+        if (!lesson || !ph) return;
+        tutTurn = newTutTurn();
+        canHold = tutToolAllowed('hold');
+
+        if (tutorialCard) tutorialCard.style.setProperty('--coach', lesson.color);
+        if (tutorialStepBadge) tutorialStepBadge.textContent = lesson.kicker;
+        if (tutorialTitle) tutorialTitle.textContent = ph.line;
+        if (tutorialDesc) {
+            tutorialDesc.innerHTML = '';
+            ph.chips.forEach((chip) => {
+                const el = document.createElement('span');
+                if (Array.isArray(chip)) {
+                    el.className = `coach-chip ${chip[1]}`;
+                    el.textContent = chip[0];
+                } else {
+                    el.className = 'coach-op';
+                    el.textContent = chip;
+                }
+                tutorialDesc.appendChild(el);
+            });
+            tutorialDesc.hidden = ph.chips.length === 0;
+        }
+        if (screenGame) {
+            screenGame.classList.toggle('tut-rise', !!lesson.rise && tutRisePending);
+            screenGame.classList.toggle('tut-allow-hold', tutToolAllowed('hold') || (lesson.phases.some(p => p.tools && p.tools.hold)));
+            screenGame.classList.toggle('tut-allow-swap', !!(lesson.phases.some(p => p.tools && p.tools.swap)));
+            screenGame.classList.toggle('tut-swap-locked', !tutToolAllowed('swap'));
         }
         updateHUD();
+        setTimeout(() => showTutHint(), 350);
+    }
+
+    function renderTutPips() {
+        const pips = document.getElementById('tut-pips');
+        if (!pips) return;
+        pips.innerHTML = '';
+        TUT_LESSONS.forEach((_, i) => {
+            const pip = document.createElement('span');
+            pip.className = 'tut-pip' + (i < tutLesson - 1 ? ' done' : (i === tutLesson - 1 ? ' on' : ''));
+            pips.appendChild(pip);
+        });
+        pips.setAttribute('aria-valuenow', String(tutLesson));
+        pips.setAttribute('aria-valuemax', String(TUT_LESSONS.length));
+    }
+
+    // Called when a turn finishes (drop or swap resolved) or right after HOLD.
+    function tutEvaluate(source) {
+        if (!isTutorial || tutBusy || !tutTurn) return;
+        const ph = tutPhaseDef();
+        if (!ph) return;
+        if (source === 'drop') tutTurn.dropped = true;
+        if (source === 'swap') tutTurn.swapped = true;
+        if (source === 'hold') tutTurn.held = true;
+        tutTurn.breach = grid[0].some(Boolean);
+
+        const result = ph.check(tutTurn);
+        if (result === 'pass') {
+            tutPassPhase();
+        } else if (result === 'fail') {
+            tutBusy = true;
+            if (tutTurn.breach) {
+                triggerScreenShake(16);
+                screenFlash = 0.6;
+                screenFlashColor = '#ff4e50';
+                sfx.playGameOver();
+            } else {
+                sfx.playWarning();
+            }
+            triggerHaptic('overdrive');
+            const f = typeof ph.fail === 'function' ? ph.fail(tutTurn) : ph.fail;
+            setTimeout(() => showTutFail(f), tutTurn.breach ? 700 : 450);
+        } else {
+            tutTurn = newTutTurn();
+        }
+    }
+
+    function tutPassPhase() {
+        const lesson = TUT_LESSONS[tutLesson - 1];
+        tutBusy = true;
+        hideTutHand();
+        if (tutPhase < lesson.phases.length - 1) {
+            setTimeout(() => {
+                tutBusy = false;
+                tutPhase++;
+                applyTutPhase();
+            }, 650);
+            return;
+        }
+        // Lesson complete
+        addFloatingText('✓ NICE!', canvas.width / (2 * dpr), boardOffsetY + cellH * 2.2, '#f9d423', 1.6);
+        sfx.playPowerup();
+        triggerHaptic('zero');
+        const pips = document.querySelectorAll('#tut-pips .tut-pip');
+        if (pips[tutLesson - 1]) { pips[tutLesson - 1].classList.remove('on'); pips[tutLesson - 1].classList.add('done', 'pop'); }
+        setTimeout(() => {
+            if (!isTutorial) return;
+            if (tutLesson < TUT_LESSONS.length) {
+                loadLesson(tutLesson + 1);
+            } else {
+                startGraduation();
+            }
+        }, 1100);
+    }
+
+    function startGraduation() {
+        isTutorial = false;
+        hideTutHand();
+        hideTutFail();
+        if (screenGame) screenGame.classList.remove('tut-mode', 'tut-rise', 'tut-allow-hold', 'tut-allow-swap', 'tut-swap-locked');
+        startAdventureLevel(GRADUATION_LEVEL.id);
+    }
+
+    function exitTutorial(markSkipped) {
+        hideTutHand();
+        hideTutFail();
+        if (markSkipped && career && !career.tutorialDone) {
+            career.tutorialSkipped = true;
+            saveCareerData();
+        }
+        isTutorial = false;
+        showScreen('home');
+    }
+
+    // ---------- Ghost hand ----------
+    function showTutHint() {
+        const hand = document.getElementById('tut-hand');
+        const ph = tutPhaseDef();
+        if (!hand || !ph || !isTutorial || tutBusy) return;
+        const hint = ph.hint || {};
+        let x = null, y = null;
+        if (hint.target === 'hold' || hint.target === 'swap') {
+            const btn = hint.target === 'hold' ? btnTouchHold : btnTouchSwap;
+            if (!btn) return;
+            const r = btn.getBoundingClientRect();
+            x = r.left + r.width / 2; y = r.top + r.height / 2;
+        } else if (hint.cells) {
+            const rect = canvas.getBoundingClientRect();
+            const [r1, c1] = hint.cells[0];
+            x = rect.left + boardOffsetX + (c1 + 0.5) * cellW;
+            y = rect.top + boardOffsetY + (r1 + 0.5) * cellH;
+        } else {
+            let col = hint.col;
+            if (hint.find !== undefined) {
+                for (let r = 0; r < ROWS && col === undefined; r++) {
+                    for (let c = 0; c < COLS; c++) {
+                        if (grid[r][c] && grid[r][c].type === 'number' && grid[r][c].value === hint.find) { col = c; break; }
+                    }
+                }
+            }
+            if (col === undefined) return;
+            const rect = canvas.getBoundingClientRect();
+            x = rect.left + boardOffsetX + (col + 0.5) * cellW;
+            y = rect.top + boardOffsetY + cellH * 2.2;
+        }
+        hand.style.left = `${x}px`;
+        hand.style.top = `${y}px`;
+        hand.hidden = false;
+    }
+
+    function hideTutHand() {
+        const hand = document.getElementById('tut-hand');
+        if (hand) hand.hidden = true;
+    }
+
+    // When the player enters swap mode in lesson 5, point at the −2 tile
+    function tutOnSwapMode(active) {
+        if (!isTutorial) return;
+        if (active) {
+            const hand = document.getElementById('tut-hand');
+            if (!hand) return;
+            const rect = canvas.getBoundingClientRect();
+            hand.style.left = `${rect.left + boardOffsetX + 2.5 * cellW}px`;
+            hand.style.top = `${rect.top + boardOffsetY + 7.5 * cellH}px`;
+            hand.hidden = false;
+        } else {
+            hideTutHand();
+        }
+    }
+
+    // ---------- Try-again sheet ----------
+    function showTutFail(f) {
+        const sheet = document.getElementById('tut-fail');
+        if (!sheet) return;
+        hideTutHand();
+        const title = document.getElementById('tut-fail-title');
+        const body = document.getElementById('tut-fail-body');
+        if (title) title.textContent = f.title;
+        if (body) body.innerHTML = f.body;
+        sheet.hidden = false;
+    }
+
+    function hideTutFail() {
+        const sheet = document.getElementById('tut-fail');
+        if (sheet) sheet.hidden = true;
+    }
+
+    // ---------- First-launch welcome ----------
+    function shouldOfferTutorial() {
+        if (!career || career.tutorialDone || career.tutorialSkipped) return false;
+        const hasProgress = (career.highScore || 0) > 0
+            || (career.levelStars && career.levelStars[0])
+            || (career.adventureNodes && Object.keys(career.adventureNodes).length > 0);
+        return !hasProgress;
+    }
+
+    function showTutWelcome() {
+        const el = document.getElementById('tut-welcome');
+        if (el) el.hidden = false;
+    }
+
+    function hideTutWelcome() {
+        const el = document.getElementById('tut-welcome');
+        if (el) el.hidden = true;
+    }
+
+    // ---------- Real game: first Overdrive tip ----------
+    function maybeShowOverdriveTip() {
+        if (isTutorial || !career || career.seenOverdriveTip) return;
+        career.seenOverdriveTip = true;
+        saveCareerData();
+        const tip = document.getElementById('od-tip');
+        if (tip) setTimeout(() => { tip.hidden = false; }, 350);
     }
 
     function drawTutorialTargetIndicator() {
@@ -1467,37 +1772,6 @@
         if (btnVicMap) btnVicMap.hidden = !v.showMap;
     }
 
-    function triggerTutorialVictory() {
-        if (isGameOver || (modalVictory && modalVictory.classList.contains('visible'))) return;
-        isGameOver = true;
-        sfx.playVictory();
-        triggerScreenShake(12);
-
-        career.levelStars[0] = 3;
-        career.levelHighScores[0] = Math.max(career.levelHighScores[0] || 0, score + 1000);
-        if (career.unlockedLevel < 1) {
-            career.unlockedLevel = 1;
-        }
-        saveCareerData();
-
-        renderVictoryScreen({
-            kicker: 'ACADEMY · TRAINING COMPLETE',
-            title: 'Flight Training Passed',
-            stars: 3,
-            score: score + 100,
-            bonus: '+100 GRADUATION BONUS',
-            drops: '4 / 4',
-            dropsLabel: 'STEPS DONE',
-            best: '—',
-            showMap: false
-        });
-        setVictoryNextLabel('Launch mission 01-1');
-
-        setTimeout(() => {
-            if (modalVictory) modalVictory.classList.add('visible');
-        }, 500);
-    }
-
     function restartCurrentGame() {
         if (isTutorial) {
             startTutorialMode();
@@ -1513,10 +1787,12 @@
     }
 
     const TUTORIAL_STEP_TITLES = [
-        'Cancel opposites to zero',
-        'Merge & double matching numbers',
-        'Cross Laser power blast',
-        'Tactical orbs: flip sign'
+        'Zero Blast: cancel opposites',
+        'Merge, then fire a Cross Laser',
+        'Chain reaction',
+        'Danger: Dark Matter rises',
+        'Tools: Hold & Swap',
+        'Flip a sign with ±'
     ];
 
     // Builds the pause screen model for the active mode: ring (objective), title/chip,
@@ -1526,17 +1802,18 @@
         const isNode = gameMode === 'adventure' && lvl && lvl.sectorNum;
 
         if (isTutorial) {
-            const step = Math.max(1, Math.min(4, tutorialStep || 1));
+            const total = TUTORIAL_STEP_TITLES.length;
+            const step = Math.max(1, Math.min(total, tutLesson || 1));
             return {
                 accent: '#f9d423', chip: 'ACADEMY TRAINING', title: 'Flight Training',
-                ringLabel: 'TRAINING', ringValue: `${step} / 4`, ringSub: TUTORIAL_STEP_TITLES[step - 1],
-                pct: Math.round(((step - 1) / 4) * 100),
+                ringLabel: 'LESSON', ringValue: `${step} / ${total}`, ringSub: TUTORIAL_STEP_TITLES[step - 1],
+                pct: Math.round(((step - 1) / total) * 100),
                 goals: TUTORIAL_STEP_TITLES.map((t, i) => {
                     const n = i + 1;
                     const state = n < step ? 'done' : (n === step ? 'track' : 'todo');
                     return { glyph: state === 'done' ? '✓' : String(n), label: t, detail: state === 'done' ? 'Done' : (state === 'track' ? 'Now' : ''), state };
                 }),
-                restart: 'Restart training', exit: 'Exit to missions'
+                restart: 'Restart lesson', exit: 'Exit training'
             };
         }
 
@@ -1788,9 +2065,9 @@
         });
         if (btnPauseQuit) btnPauseQuit.addEventListener('click', () => {
             togglePause(false);
-            if (isTutorial) {
-                isTutorial = false;
-                if (tutorialCard) tutorialCard.style.display = 'none';
+            if (isTutorial || (activeAdventureLevel && activeAdventureLevel.isGraduation)) {
+                exitTutorial(false);
+                return;
             }
             if (activeAdventureLevel && activeAdventureLevel.sectorNum) {
                 showScreen('adventure-nodes');
@@ -1804,7 +2081,17 @@
         // Victory Modal Actions
         if (btnVicNext) btnVicNext.addEventListener('click', () => {
             if (modalVictory) modalVictory.classList.remove('visible');
-            if (activeAdventureLevel && activeAdventureLevel.sectorNum) {
+            if (activeAdventureLevel && activeAdventureLevel.isGraduation) {
+                const first = victoryNextNode;
+                victoryNextNode = null;
+                if (first) {
+                    career.currentSector = 1;
+                    saveCareerData();
+                    startNodeLevel(first);
+                } else {
+                    showScreen('adventure-nodes');
+                }
+            } else if (activeAdventureLevel && activeAdventureLevel.sectorNum) {
                 const next = victoryNextNode;
                 victoryNextNode = null;
                 if (next) {
@@ -1925,6 +2212,21 @@
             sfx.playMove();
         });
 
+        // Training chrome
+        const on = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
+        on('btn-tut-exit', () => exitTutorial(false));
+        on('btn-tut-skip', () => exitTutorial(true));
+        on('btn-tut-retry', () => { sfx.playMove(); loadLesson(tutLesson); });
+        on('btn-tut-showme', () => { sfx.playMove(); loadLesson(tutLesson); });
+        on('btn-tut-welcome-start', () => { sfx.init(); startTutorialMode(); });
+        on('btn-tut-welcome-skip', () => {
+            career.tutorialSkipped = true;
+            saveCareerData();
+            hideTutWelcome();
+        });
+        on('btn-od-tip-ok', () => { const tip = document.getElementById('od-tip'); if (tip) tip.hidden = true; });
+        window.addEventListener('resize', () => { const hand = document.getElementById('tut-hand'); if (hand && !hand.hidden) showTutHint(); });
+
         const objIntroOverlay = document.getElementById('obj-intro');
         if (objIntroOverlay) objIntroOverlay.addEventListener('click', dismissObjectiveIntro);
 
@@ -1986,6 +2288,7 @@
         setupScreenFlow();
 
         showScreen('home');
+        if (shouldOfferTutorial()) showTutWelcome();
         if (document.fonts && document.fonts.ready) {
             document.fonts.ready.then(() => {
                 if (currentScreen === 'game') {
@@ -2152,6 +2455,10 @@
     // Drop Logic
     function dropActiveOrb() {
         if (isProcessing || isGameOver || activeProjectile) return;
+        if (isTutorial) {
+            if (tutBusy || isSwapModeActive) return;
+            hideTutHand();
+        }
 
         sfx.init();
 
@@ -2218,7 +2525,7 @@
     }
 
     function swapHold() {
-        if (isTutorial || !canHold || isProcessing || isGameOver) return;
+        if ((isTutorial && (!tutToolAllowed('hold') || tutBusy)) || !canHold || isProcessing || isGameOver) return;
         sfx.init();
         sfx.playMove();
         triggerHaptic('swap');
@@ -2236,6 +2543,7 @@
         canHold = false;
         updateHUD();
         retriggerClass(btnTouchHold, 'hold-pop');
+        if (isTutorial) { hideTutHand(); tutEvaluate('hold'); }
     }
 
     // Processing impact when projectile hits target
@@ -2386,13 +2694,7 @@
                 targetTile.flash = 1;
                 addFloatingText('INVERTED!', boardOffsetX + col * cellW + cellW / 2, boardOffsetY + row * cellH, '#c471ed');
 
-                if (isTutorial && tutorialStep === 4) {
-                    if (tutorialStepBadge) tutorialStepBadge.textContent = 'STEP 4 / 4 - FINAL BLAST';
-                    if (tutorialTitle) tutorialTitle.textContent = 'Cancel the Inverted Tile';
-                    if (tutorialDesc) tutorialDesc.innerHTML = 'Tile inverted to <strong>-3</strong>! Now drop your <strong>+3</strong> orb on Column 3 to finish training!';
-                    currentOrb = { type: 'number', value: 3, label: '+3' };
-                    updateHUD();
-                }
+                if (isTutorial) tutRecordFlip(-targetTile.value);
             } else if (sub === 'div2') {
                 if (Math.abs(targetTile.value) > 1) {
                     targetTile.value = Math.sign(targetTile.value) * Math.floor(Math.abs(targetTile.value) / 2);
@@ -2431,6 +2733,7 @@
                     chainStep++;
                     combo++;
                     if (combo > maxCombo) maxCombo = combo;
+                    if (isTutorial && tutTurn) tutTurn.chain = Math.max(tutTurn.chain, chainStep);
                     if (combo >= 2) {
                         checkBountyProgress('cascade', 1);
                     }
@@ -2449,7 +2752,11 @@
                 updateHUD();
             }
 
-            if (!isSwap) {
+            if (!isSwap && isTutorial && tutRisePending) {
+                tutRisePending = false;
+                if (screenGame) screenGame.classList.remove('tut-rise');
+                await pushTutorialRiseRow();
+            } else if (!isSwap) {
                 if (gameMode === 'classic') {
                     movesUntilRise--;
                     if (movesUntilRise <= 0) {
@@ -2481,21 +2788,7 @@
             }
             updateHUD();
 
-            if (isTutorial) {
-                if (tutorialStepCompleted) {
-                    if (tutorialStep < 4) {
-                        setTimeout(() => {
-                            loadTutorialStep(tutorialStep + 1);
-                        }, 750);
-                    } else {
-                        setTimeout(() => {
-                            triggerTutorialVictory();
-                        }, 750);
-                    }
-                } else {
-                    restoreTutorialStateForStep(tutorialStep);
-                }
-            }
+            if (isTutorial) tutEvaluate(isSwap ? 'swap' : 'drop');
         }
     }
 
@@ -2623,15 +2916,7 @@
                         checkAdventureObjective('annihilations', 1, cellCenterBetween(r, c, r, c + 1));
                         const magnitude = Math.abs(tileA.value);
 
-                        if (isTutorial) {
-                            if (tutorialStep === 1) {
-                                tutorialStepCompleted = true;
-                            } else if (tutorialStep === 3 && magnitude >= 4) {
-                                tutorialStepCompleted = true;
-                            } else if (tutorialStep === 4) {
-                                tutorialStepCompleted = true;
-                            }
-                        }
+                        if (isTutorial) tutRecordBlast(magnitude);
 
                         await playZeroPointCollapseAnim(r, c, r, c + 1, tileA, tileB, magnitude, chainStep);
                         return true;
@@ -2646,15 +2931,7 @@
                         checkAdventureObjective('annihilations', 1, cellCenterBetween(r, c, r + 1, c));
                         const magnitude = Math.abs(tileA.value);
 
-                        if (isTutorial) {
-                            if (tutorialStep === 1) {
-                                tutorialStepCompleted = true;
-                            } else if (tutorialStep === 3 && magnitude >= 4) {
-                                tutorialStepCompleted = true;
-                            } else if (tutorialStep === 4) {
-                                tutorialStepCompleted = true;
-                            }
-                        }
+                        if (isTutorial) tutRecordBlast(magnitude);
 
                         await playZeroPointCollapseAnim(r, c, r + 1, c, tileA, tileB, magnitude, chainStep);
                         return true;
@@ -2676,9 +2953,7 @@
                         const fusedVal = tileA.value * 2;
                         checkAdventureObjective('synthesis_tier', Math.abs(fusedVal), cellCenterBetween(r, c, r, c + 1));
 
-                        if (isTutorial && tutorialStep === 2) {
-                            tutorialStepCompleted = true;
-                        }
+                        if (isTutorial) tutRecordMerge(Math.abs(fusedVal));
 
                         await playSynthesisMergeAnim(r, c, r, c + 1, tileA, tileB, fusedVal, chainStep);
                         return true;
@@ -2692,9 +2967,7 @@
                         const fusedVal = tileA.value * 2;
                         checkAdventureObjective('synthesis_tier', Math.abs(fusedVal), cellCenterBetween(r, c, r + 1, c));
 
-                        if (isTutorial && tutorialStep === 2) {
-                            tutorialStepCompleted = true;
-                        }
+                        if (isTutorial) tutRecordMerge(Math.abs(fusedVal));
 
                         await playSynthesisMergeAnim(r, c, r + 1, c, tileA, tileB, fusedVal, chainStep);
                         return true;
@@ -2745,7 +3018,7 @@
             createSparks(x, y, '#ff4e50', 14);
             damageAdjacentDarkMatter(r, c);
             damageAdjacentDarkMatter(r2, c2);
-            bannerText = 'ZERO POINT!';
+            bannerText = 'MICRO POP!';
             bannerColor = '#00f2fe';
         } else if (tier === 2) {
             // Tier 2: Pulse Detonation (Magnitude 2-3)
@@ -2755,7 +3028,7 @@
             createSparks(x, y, '#ff4e50', 22);
             damageAdjacentDarkMatter(r, c);
             damageAdjacentDarkMatter(r2, c2);
-            bannerText = '⚡ PULSE BLAST!';
+            bannerText = '⚡ SHOCKWAVE!';
             bannerColor = '#00f2fe';
             bannerScale = 1.25;
         } else if (tier === 3) {
@@ -2954,6 +3227,16 @@
 
         addFloatingText('REACTOR PRESSURE RISE!', canvas.width / (2 * dpr), boardOffsetY + cellH * 3, 'var(--danger)', 1.3);
         await delay(200);
+    }
+
+    // Lesson 4: a fixed, all-Dark-Matter rise so the outcome is the same every time
+    async function pushTutorialRiseRow() {
+        sfx.playWarning();
+        triggerScreenShake(6);
+        for (let r = 0; r < ROWS - 1; r++) grid[r] = grid[r + 1];
+        grid[ROWS - 1] = Array(COLS).fill(null).map(() => createTile(0, 'dark_matter'));
+        addFloatingText('DARK MATTER RISES!', canvas.width / (2 * dpr), boardOffsetY + cellH * 3, 'var(--danger)', 1.3);
+        await delay(450);
     }
 
     function countRemainingDarkMatter() {
@@ -3191,6 +3474,7 @@
         if (!level) return '';
         if (level.sectorNum) return `NODE ${level.id}`;
         if (level.isTutorial) return 'ACADEMY';
+        if (level.isGraduation) return 'GRADUATION';
         const code = String(level.sector || '').replace(/^Sector\s*/i, '').toUpperCase();
         return code ? `MISSION ${code}` : 'MISSION';
     }
@@ -3239,7 +3523,7 @@
         }
         if (goCascade) goCascade.textContent = `${maxCombo}x`;
         if (goZeroes) goZeroes.textContent = totalZeroPoints;
-        if (btnGoMap) btnGoMap.hidden = !isAdventureRun || isTutorial;
+        if (btnGoMap) btnGoMap.hidden = !isAdventureRun || isTutorial || !!(activeAdventureLevel && activeAdventureLevel.isGraduation);
 
         setTimeout(() => {
             if (modalGameOver) modalGameOver.classList.add('visible');
@@ -3267,7 +3551,15 @@
         addFloatingText('SECTOR CLEARED!', canvas.width / (2 * dpr), boardOffsetY + cellH * 2.5, 'var(--gold)', 1.5);
 
         const isNodeLevel = !!(activeAdventureLevel && activeAdventureLevel.sectorNum);
-        if (isNodeLevel) {
+        if (activeAdventureLevel && activeAdventureLevel.isGraduation) {
+            career.tutorialDone = true;
+            career.levelStars[0] = 3;
+            career.levelHighScores[GRADUATION_LEVEL.id] = Math.max(career.levelHighScores[GRADUATION_LEVEL.id] || 0, finalScore);
+            if (career.unlockedLevel < 1) career.unlockedLevel = 1;
+            saveCareerData();
+            victoryNextNode = (typeof NodeGenerator !== 'undefined') ? NodeGenerator.generateNodeConfig(1, '1-1') : null;
+            setVictoryNextLabel('Start Adventure');
+        } else if (isNodeLevel) {
             const nodeId = activeAdventureLevel.id;
             const existingNode = (career.adventureNodes && career.adventureNodes[nodeId]) || {};
             if (!career.adventureNodes) career.adventureNodes = {};
@@ -3325,7 +3617,7 @@
             drops: `${dropsUsed} / ${maxDrops}`,
             dropsLabel: 'DROPS USED',
             best: finalScore > prevBest ? 'NEW' : prevBest.toLocaleString(),
-            showMap: true
+            showMap: !activeAdventureLevel.isGraduation
         });
 
         setTimeout(() => {
@@ -3435,6 +3727,7 @@
         checkBountyProgress('frenzy', 1);
         checkAdventureObjective('activate_frenzy', 1);
         updateHUD();
+        maybeShowOverdriveTip();
     }
 
     // Tactical Bounties System
@@ -3562,7 +3855,7 @@
     }
 
     function toggleSwapMode() {
-        if (isProcessing || isGameOver || isTutorial) return;
+        if (isProcessing || isGameOver || (isTutorial && (!tutToolAllowed('swap') || tutBusy))) return;
         if (!isSwapModeActive && swapTokens <= 0) {
             triggerScreenShake(6);
             sfx.playWarning();
@@ -3583,6 +3876,7 @@
         } else {
             if (swapBanner) swapBanner.style.display = 'none';
         }
+        tutOnSwapMode(isSwapModeActive);
         updateHUD();
     }
 
@@ -3791,8 +4085,8 @@
 
         if (gameMode === 'adventure') {
             const dropsRemaining = Math.max(0, maxDrops - dropsUsed);
-            riseCounter.textContent = isTutorial ? 'Guided' : `${dropsRemaining}`;
-            if (turnCounterLabel) turnCounterLabel.textContent = isTutorial ? 'Phase' : 'Drops Left';
+            riseCounter.textContent = isTutorial ? (tutRisePending ? '1' : '') : `${dropsRemaining}`;
+            if (turnCounterLabel) turnCounterLabel.textContent = isTutorial ? (tutRisePending ? 'Dark Matter Rises In' : '') : 'Drops Left';
             if (riseFill) riseFill.style.height = isTutorial ? '0%' : `${Math.round((1 - dropsRemaining / Math.max(1, maxDrops)) * 100)}%`;
             if (riseStatusBar) {
                 if (dropsRemaining <= 3) {
@@ -4617,11 +4911,11 @@
 
                 ctx.save();
                 if (willZeroPoint) {
-                    let previewLabel = '💥 ZERO BLAST (0)!';
+                    let previewLabel = '💥 MICRO POP';
                     let previewColor = '#ffffff';
 
                     if (previewTier === 2) {
-                        previewLabel = '⚡ SHOCKWAVE BLAST!';
+                        previewLabel = '⚡ SHOCKWAVE';
                         previewColor = '#00f2fe';
                     } else if (previewTier === 3) {
                         previewLabel = '⚡ CROSS LASER (Row & Col)!';
