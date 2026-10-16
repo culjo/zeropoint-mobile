@@ -241,17 +241,22 @@
                 </div>
 
                 <!-- Zone 1: Compact Arcade HUD (score left · next + overdrive centre · pause right) -->
+                <!-- One set of HUD elements, two layouts (maingameplay.css):
+                     default (Adventure / Challenges) = best over score on the left · overdrive centre · pause;
+                     .hud-classic (Classic) = BEST left · score centre · pause, overdrive on its own row below. -->
                 <header class="game-header hud-compact">
-                    <div class="hud-score-block" id="stat-pill-best">
-                        <span class="hud-best"><span id="best-label">Best</span> <span id="best-val">0</span></span>
-                        <div class="hud-score-row">
-                            <span id="score-val" class="hud-score">0</span>
-                            <span id="combo-val" class="hud-combo">×1</span>
-                        </div>
+                    <div class="hud-best" id="stat-pill-best">
+                        <svg class="hud-best-trophy" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4"/></svg>
+                        <span class="hud-best-text"><span id="best-label">Best</span> <span id="best-val">0</span></span>
+                    </div>
+                    <div class="hud-score-row">
+                        <span id="score-val" class="hud-score">0</span>
+                        <span id="combo-val" class="hud-combo">×1</span>
                     </div>
                     <div class="hud-center">
                         <div class="overdrive-container hud-overdrive" id="overdrive-container" role="img" aria-label="Overdrive charge">
                             <svg class="hud-overdrive-icon" width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>
+                            <span class="hud-od-label">OVERDRIVE</span>
                             <div class="overdrive-bar-track">
                                 <div id="overdrive-fill" class="overdrive-bar-fill"></div>
                             </div>

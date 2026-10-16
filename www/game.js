@@ -2413,6 +2413,14 @@
     }
 
     function startNewGame() {
+        // Main gameplay: Classic uses the new header (BEST · score · pause, overdrive row below);
+        // Adventure and Challenges keep the original layout
+        if (MAIN_GAMEPLAY && screenGame) {
+            const wasClassic = screenGame.classList.contains('hud-classic');
+            const isClassic = gameMode === 'classic' && !isTutorial;
+            screenGame.classList.toggle('hud-classic', isClassic);
+            if (wasClassic !== isClassic) setTimeout(resizeCanvas, 60); // header height changed
+        }
         grid = Array(ROWS).fill(null).map(() => Array(COLS).fill(null));
         score = 0;
         resetScoreFlyers();
@@ -4466,7 +4474,8 @@
     }
 
     function updateHUD() {
-        comboVal.textContent = `×${combo}`;
+        // Main gameplay fades the chip out at ×1, so it keeps showing the last combo while it fades
+        if (!(MAIN_GAMEPLAY && combo <= 1)) comboVal.textContent = `×${combo}`;
         comboVal.classList.toggle('is-idle', combo <= 1);
 
         if (missionStrip) {
