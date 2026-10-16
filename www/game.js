@@ -12,6 +12,11 @@
     const DANGER_ROW = 1; // Row index where warning fires (0 is game over top)
     const MOVES_PER_RISE = 5;
 
+    // Drag & Place (Labs): drag.html sets data-gameplay="drag" on <body>. Orbs are dragged up from a
+    // two-slot tray instead of dropped from the launcher, and swaps happen by sliding a board tile.
+    const DRAG_MODE = document.body.dataset.gameplay === 'drag';
+    const LABS_DRAG_FLAG = 'zeropoint_flag_drag_place';
+
     // Canvas & Rendering Context
     const canvas = document.getElementById('game-canvas');
     const ctx = canvas.getContext('2d');
@@ -171,6 +176,12 @@
     const btnTouchDrop = document.getElementById('btn-touch-drop');
     const btnTouchFrenzy = document.getElementById('btn-touch-frenzy');
     const btnTouchSwap = document.getElementById('btn-touch-swap');
+
+    // Drag & Place tray (drag.html only) and the Labs switch shown on both entry pages
+    const dragTraySlots = [document.getElementById('drag-slot-0'), document.getElementById('drag-slot-1')];
+    const dragGhost = document.getElementById('drag-ghost');
+    const labsSwitch = document.getElementById('labs-switch');
+    const settingLabsDragToggle = document.getElementById('setting-labs-drag-toggle');
 
     // Pause Modal
     // Pause screen (objective core)
@@ -516,6 +527,12 @@
     let currentOrb = null;
     let heldOrb = null;
     let nextQueue = [];
+
+    // Drag & Place: two tray orbs (a used slot refills instantly), the orb being dragged,
+    // and a board tile being slid onto a neighbour to swap
+    let dragTray = [null, null];
+    let activeDrag = null;     // { source: 'tray' | 'hold', slot, orb, col, ghostY, overHold }
+    let boardSwapDrag = null;  // { r, c, x0, y0, target: { r, c } | null, warned }
 
     // Falling Projectile Animation
     let activeProjectile = null; // { col, startY, targetY, y, vy, orb, targetRow, isImpact }
@@ -1394,6 +1411,11 @@
     }
 
     function startTutorialMode() {
+        // Lessons are written for the classic drop controls, so they run on the classic page
+        if (DRAG_MODE) {
+            window.location.href = 'index.html';
+            return;
+        }
         hideObjectiveIntro();
         hideTutWelcome();
         gameMode = 'adventure';
@@ -1664,6 +1686,7 @@
 
     // ---------- First-launch welcome ----------
     function shouldOfferTutorial() {
+        if (DRAG_MODE) return false; // lessons are written for the classic drop controls
         if (!career || career.tutorialDone || career.tutorialSkipped) return false;
         const hasProgress = (career.highScore || 0) > 0
             || (career.levelStars && career.levelStars[0])
@@ -2193,6 +2216,13 @@
             });
         }
 
+        if (settingLabsDragToggle) {
+            settingLabsDragToggle.addEventListener('change', (e) => {
+                setLabsDragEnabled(e.target.checked);
+                if (sfx) sfx.playMove();
+            });
+        }
+
         if (settingVibrationToggle) {
             settingVibrationToggle.addEventListener('change', (e) => {
                 career.settings.vibration = e.target.checked;
@@ -2325,6 +2355,12 @@
         setupFullscreenUI();
         setupScreenFlow();
 
+        // Labs flag can also be flipped from the URL: index.html?labs=drag (on) / ?labs=off
+        const labsParam = new URLSearchParams(window.location.search).get('labs');
+        if (labsParam === 'drag') setLabsDragEnabled(true);
+        else if (labsParam === 'off') setLabsDragEnabled(false);
+        syncLabsUI();
+
         showScreen('home');
         if (shouldOfferTutorial()) showTutWelcome();
         if (document.fonts && document.fonts.ready) {
@@ -2347,7 +2383,8 @@
         // Square cells sized to whichever axis is tighter: +1.2 rows at the top for the launcher and
         // +1 row at the bottom for the Dark Matter banner. Extra width centers the board; extra
         // height becomes drop space above it.
-        const cell = Math.min(rect.width / COLS, rect.height / (ROWS + 2.2));
+        // Drag & Place has no launcher, so it only keeps a sliver of headroom for floating text.
+        const cell = Math.min(rect.width / COLS, rect.height / (ROWS + (DRAG_MODE ? 1.3 : 2.2)));
         cellW = cell;
         cellH = cell;
         boardOffsetX = (rect.width - cell * COLS) / 2;
@@ -2418,7 +2455,15 @@
         if (!isTutorial) {
             nextQueue = [generateOrb(), generateOrb(), generateOrb()];
             currentOrb = generateOrb();
+            if (DRAG_MODE) {
+                // The tray replaces the launcher; currentOrb is only set while an orb is dragged
+                dragTray = [generateOrb(), generateOrb()];
+                currentOrb = null;
+            }
         }
+        activeDrag = null;
+        boardSwapDrag = null;
+        if (dragGhost) dragGhost.classList.remove('show');
 
         updateHUD();
         if (modalGameOver) modalGameOver.classList.remove('visible');
@@ -2493,8 +2538,10 @@
     }
 
     // Drop Logic
-    function dropActiveOrb() {
-        if (isProcessing || isGameOver || activeProjectile) return;
+    // opts (Drag & Place): startY = where the released orb is, dragSource = tray slot / hold it came from.
+    // Returns true when the orb was launched.
+    function dropActiveOrb(opts = {}) {
+        if (isProcessing || isGameOver || activeProjectile || !currentOrb) return false;
         if (isTutorial) {
             if (tutBusy || isSwapModeActive) return;
             hideTutHand();
@@ -2540,7 +2587,7 @@
             // Column is full to the brim!
             triggerScreenShake(8);
             sfx.playWarning();
-            return;
+            return false;
         }
 
         isProcessing = true;
@@ -2552,7 +2599,8 @@
             col: col,
             orb: currentOrb,
             x: boardOffsetX + col * cellW + cellW / 2,
-            y: cellH * 0.55,
+            // A dragged orb falls from where it was released (never from below its landing cell)
+            y: opts.startY != null ? Math.min(opts.startY, targetY) : cellH * 0.55,
             targetY: targetY,
             vy: 8,
             landingRow: landingRow,
@@ -2562,6 +2610,7 @@
 
         sfx.playDrop();
         triggerHaptic('drop');
+        return true;
     }
 
     function swapHold() {
@@ -2634,8 +2683,11 @@
                 frenzyTurnsRemaining--;
             }
 
-            // Advance queue
-            if (!isTutorial) {
+            // Advance queue (Drag & Place already refilled its tray slot when the orb was released)
+            if (DRAG_MODE && !isTutorial) {
+                currentOrb = null;
+                canHold = true;
+            } else if (!isTutorial) {
                 currentOrb = nextQueue.shift();
                 nextQueue.push(generateOrb());
                 canHold = true;
@@ -4025,7 +4077,9 @@
         frenzySpecialIndex++;
 
         // Load ONLY this 1 special into the active launcher; upcoming queue remains untouched!
-        currentOrb = { ...special };
+        // (Drag & Place: it takes the first tray slot instead.)
+        if (DRAG_MODE) dragTray[0] = { ...special };
+        else currentOrb = { ...special };
 
         addFloatingText(`🔥 OVERDRIVE: ${special.label}! 🔥`, canvas.width / (2 * dpr), boardOffsetY + cellH * 3, '#ffd700', 1.5);
         checkBountyProgress('frenzy', 1);
@@ -4230,48 +4284,51 @@
             }
 
             // Valid Swap Execution!
-            const r1 = firstSwapTile.r;
-            const c1 = firstSwapTile.c;
-            const t1 = grid[r1][c1];
-            const t2 = grid[r][c];
-
-            grid[r1][c1] = t2;
-            grid[r][c] = t1;
-
-            // Smooth sliding animation for swap
-            if (t2) {
-                t2.animX = (c - c1) * cellW;
-                t2.animY = (r - r1) * cellH;
-                t2.flash = 0.8;
-            }
-            if (t1) {
-                t1.animX = (c1 - c) * cellW;
-                t1.animY = (r1 - r) * cellH;
-                t1.flash = 0.8;
-            }
-
-            swapTokens = Math.max(0, swapTokens - 1);
-            sfx.playQuantumSwap();
-            triggerHaptic('swap');
-
-            // Visual effects at both tiles
-            const x1 = boardOffsetX + (c1 + 0.5) * cellW;
-            const y1 = boardOffsetY + (r1 + 0.5) * cellH;
-            const x2 = boardOffsetX + (c + 0.5) * cellW;
-            const y2 = boardOffsetY + (r + 0.5) * cellH;
-            createSparks(x1, y1, '#00f2fe', 16);
-            createSparks(x2, y2, '#ffd700', 16);
-            shockwaves.push({ x: (x1 + x2) / 2, y: (y1 + y2) / 2, radius: 10, maxRadius: cellW * 2.5, alpha: 1, color: '#00f2fe' });
-            addFloatingText('QUANTUM SWAP!', (x1 + x2) / 2, (y1 + y2) / 2, '#ffd700', 1.3);
-
-            isSwapModeActive = false;
-            firstSwapTile = null;
-            if (swapBanner) swapBanner.style.display = 'none';
-            updateHUD();
-
-            isProcessing = true;
-            resolveBoardCascades(true); // isSwap = true
+            performSwap(firstSwapTile.r, firstSwapTile.c, r, c);
         }
+    }
+
+    // Swaps two orthogonally adjacent cells, spends a token and runs the cascade
+    function performSwap(r1, c1, r, c) {
+        const t1 = grid[r1][c1];
+        const t2 = grid[r][c];
+
+        grid[r1][c1] = t2;
+        grid[r][c] = t1;
+
+        // Smooth sliding animation for swap
+        if (t2) {
+            t2.animX = (c - c1) * cellW;
+            t2.animY = (r - r1) * cellH;
+            t2.flash = 0.8;
+        }
+        if (t1) {
+            t1.animX = (c1 - c) * cellW;
+            t1.animY = (r1 - r) * cellH;
+            t1.flash = 0.8;
+        }
+
+        swapTokens = Math.max(0, swapTokens - 1);
+        sfx.playQuantumSwap();
+        triggerHaptic('swap');
+
+        // Visual effects at both tiles
+        const x1 = boardOffsetX + (c1 + 0.5) * cellW;
+        const y1 = boardOffsetY + (r1 + 0.5) * cellH;
+        const x2 = boardOffsetX + (c + 0.5) * cellW;
+        const y2 = boardOffsetY + (r + 0.5) * cellH;
+        createSparks(x1, y1, '#00f2fe', 16);
+        createSparks(x2, y2, '#ffd700', 16);
+        shockwaves.push({ x: (x1 + x2) / 2, y: (y1 + y2) / 2, radius: 10, maxRadius: cellW * 2.5, alpha: 1, color: '#00f2fe' });
+        addFloatingText('QUANTUM SWAP!', (x1 + x2) / 2, (y1 + y2) / 2, '#ffd700', 1.3);
+
+        isSwapModeActive = false;
+        firstSwapTile = null;
+        if (swapBanner) swapBanner.style.display = 'none';
+        updateHUD();
+
+        isProcessing = true;
+        resolveBoardCascades(true); // isSwap = true
     }
 
     function drawSwapModeHighlights() {
@@ -4322,6 +4379,17 @@
                     ctx.arc(cx, cy, 4, 0, Math.PI * 2);
                     ctx.fill();
                 }
+            }
+
+            // Drag & Place: the neighbour the slid tile will trade places with
+            const target = boardSwapDrag && boardSwapDrag.target;
+            if (target) {
+                ctx.setLineDash([]);
+                ctx.strokeStyle = '#ffffff';
+                ctx.shadowColor = '#ffffff';
+                ctx.shadowBlur = 12;
+                ctx.lineWidth = 3;
+                ctx.strokeRect(boardOffsetX + target.c * cellW + 3, boardOffsetY + target.r * cellH + 3, cellW - 6, cellH - 6);
             }
         }
         ctx.restore();
@@ -4483,9 +4551,27 @@
             if (btnTouchHold) btnTouchHold.classList.remove('has-content');
         }
 
-        // Update Next Queue UI
-        renderQueueSlot(nextSlot1, nextQueue[0]);
-        renderQueueSlot(nextSlot2, nextQueue[1]);
+        // Update Next Queue UI (drag.html has no NEXT preview: the tray shows the orbs)
+        if (nextSlot1) renderQueueSlot(nextSlot1, nextQueue[0]);
+        if (nextSlot2) renderQueueSlot(nextSlot2, nextQueue[1]);
+
+        if (DRAG_MODE) renderDragTray();
+    }
+
+    // Drag & Place tray: HOLD (label inside when empty) · two orbs. A lifted orb leaves its slot empty.
+    function renderDragTray() {
+        dragTraySlots.forEach((el, i) => {
+            if (!el) return;
+            const lifted = activeDrag && activeDrag.source === 'tray' && activeDrag.slot === i;
+            renderQueueSlot(el, lifted ? null : dragTray[i]);
+        });
+        if (holdSlot) {
+            const shown = activeDrag && activeDrag.source === 'hold' ? null : heldOrb;
+            renderQueueSlot(holdSlot, shown);
+            if (!shown) holdSlot.innerHTML = '<span class="dt-hold-label">HOLD</span>';
+            holdSlot.classList.toggle('active', !!shown);
+            holdSlot.classList.toggle('used', !canHold);
+        }
     }
 
     function renderQueueSlot(element, orb) {
@@ -4514,6 +4600,7 @@
     function setupInputs() {
         // Mouse Hover & Click
         canvas.addEventListener('mousemove', (e) => {
+            if (DRAG_MODE) return;
             if (isProcessing || isGameOver || isPaused || currentScreen !== 'game') return;
             const rect = canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
@@ -4545,6 +4632,7 @@
         }
 
         canvas.addEventListener('click', (e) => {
+            if (DRAG_MODE) return;
             if (isProcessing || isGameOver || isPaused || currentScreen !== 'game') return;
             // Prevent synthetic duplicate click right after mobile touchend
             if (Date.now() - lastTouchTime < 500) return;
@@ -4566,6 +4654,7 @@
         });
 
         canvas.addEventListener('touchstart', (e) => {
+            if (DRAG_MODE) return;
             if (isProcessing || isGameOver || isPaused || currentScreen !== 'game') return;
             if (e.touches.length > 1) return; // Ignore multitouch gestures
             if (e.cancelable) e.preventDefault();
@@ -4596,6 +4685,7 @@
         }, { passive: false });
 
         canvas.addEventListener('touchmove', (e) => {
+            if (DRAG_MODE) return;
             if (!isTouchingCanvas || isProcessing || isGameOver || isPaused || currentScreen !== 'game' || isSwapModeActive) return;
             if (e.cancelable) e.preventDefault(); // Prevents pull-to-refresh & screen dragging
 
@@ -4656,6 +4746,8 @@
             }
 
             if (isGameOver || isPaused || currentScreen !== 'game') return;
+            // Drag & Place has no aim/drop/hold/swap keys; Overdrive and restart still work
+            if (DRAG_MODE && !['f', 'F', 'r', 'R'].includes(e.key)) return;
 
             if (e.code === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
                 if (aimCol > 0) {
@@ -4700,13 +4792,17 @@
             swapHold();
         };
 
-        if (btnSwapToken) btnSwapToken.addEventListener('click', handleSwapButtonClick);
-        if (btnTouchSwap && btnTouchSwap !== btnSwapToken) {
-            btnTouchSwap.addEventListener('click', handleSwapButtonClick);
-        }
-        if (holdSlot) holdSlot.addEventListener('click', handleHoldButtonClick);
-        if (btnTouchHold && btnTouchHold !== holdSlot) {
-            btnTouchHold.addEventListener('click', handleHoldButtonClick);
+        if (DRAG_MODE) {
+            setupDragInputs();
+        } else {
+            if (btnSwapToken) btnSwapToken.addEventListener('click', handleSwapButtonClick);
+            if (btnTouchSwap && btnTouchSwap !== btnSwapToken) {
+                btnTouchSwap.addEventListener('click', handleSwapButtonClick);
+            }
+            if (holdSlot) holdSlot.addEventListener('click', handleHoldButtonClick);
+            if (btnTouchHold && btnTouchHold !== holdSlot) {
+                btnTouchHold.addEventListener('click', handleHoldButtonClick);
+            }
         }
         if (btnTouchDrop) btnTouchDrop.addEventListener('click', dropActiveOrb);
         if (btnOverdrive) btnOverdrive.addEventListener('click', activateOverdrive);
@@ -4736,6 +4832,221 @@
             lastTime = performance.now();
             if (sfx) sfx.resume();
         });
+    }
+
+    // ---------- Drag & Place input (drag.html) ----------
+    // Tray orb → drag up onto a column (it falls onto that column's stack) or onto HOLD.
+    // HOLD orb → drag onto a column. Board tile → slide onto a neighbour to swap (spends a token).
+    function setupDragInputs() {
+        const LIFT = 64; // the dragged orb floats above the finger so the thumb never hides it
+        const canPlay = () => !isProcessing && !isGameOver && !isPaused && currentScreen === 'game' && !activeProjectile;
+
+        const canvasPoint = (clientX, clientY) => {
+            const rect = canvas.getBoundingClientRect();
+            return { x: clientX - rect.left, y: clientY - rect.top };
+        };
+        const isOver = (el, x, y) => {
+            if (!el) return false;
+            const r = el.getBoundingClientRect();
+            return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+        };
+
+        function placeGhost(clientX, clientY) {
+            if (!dragGhost) return;
+            const size = Math.max(40, cellW - 6);
+            dragGhost.style.width = `${size}px`;
+            dragGhost.style.height = `${size}px`;
+            dragGhost.style.transform = `translate(${clientX - size / 2}px, ${clientY - LIFT - size / 2}px)`;
+        }
+
+        function beginDrag(source, slot, e) {
+            const orb = source === 'hold' ? heldOrb : dragTray[slot];
+            if (!orb || activeDrag || boardSwapDrag || !canPlay()) return;
+            e.preventDefault();
+            sfx.init();
+            activeDrag = { source, slot, orb, col: -1, ghostY: 0, overHold: false };
+            currentOrb = orb; // drives the column beam + landing preview
+            dropCancelArmed = true;
+            if (dragGhost) {
+                renderQueueSlot(dragGhost, orb);
+                dragGhost.classList.add('show');
+            }
+            moveDrag(e.clientX, e.clientY);
+            sfx.playMove();
+            triggerHaptic('tick');
+            updateHUD();
+        }
+
+        function moveDrag(clientX, clientY) {
+            const d = activeDrag;
+            placeGhost(clientX, clientY);
+            const p = canvasPoint(clientX, clientY - LIFT);
+            d.ghostY = p.y;
+            d.overHold = d.source === 'tray' && isOver(btnTouchHold, clientX, clientY);
+            const overBoard = !d.overHold
+                && p.x >= boardOffsetX && p.x < boardOffsetX + cellW * COLS
+                && p.y >= 0 && p.y < boardOffsetY + cellH * ROWS;
+            const col = overBoard ? Math.floor((p.x - boardOffsetX) / cellW) : -1;
+            if (col !== d.col) {
+                d.col = col;
+                if (col >= 0) {
+                    aimCol = col;
+                    sfx.playMove();
+                    triggerHaptic('tick');
+                }
+            }
+            dropCancelArmed = d.col < 0; // hides the beam/preview while off the board
+            if (btnTouchHold) btnTouchHold.classList.toggle('drop-target', d.overHold);
+        }
+
+        function endDrag(cancelled) {
+            const d = activeDrag;
+            if (!d) return;
+            activeDrag = null;
+            dropCancelArmed = false;
+            if (dragGhost) dragGhost.classList.remove('show');
+            if (btnTouchHold) btnTouchHold.classList.remove('drop-target');
+
+            if (!cancelled && d.overHold) {
+                holdFromTray(d.slot);
+            } else if (!cancelled && d.col >= 0 && canPlay()) {
+                aimCol = d.col;
+                currentOrb = d.orb;
+                if (dropActiveOrb({ startY: d.ghostY })) {
+                    // The orb is in flight: refill its slot straight away
+                    if (d.source === 'tray') dragTray[d.slot] = generateOrb();
+                    else heldOrb = null;
+                }
+            }
+            if (!activeProjectile) currentOrb = null;
+            updateHUD();
+        }
+
+        function holdFromTray(slot) {
+            if (!canHold) {
+                sfx.playWarning();
+                addFloatingText('HOLD USED · PLACE AN ORB FIRST', canvas.width / (2 * dpr), boardOffsetY + cellH * 3, '#c471ed', 1.05);
+                return;
+            }
+            const orb = dragTray[slot];
+            dragTray[slot] = heldOrb || generateOrb(); // a held orb trades places, else the slot refills
+            heldOrb = orb;
+            canHold = false;
+            sfx.playMove();
+            triggerHaptic('swap');
+            retriggerClass(btnTouchHold, 'hold-pop');
+        }
+
+        function beginBoardSwap(e) {
+            if (activeDrag || boardSwapDrag || !canPlay()) return;
+            const p = canvasPoint(e.clientX, e.clientY);
+            const c = Math.floor((p.x - boardOffsetX) / cellW);
+            const r = Math.floor((p.y - boardOffsetY) / cellH);
+            if (r < 0 || r >= ROWS || c < 0 || c >= COLS || !grid[r][c]) return;
+            e.preventDefault();
+            sfx.init();
+            boardSwapDrag = { r, c, x0: p.x, y0: p.y, target: null, warned: false };
+        }
+
+        function moveBoardSwap(clientX, clientY) {
+            const s = boardSwapDrag;
+            const p = canvasPoint(clientX, clientY);
+            const dx = p.x - s.x0;
+            const dy = p.y - s.y0;
+            let target = null;
+            if (Math.max(Math.abs(dx), Math.abs(dy)) >= cellW * 0.45) {
+                const tr = Math.abs(dy) > Math.abs(dx) ? s.r + Math.sign(dy) : s.r;
+                const tc = Math.abs(dy) > Math.abs(dx) ? s.c : s.c + Math.sign(dx);
+                if (tr >= 0 && tr < ROWS && tc >= 0 && tc < COLS) target = { r: tr, c: tc };
+            }
+            if (target && swapTokens <= 0) {
+                if (!s.warned) {
+                    s.warned = true;
+                    triggerScreenShake(6);
+                    sfx.playWarning();
+                    addFloatingText('NO SWAPS LEFT · EARN ONE EVERY 8 DROPS', canvas.width / (2 * dpr), boardOffsetY + cellH * 3, '#ff4e50', 1.05);
+                }
+                target = null;
+            }
+            const changed = (target && (!s.target || s.target.r !== target.r || s.target.c !== target.c)) || (!target && s.target);
+            s.target = target;
+            // Reuse the classic swap highlights: selected tile, neighbours, and the chosen target
+            isSwapModeActive = !!target;
+            firstSwapTile = target ? { r: s.r, c: s.c } : null;
+            if (changed) {
+                if (target) {
+                    sfx.playMove();
+                    triggerHaptic('tick');
+                }
+                updateHUD(); // lights the swap counter while a target is chosen
+            }
+        }
+
+        function endBoardSwap(cancelled) {
+            const s = boardSwapDrag;
+            boardSwapDrag = null;
+            isSwapModeActive = false;
+            firstSwapTile = null;
+            if (!cancelled && s && s.target && swapTokens > 0 && canPlay()) {
+                performSwap(s.r, s.c, s.target.r, s.target.c);
+            } else {
+                updateHUD();
+            }
+        }
+
+        dragTraySlots.forEach((el, i) => {
+            const btn = el && el.closest('button');
+            if (btn) btn.addEventListener('pointerdown', (e) => beginDrag('tray', i, e));
+        });
+        if (btnTouchHold) btnTouchHold.addEventListener('pointerdown', (e) => beginDrag('hold', 0, e));
+        canvas.addEventListener('pointerdown', beginBoardSwap);
+
+        window.addEventListener('pointermove', (e) => {
+            if (activeDrag) moveDrag(e.clientX, e.clientY);
+            else if (boardSwapDrag) moveBoardSwap(e.clientX, e.clientY);
+        });
+        window.addEventListener('pointerup', (e) => {
+            if (activeDrag) {
+                moveDrag(e.clientX, e.clientY); // settle the target on the release point
+                endDrag(false);
+            } else if (boardSwapDrag) {
+                moveBoardSwap(e.clientX, e.clientY);
+                endBoardSwap(false);
+            }
+        });
+        window.addEventListener('pointercancel', () => {
+            if (activeDrag) endDrag(true);
+            else if (boardSwapDrag) endBoardSwap(true);
+        });
+
+        // The swap counter is a read-out; tapping it explains the gesture
+        if (btnTouchSwap) {
+            btnTouchSwap.addEventListener('click', () => {
+                sfx.init();
+                sfx.playMove();
+                addFloatingText('SLIDE A TILE ONTO ITS NEIGHBOUR TO SWAP', canvas.width / (2 * dpr), boardOffsetY + cellH * 3, '#00f2fe', 1.05);
+            });
+        }
+    }
+
+    // ---------- Labs flag: Drag & Place ----------
+    function isLabsDragEnabled() {
+        try { return localStorage.getItem(LABS_DRAG_FLAG) === '1'; } catch (e) { return false; }
+    }
+
+    function setLabsDragEnabled(on) {
+        try {
+            if (on) localStorage.setItem(LABS_DRAG_FLAG, '1');
+            else localStorage.removeItem(LABS_DRAG_FLAG);
+        } catch (e) { /* storage unavailable: the switch just won't persist */ }
+        syncLabsUI();
+    }
+
+    // index.html shows the "Drag & Place" switch only when the flag is on; drag.html always shows its way back
+    function syncLabsUI() {
+        const on = isLabsDragEnabled();
+        if (settingLabsDragToggle) settingLabsDragToggle.checked = on;
+        if (labsSwitch) labsSwitch.hidden = !(on || DRAG_MODE);
     }
 
     // Main Game Loop (60 FPS)
@@ -5057,6 +5368,7 @@
 
     function drawAimerAndPreview() {
         if (isGameOver || isSwapModeActive || dropCancelArmed) return;
+        if (DRAG_MODE && !activeDrag) return; // only preview while an orb is held over the board
         const col = aimCol;
         const centerX = boardOffsetX + col * cellW + cellW / 2;
 
@@ -5738,7 +6050,7 @@
     }
 
     function drawLauncher() {
-        if (isGameOver) return;
+        if (isGameOver || DRAG_MODE) return;
         const col = aimCol;
         const centerX = boardOffsetX + col * cellW + cellW / 2;
         const centerY = cellH * 0.55;

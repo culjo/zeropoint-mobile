@@ -1,0 +1,204 @@
+/* =====================================================================
+   Drag & Place (Labs) — styles that only drag.html loads.
+   Tray: HOLD · two orbs · swap counter. Orbs reuse the .next-orb tile
+   colours (q-pos / q-neg / q-special) set by renderQueueSlot().
+   ===================================================================== */
+
+#screen-game .drag-tray {
+    width: 100%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    height: 88px;
+    box-sizing: border-box;
+    padding: 0 12px;
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(18, 23, 37, 0.8);
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+#screen-game .dt-divider {
+    width: 1px;
+    height: 56px;
+    margin: 0 8px;
+    background: rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+}
+
+#screen-game .dt-orbs {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+}
+
+#screen-game .dt-hold,
+#screen-game .dt-orb-btn,
+#screen-game .dt-swap {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 58px;
+    min-height: 58px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font-family: inherit;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+#screen-game .dt-orb-btn,
+#screen-game .dt-hold {
+    cursor: grab;
+}
+
+/* Orb tiles in the tray (and the HOLD box) */
+#screen-game .drag-tray .next-orb.dt-slot {
+    width: 58px;
+    height: 58px;
+    border-radius: 16px;
+    border-width: 2px;
+    opacity: 1;
+}
+
+#screen-game .drag-tray .next-orb.dt-slot .queue-orb-label {
+    font-family: var(--font-numbers);
+    font-size: 24px !important;
+}
+
+/* Empty tray slot (its orb is being dragged) */
+#screen-game .drag-tray .dt-orbs .next-orb.dt-slot:empty {
+    border: 1.5px dashed rgba(0, 242, 254, 0.45);
+    background: transparent;
+    box-shadow: none;
+}
+
+/* HOLD: dashed purple box with the label inside while empty */
+#screen-game .drag-tray #hold-slot {
+    border: 1.5px dashed rgba(196, 113, 237, 0.6);
+    background: rgba(196, 113, 237, 0.06);
+    box-shadow: none;
+}
+
+#screen-game .drag-tray #hold-slot.active {
+    border: 2px solid var(--purple);
+    box-shadow: 0 0 14px rgba(196, 113, 237, 0.45);
+}
+
+#screen-game .drag-tray #hold-slot.used:not(.active) {
+    opacity: 0.45;
+}
+
+#screen-game .dt-hold-label {
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 1.2px;
+    color: var(--purple);
+}
+
+/* Dragging a tray orb over HOLD */
+#screen-game .dt-hold.drop-target #hold-slot {
+    border-style: solid;
+    border-color: var(--purple);
+    background: rgba(196, 113, 237, 0.2);
+    box-shadow: 0 0 18px rgba(196, 113, 237, 0.7);
+    transform: scale(1.06);
+}
+
+#screen-game .dt-hold.hold-pop #hold-slot {
+    animation: dt-pop 0.28s ease-out;
+}
+
+@keyframes dt-pop {
+    0% { transform: scale(0.86); }
+    60% { transform: scale(1.08); }
+    100% { transform: scale(1); }
+}
+
+/* Swap counter: icon tile + count badge (same look as the classic swap token) */
+#screen-game .drag-tray .dt-swap-slot {
+    width: 58px;
+    height: 58px;
+    border-radius: 16px;
+    border: 1.5px solid rgba(0, 242, 254, 0.55);
+    background: rgba(0, 242, 254, 0.1);
+}
+
+#screen-game .drag-tray .dt-swap-slot .swap-token-text {
+    top: -7px;
+    right: -7px;
+    min-width: 22px;
+    height: 22px;
+    border-radius: 11px;
+    font-size: 12px;
+}
+
+#screen-game .drag-tray .dt-swap-slot:not(.has-tokens) {
+    border-color: rgba(136, 146, 176, 0.4);
+    background: rgba(136, 146, 176, 0.08);
+    color: var(--text-muted);
+}
+
+/* Lit while a tile is being slid onto a neighbour */
+#screen-game .drag-tray .dt-swap-slot.swap-mode-active {
+    border-color: var(--cyan);
+    background: var(--cyan);
+    color: #080a11;
+    box-shadow: 0 0 16px rgba(0, 242, 254, 0.6);
+}
+
+#screen-game .drag-tray .dt-swap-slot.swap-mode-active .swap-token-text {
+    background: #f0f4fc;
+}
+
+/* The orb that follows the finger (lives outside #screen-game, so it carries its own tile styles) */
+.drag-ghost {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border-radius: 16px;
+    border: 2px solid var(--cyan);
+    background: #0f2433;
+    pointer-events: none;
+    filter: drop-shadow(0 14px 18px rgba(0, 0, 0, 0.6));
+    will-change: transform;
+}
+
+.drag-ghost.show {
+    display: flex;
+}
+
+.drag-ghost.q-pos {
+    border-color: var(--cyan);
+    background: #0f2433;
+    box-shadow: 0 0 22px rgba(0, 242, 254, 0.7);
+}
+
+.drag-ghost.q-neg {
+    border-color: var(--orange);
+    background: #33141d;
+    box-shadow: 0 0 22px rgba(255, 78, 80, 0.6);
+}
+
+.drag-ghost.q-special {
+    border-color: var(--purple);
+    background: #241a33;
+    box-shadow: 0 0 22px rgba(196, 113, 237, 0.7);
+}
+
+.drag-ghost .queue-orb-label {
+    font-family: var(--font-numbers);
+    font-size: 24px !important;
+    line-height: 1;
+}

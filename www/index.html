@@ -17,6 +17,11 @@
         <section id="screen-home" class="screen-view active">
             <!-- Menu A: one big Play — hero + Adventure primary + Classic / Challenges tiles -->
             <header class="home-topbar">
+                <!-- Labs: shown when the Drag & Place flag is on (Settings › Labs, or index.html?labs=drag) -->
+                <a id="labs-switch" class="labs-switch" href="drag.html" hidden>
+                    <span class="labs-switch-tag">LABS</span>
+                    <span class="labs-switch-text">Try Drag &amp; Place</span>
+                </a>
                 <div class="home-top-controls">
                     <button id="btn-home-sound" class="btn-icon" aria-label="Toggle Sound" title="Sound Mute/Unmute">
                         <svg class="icon-sound-on" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -605,6 +610,18 @@
                         <button type="button" class="qs-pill" data-shake="off" role="radio">Off</button>
                     </div>
                 </div>
+
+                <label class="qs-row" for="setting-labs-drag-toggle">
+                    <span class="qs-ic" style="color:#00f2fe;background:rgba(0, 242, 254, 0.12)">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V7M7 12l5-5 5 5"></path><rect x="8" y="19" width="8" height="2" rx="1"></rect></svg>
+                    </span>
+                    <span class="qs-text">
+                        <strong>Labs: Drag &amp; Place</strong>
+                        <span>Adds a Home switch to try the new drag controls</span>
+                    </span>
+                    <input type="checkbox" id="setting-labs-drag-toggle" class="qs-input" role="switch">
+                    <span class="qs-switch" aria-hidden="true"><span class="qs-knob"></span></span>
+                </label>
 
                 <button type="button" id="btn-reset-data" class="qs-row qs-row-reset">
                     <span class="qs-ic" style="color:#ff6b8a;background:rgba(255, 78, 80, 0.13)">

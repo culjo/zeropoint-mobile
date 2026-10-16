@@ -6669,3 +6669,36 @@ input:checked + .toggle-slider:before {
 @media (prefers-reduced-motion: reduce) {
     #screen-game .drop-cancel-hint { transition: none; }
 }
+
+/* ===== Labs switch (Home top bar): jumps between the classic page and drag.html ===== */
+#screen-home .labs-switch {
+    margin-right: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    box-sizing: border-box;
+    padding: 0 14px 0 8px;
+    border-radius: 14px;
+    border: 1px solid rgba(0, 242, 254, 0.45);
+    background: rgba(0, 242, 254, 0.08);
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 800;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+#screen-home .labs-switch[hidden] {
+    display: none;
+}
+
+#screen-home .labs-switch-tag {
+    padding: 4px 6px;
+    border-radius: 7px;
+    background: var(--cyan);
+    color: #080a11;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1px;
+}

@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Nullfall: Drag &amp; Place (Labs)</title>
+    <link rel="preload" href="fonts/inter-latin-var.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="fonts/lato-latin-900.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="fonts/fonts.css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="drag.css">
+</head>
+<!-- Drag & Place (Labs) entry page: same game as index.html, but orbs are dragged up from a tray.
+     data-gameplay="drag" switches game.js into this mode. -->
+<body data-gameplay="drag" class="drag-mode">
+    <div id="game-root">
+        <!-- ========================================== -->
+        <!-- SCREEN 1: HOME (Title Gateway & Mode Select) -->
+        <!-- ========================================== -->
+        <section id="screen-home" class="screen-view active">
+            <!-- Menu A: one big Play — hero + Adventure primary + Classic / Challenges tiles -->
+            <header class="home-topbar">
+                <!-- Labs: shown when the Drag & Place flag is on (Settings › Labs, or index.html?labs=drag) -->
+                <a id="labs-switch" class="labs-switch" href="index.html" hidden>
+                    <span class="labs-switch-tag">LABS</span>
+                    <span class="labs-switch-text">Back to classic drop</span>
+                </a>
+                <div class="home-top-controls">
+                    <button id="btn-home-sound" class="btn-icon" aria-label="Toggle Sound" title="Sound Mute/Unmute">
+                        <svg class="icon-sound-on" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M11 5 6 9H2v6h4l5 4zM19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                        </svg>
+                        <svg class="icon-sound-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;" aria-hidden="true">
+                            <path d="M11 5 6 9H2v6h4l5 4z"></path>
+                            <line x1="23" y1="9" x2="17" y2="15"></line>
+                            <line x1="17" y1="9" x2="23" y2="15"></line>
+                        </svg>
+                    </button>
+                    <button id="btn-home-settings" class="btn-icon" aria-label="Settings" title="Settings">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <div class="home-hero">
+                <div class="reactor-core-orb">
+                    <div class="orb-ring ring-1"></div>
+                    <div class="orb-ring ring-2"></div>
+                    <div class="orb-core">0</div>
+                </div>
+                <h1 class="home-title">NULLFALL</h1>
+                <p class="home-tagline">Puzzle Cascade</p>
+            </div>
+
+            <div class="home-play-zone">
+                <!-- Primary: Adventure -->
+                <button type="button" class="menu-play-primary" id="card-play-adventure" aria-label="Play Adventure">
+                    <span class="menu-play-badge">
+                        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                            <ellipse cx="12" cy="12" rx="10" ry="4"></ellipse>
+                            <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)"></ellipse>
+                            <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(120 12 12)"></ellipse>
+                            <circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"></circle>
+                        </svg>
+                    </span>
+                    <span class="menu-play-text">
+                        <span class="menu-play-pill" id="home-card-stars">SECTOR 1 - 0 ★</span>
+                        <span class="menu-play-label">PLAY</span>
+                    </span>
+                    <span class="menu-play-go">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+                    </span>
+                </button>
+
+                <!-- Secondary: Classic + Challenges -->
+                <div class="menu-tiles">
+                    <button type="button" class="menu-tile menu-tile-classic" id="card-play-classic" aria-label="Play Classic">
+                        <span class="menu-tile-top">
+                            <span class="menu-tile-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"></path></svg>
+                            </span>
+                            <svg class="menu-tile-go" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+                        </span>
+                        <span class="menu-tile-name">Classic</span>
+                        <span class="menu-tile-stat" id="home-card-highscore">BEST 0</span>
+                    </button>
+                    <button type="button" class="menu-tile menu-tile-challenges" id="card-play-challenges" aria-label="Play Challenges">
+                        <span class="menu-tile-top">
+                            <span class="menu-tile-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><circle cx="12" cy="12" r="1.5" fill="currentColor"></circle></svg>
+                            </span>
+                            <svg class="menu-tile-go" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+                        </span>
+                        <span class="menu-tile-name">Challenges</span>
+                        <span class="menu-tile-stat" id="home-card-challenge-stars">0 / 15 ★</span>
+                    </button>
+                </div>
+
+                <!-- Tertiary links -->
+                <div class="menu-links">
+                    <button type="button" id="btn-home-tutorial" class="menu-link">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M2 10 12 5l10 5-10 5zM6 12v5c3 2 9 2 12 0v-5"></path></svg>
+                        How to play
+                    </button>
+                    <button type="button" id="btn-open-codex" class="menu-link">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 21V5"></path></svg>
+                        Academy
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- SCREEN 2: ADVENTURE CONSTELLATION MAP      -->
+        <!-- ========================================== -->
+        <section id="screen-adventure-nodes" class="screen-view">
+            <div class="adv-starfield" aria-hidden="true"></div>
+
+            <header class="adv-nodes-header">
+                <button id="btn-adv-nodes-back" class="btn-icon" aria-label="Back to menu" title="Back to Home">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+                </button>
+                <div class="adv-nodes-title-group">
+                    <span class="adv-sector-badge" id="adv-nodes-sector-badge">SECTOR 01</span>
+                    <h2 id="adv-nodes-sector-title">Subatomic Genesis</h2>
+                </div>
+                <span id="adv-nodes-stars-pill" class="stars-pill">★ 0</span>
+            </header>
+
+            <!-- World switcher: ‹ numbered sector pills › -->
+            <div class="sector-nav-bar" role="tablist" aria-label="Worlds">
+                <button id="btn-prev-sector" class="btn-sector-nav" aria-label="Previous world">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+                </button>
+                <div class="sector-pills" id="sector-pills"></div>
+                <button id="btn-next-sector" class="btn-sector-nav" aria-label="Next world">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg>
+                </button>
+            </div>
+
+            <!-- Constellation map: links (SVG) + node buttons, positioned from NodeGenerator layout % -->
+            <div class="adv-map-viewport" id="adv-map-viewport">
+                <div class="adv-map-canvas-container" id="adv-map-canvas-container">
+                    <svg class="adv-map-svg" id="adv-map-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+                    <div class="adv-map-nodes-layer" id="adv-map-nodes-layer"></div>
+                </div>
+                <div class="adv-world-sealed" id="adv-world-sealed" hidden>
+                    <span class="adv-world-sealed-icon">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+                    </span>
+                    <span class="adv-world-sealed-title" id="adv-world-sealed-title">Ion Nebula is sealed</span>
+                    <span class="adv-world-sealed-desc" id="adv-world-sealed-desc">Defeat the boss of Subatomic Genesis to open this world.</span>
+                </div>
+            </div>
+
+            <!-- Selected node sheet (replaces the node preview modal) -->
+            <div class="node-sheet" id="node-sheet">
+                <div class="node-sheet-head">
+                    <div class="node-sheet-text">
+                        <span class="node-sheet-kicker" id="node-sheet-kicker">NODE 1-1</span>
+                        <span class="node-sheet-title" id="node-sheet-title">Subatomic Spark</span>
+                        <span class="node-sheet-desc" id="node-sheet-desc">Trigger 3 Zero Blasts</span>
+                    </div>
+                    <span class="node-sheet-stars" id="node-sheet-stars" aria-label="0 of 3 stars"><span>★</span><span>★</span><span>★</span></span>
+                </div>
+                <div class="node-sheet-chips" id="node-sheet-chips"></div>
+                <button type="button" class="node-sheet-launch" id="btn-node-sheet-launch">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+                    <span id="node-sheet-cta">LAUNCH</span>
+                </button>
+                <div class="node-sheet-locked" id="node-sheet-locked" hidden>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+                    <span id="node-sheet-locked-text">Clear the previous node to unlock</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- SCREEN 2B: TACTICAL CHALLENGES (Handcrafted) -->
+        <!-- ========================================== -->
+        <section id="screen-challenges" class="screen-view">
+            <header class="adv-header chal-header">
+                <button id="btn-challenges-to-home" class="btn-icon" aria-label="Back to menu" title="Back to Home">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+                </button>
+                <div class="adv-title-group">
+                    <span class="adv-sector-badge" id="challenges-kicker">CHALLENGES · SECTOR 01</span>
+                    <h2>Tactical Missions</h2>
+                </div>
+                <div class="adv-total-stars" id="challenges-header-stars">★ 0/15</div>
+            </header>
+
+            <!-- Scrollable mission grid: training pill + sector groups of mission tiles -->
+            <div class="chal-scroll" id="chal-scroll">
+                <button type="button" class="chal-training" id="chal-training">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 10 12 5l10 5-10 5zM6 12v5c3 2 9 2 12 0v-5"></path></svg>
+                    <span class="chal-training-label">Academy Flight Training</span>
+                    <span class="chal-stars" id="chal-training-stars"><span>★</span><span>★</span><span>★</span></span>
+                </button>
+                <div class="chal-grid" id="challenges-levels-grid">
+                    <!-- Populated dynamically by game.js -->
+                </div>
+            </div>
+
+            <!-- Selected mission sheet -->
+            <div class="chal-sheet" id="chal-sheet">
+                <div class="chal-sheet-head">
+                    <div class="chal-sheet-text">
+                        <span class="chal-sheet-kicker" id="chal-sheet-kicker">MISSION 01-1</span>
+                        <span class="chal-sheet-title" id="chal-sheet-title">Subatomic Spark</span>
+                        <span class="chal-sheet-desc" id="chal-sheet-desc">Trigger 3 Zero Blasts</span>
+                    </div>
+                    <span class="chal-stars chal-sheet-stars" id="chal-sheet-stars"><span>★</span><span>★</span><span>★</span></span>
+                </div>
+                <div class="chal-sheet-chips" id="chal-sheet-chips"></div>
+                <button type="button" class="chal-sheet-launch" id="btn-chal-launch">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+                    <span id="chal-sheet-cta">LAUNCH</span>
+                </button>
+                <div class="chal-sheet-locked" id="chal-sheet-locked" hidden>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+                    <span id="chal-sheet-locked-text">Clear the previous mission to unlock</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- SCREEN 3: GAMEPLAY ARENA (Classic/Adventure)-->
+        <!-- ========================================== -->
+        <section id="screen-game" class="screen-view">
+            <div id="app">
+                <!-- Zone 0: Training header (tutorial only): exit · lesson pips · skip -->
+                <div class="tut-header" id="tut-header" hidden>
+                    <button type="button" id="btn-tut-exit" class="btn-icon tut-exit" aria-label="Exit training"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+                    <div class="tut-pips" id="tut-pips" role="progressbar" aria-label="Training progress"></div>
+                    <button type="button" id="btn-tut-skip" class="tut-skip">Skip</button>
+                </div>
+
+                <!-- Zone 1: Compact Arcade HUD (score left · next + overdrive centre · pause right) -->
+                <header class="game-header hud-compact">
+                    <div class="hud-score-block" id="stat-pill-best">
+                        <span class="hud-best"><span id="best-label">Best</span> <span id="best-val">0</span></span>
+                        <div class="hud-score-row">
+                            <span id="score-val" class="hud-score">0</span>
+                            <span id="combo-val" class="hud-combo">×1</span>
+                        </div>
+                    </div>
+                    <div class="hud-center">
+                        <div class="overdrive-container hud-overdrive" id="overdrive-container" role="img" aria-label="Overdrive charge">
+                            <svg class="hud-overdrive-icon" width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>
+                            <div class="overdrive-bar-track">
+                                <div id="overdrive-fill" class="overdrive-bar-fill"></div>
+                            </div>
+                            <span id="overdrive-percent" class="overdrive-percent">0%</span>
+                            <button id="btn-overdrive" class="btn-overdrive-ready" style="display: none;">
+                                🔥 UNLEASH [F] 🔥
+                            </button>
+                        </div>
+                    </div>
+                    <div class="header-controls">
+                        <button id="btn-pause" class="btn-icon" aria-label="Pause Game" title="Pause Game [Esc]">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+                                <path d="M8 5v14M16 5v14"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Zone 1C: Contextual Objective / Tutorial Strip (hidden in Classic; bounty lives on the pause screen) -->
+                <div class="mission-status-strip" id="mission-status-strip">
+                    <!-- Tutorial Step Card (Shown in Tutorial Mode) -->
+                    <div class="tutorial-card coach-card" id="tutorial-card" style="display: none;" role="status" aria-live="polite">
+                        <span class="coach-kicker" id="tutorial-step-badge">LESSON 1 · ZERO BLAST</span>
+                        <span class="coach-line" id="tutorial-title">Opposites cancel. Drop −3 on its match.</span>
+                        <div class="coach-chips" id="tutorial-desc"></div>
+                    </div>
+
+                    <!-- Adventure Mode Objective Bar (Shown in Adventure Mode) -->
+                    <div class="adventure-objective-card obj-strip" id="adventure-objective-card" style="display: none;" role="status" aria-live="polite">
+                        <span class="obj-glyph" id="adv-obj-glyph" aria-hidden="true">◈</span>
+                        <span class="adv-obj-desc" id="adv-obj-desc">Trigger 3 Zero Blasts</span>
+                        <span class="obj-togo" id="adv-obj-togo" hidden>1 TO GO</span>
+                        <span class="adv-obj-progress" id="adv-obj-progress">0/3</span>
+                    </div>
+
+                    <!-- In-Run Tactical Bounty Card (Shown in Classic Mode) -->
+                    <div class="bounty-card" id="bounty-card">
+                        <div class="bounty-header">
+                            <span class="bounty-badge">🎯 BOUNTY</span>
+                            <span class="bounty-name" id="bounty-name">Supernova Forge</span>
+                            <span class="bounty-reward" id="bounty-reward">+50 pts • ⚡+1</span>
+                            <span class="bounty-progress-text" id="bounty-progress-text">0 / 1</span>
+                        </div>
+                        <div class="bounty-desc-row" style="display: none;">
+                            <span class="bounty-desc" id="bounty-desc">Detonate a ±4 or higher Cross Laser</span>
+                        </div>
+                        <div class="bounty-progress-track">
+                            <div class="bounty-progress-fill" id="bounty-progress-fill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Zone 2: Canvas Game Arena with Floating Status Badges -->
+                <div class="canvas-wrapper" id="canvas-container">
+                    <!-- Dark Matter Rise Banner: one cell tall, docked under the board; fill rises as the countdown drops -->
+                    <div class="rise-status-bar" id="rise-status-bar" role="status">
+                        <div class="rise-fill" id="rise-fill"></div>
+                        <span class="rise-status-content">
+                            <svg class="rise-status-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                            <span class="rise-status-label" id="turn-counter-label">Dark Matter Rises In</span>
+                            <span id="rise-counter" class="counter-ring">5</span>
+                        </span>
+                    </div>
+
+                    <!-- Floating Swap Banner -->
+                    <div id="swap-banner" class="swap-banner" style="display: none;">
+                        <span>⚡ QUANTUM SWAP: Tap 2 adjacent tiles &bull; [Esc] cancel</span>
+                    </div>
+                    <canvas id="game-canvas"></canvas>
+
+                    <!-- Shown while a drag is outside the board: releasing cancels the drop -->
+                    <div id="drop-cancel-hint" class="drop-cancel-hint" aria-hidden="true">
+                        <span class="dc-x"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
+                        <span>Release to cancel</span>
+                    </div>
+                </div>
+
+                <!-- Zone 3: Drag & Place tray — HOLD · two orbs (a used slot refills instantly) · swap counter -->
+                <div class="drag-tray" id="drag-tray">
+                    <button type="button" class="dt-hold" id="btn-touch-hold" aria-label="Hold. Drag an orb here to keep it, or drag the held orb onto the board">
+                        <span id="hold-slot" class="next-orb next-orb-lg dt-slot"><span id="hold-text" class="dt-hold-label">HOLD</span></span>
+                    </button>
+                    <span class="dt-divider" aria-hidden="true"></span>
+                    <div class="dt-orbs">
+                        <button type="button" class="dt-orb-btn" aria-label="Orb 1. Drag it onto a column"><span id="drag-slot-0" class="next-orb next-orb-lg dt-slot"></span></button>
+                        <button type="button" class="dt-orb-btn" aria-label="Orb 2. Drag it onto a column"><span id="drag-slot-1" class="next-orb next-orb-lg dt-slot"></span></button>
+                    </div>
+                    <span class="dt-divider" aria-hidden="true"></span>
+                    <button type="button" class="dt-swap" id="btn-touch-swap" aria-label="Board swaps left. Slide a tile onto its neighbour to swap">
+                        <span id="btn-swap-token" class="slot swap-slot dt-swap-slot">
+                            <svg class="swap-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/></svg>
+                            <span id="swap-token-count" class="swap-token-text">1</span>
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- SCREEN 4: QUANTUM CODEX (Learn & Academy)  -->
+        <!-- ========================================== -->
+        <section id="screen-codex" class="screen-view">
+            <header class="acad-header">
+                <button id="btn-codex-to-home" class="btn-icon" aria-label="Back" title="Back">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+                </button>
+                <div class="acad-title-group">
+                    <span class="acad-kicker">QUANTUM ACADEMY</span>
+                    <h2>Field Manual</h2>
+                </div>
+                <div class="acad-counter" id="acad-counter">1/4</div>
+            </header>
+
+            <!-- Lesson chips: rendered by renderAcademy() -->
+            <div class="acad-chips" id="acad-chips" role="tablist"></div>
+
+            <!-- Lesson card -->
+            <div class="acad-card" id="acad-card">
+                <div class="acad-demo" id="acad-demo">
+                    <span class="acad-lesson-kicker" id="acad-lesson-kicker"></span>
+                    <div class="acad-demo-row" id="acad-demo-row"></div>
+                </div>
+                <div class="acad-body">
+                    <h3 id="acad-title"></h3>
+                    <p id="acad-text"></p>
+                    <div class="acad-facts" id="acad-facts"></div>
+                </div>
+            </div>
+
+            <div class="acad-dock">
+                <button type="button" id="btn-codex-next" class="acad-next">
+                    <span id="acad-next-label">Next lesson</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"></path></svg>
+                </button>
+                <button type="button" id="btn-codex-tutorial" class="acad-practice">Practice it in the Hands-on Tutorial</button>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- OVERLAY: OBJECTIVE INTRO (mission card)    -->
+        <!-- ========================================== -->
+        <div id="obj-intro" class="obj-intro" role="dialog" aria-modal="true" aria-labelledby="obj-intro-title" hidden>
+            <div class="obj-intro-card" id="obj-intro-card">
+                <span class="obj-intro-kicker" id="obj-intro-kicker">NODE 1-1 · OBJECTIVE</span>
+                <span class="obj-intro-glyph" id="obj-intro-glyph" aria-hidden="true">◈</span>
+                <h2 class="obj-intro-title" id="obj-intro-title">Shatter all Dark Matter cores</h2>
+                <p class="obj-intro-hint" id="obj-intro-hint">Blast beside a core twice to shatter it</p>
+                <div class="obj-intro-rules" id="obj-intro-rules" role="list" aria-label="Rules and star goals"></div>
+                <span class="obj-intro-tap">TAP TO START</span>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TRAINING: try-again sheet                   -->
+        <!-- ========================================== -->
+        <!-- Ghost hand: points at a column, cell or button during training (fixed, viewport coords) -->
+        <div class="tut-hand" id="tut-hand" hidden aria-hidden="true"><span class="tut-hand-ripple"></span><svg class="tut-hand-svg" width="54" height="62" viewBox="0 0 54 62" aria-hidden="true"><path d="M16 6c0-3.3 2.7-6 6-6s6 2.7 6 6v18l3-1c3-1 6 .6 7 3.6l.4 1.2 2.3-.8c3-1 6.2.7 7.1 3.7l.5 1.5c3-.7 6 1 6.8 4l2 7c2.6 9.5-3 19.3-12.5 21.9l-3 .8C33 67 23 63 18 55L5 34c-1.7-2.8-.8-6.4 2-8.1 2.6-1.6 6-.9 7.8 1.6L16 29z" fill="#f0f4fc" stroke="#0b0e18" stroke-width="2"/></svg></div>
+
+        <div class="tut-fail" id="tut-fail" role="alertdialog" aria-modal="true" aria-labelledby="tut-fail-title" hidden>
+            <div class="tut-fail-sheet">
+                <div class="tut-fail-head">
+                    <span class="tut-fail-x" aria-hidden="true">✕</span>
+                    <span class="tut-fail-text">
+                        <span class="tut-fail-kicker">NOT QUITE</span>
+                        <span class="tut-fail-title" id="tut-fail-title">Try that again</span>
+                    </span>
+                </div>
+                <p class="tut-fail-body" id="tut-fail-body"></p>
+                <div class="tut-fail-actions">
+                    <button type="button" id="btn-tut-retry" class="tut-retry">↻ Try again</button>
+                    <button type="button" id="btn-tut-showme" class="tut-showme">Show me</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TRAINING: first-launch welcome              -->
+        <!-- ========================================== -->
+        <div class="tut-welcome" id="tut-welcome" role="dialog" aria-modal="true" aria-labelledby="tut-welcome-title" hidden>
+            <div class="tut-welcome-logo" aria-hidden="true">
+                <span class="twl-ledge"></span><span class="twl-tile">0</span>
+                <span class="twl-orb pos">+4</span><span class="twl-orb neg">-4</span>
+            </div>
+            <span class="tut-welcome-kicker">WELCOME, PILOT</span>
+            <h2 class="tut-welcome-title" id="tut-welcome-title">Learn Nullfall<br>It's Easy</h2>
+            <p class="tut-welcome-sub">Six quick hands-on lessons. Make mistakes, that's how it sticks.</p>
+            <div class="tut-welcome-lessons">
+                <span><b style="color:#c471ed">0</b>BLAST</span>
+                <span><b style="color:#f9d423">×2</b>MERGE</span>
+                <span><b style="color:#00f2fe">2x</b>CHAIN</span>
+                <span><b style="color:#ff6b8a">◈</b>DANGER</span>
+                <span><b style="color:#00f2fe">⇆</b>TOOLS</span>
+                <span><b style="color:#c471ed">±</b>FLIP</span>
+            </div>
+            <div class="tut-welcome-actions">
+                <button type="button" id="btn-tut-welcome-start" class="tut-welcome-start">Start training <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg></button>
+                <button type="button" id="btn-tut-welcome-skip" class="tut-welcome-skip">Skip — I've played before</button>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- REAL GAME: first Overdrive tip              -->
+        <!-- ========================================== -->
+        <div class="od-tip" id="od-tip" role="dialog" aria-modal="true" aria-labelledby="od-tip-title" hidden>
+            <div class="od-tip-bubble">
+                <span class="od-tip-kicker"><svg class="od-tip-kicker-ic" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/></svg>OVERDRIVE READY</span>
+                <span class="od-tip-title" id="od-tip-title">Your next orb is a power-up!</span>
+                <ul class="od-tip-points">
+                    <li><span class="od-tip-ic ic-burst" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg></span><span>It's a <b>Vortex</b>, <b>Nova</b> or <b>Nuke</b>. Each one clears a big chunk of the board.</span></li>
+                    <li><span class="od-tip-ic ic-target" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg></span><span>Drop it where tiles are <b>piled highest</b>.</span></li>
+                    <li><span class="od-tip-ic ic-bolt" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/></svg></span><span>Blasts and merges charge the bar for the next one.</span></li>
+                </ul>
+                <button type="button" id="btn-od-tip-ok" class="od-tip-ok">Got it</button>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- MODAL: IN-GAME PAUSE                       -->
+        <!-- ========================================== -->
+        <div id="modal-pause" class="overlay pause-core" role="dialog" aria-modal="true" aria-labelledby="pause-heading">
+            <div class="pause-core-inner">
+                <div class="pause-core-header">
+                    <button id="btn-pause-quit" class="pause-exit" aria-label="Exit">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+                        Exit
+                    </button>
+                    <h1 id="pause-heading" class="pause-heading">PAUSED</h1>
+                    <span aria-hidden="true"></span>
+                </div>
+
+                <div class="pause-core-main">
+                    <div class="pause-ring" id="pause-ring" role="img" aria-label="Objective progress">
+                        <div class="pause-ring-track"></div>
+                        <div class="pause-ring-face"></div>
+                        <div class="pause-ring-dash"></div>
+                        <div class="pause-ring-text">
+                            <span class="pause-ring-label" id="pause-ring-label">OBJECTIVE</span>
+                            <span class="pause-ring-value" id="pause-ring-value">0 / 3</span>
+                            <span class="pause-ring-sub" id="pause-ring-sub">Zero Blasts</span>
+                        </div>
+                        <div class="pause-orbs" id="pause-orbs" aria-hidden="true"></div>
+                    </div>
+                    <h2 class="pause-title" id="pause-title">Subatomic Spark</h2>
+                    <span class="pause-chip" id="pause-chip">ADVENTURE · NODE 1-1</span>
+                </div>
+
+                <div class="pause-goals" id="pause-goals"></div>
+
+                <div class="pause-dock">
+                    <button id="btn-pause-restart" class="pause-dock-btn" aria-label="Restart">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"></path></svg>
+                    </button>
+                    <button id="btn-pause-codex" class="pause-dock-btn" aria-label="How to play">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M2 10 12 5l10 5-10 5zM6 12v5c3 2 9 2 12 0v-5"></path></svg>
+                    </button>
+                    <button id="btn-pause-settings" class="pause-dock-btn" aria-label="Settings">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                    </button>
+                    <button id="btn-pause-resume" class="pause-resume">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+                        RESUME
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- MODAL: ADVENTURE LEVEL VICTORY             -->
+        <!-- ========================================== -->
+        <div id="modal-victory" class="overlay win-screen" role="dialog" aria-modal="true" aria-labelledby="victory-title">
+            <div class="win-rays" aria-hidden="true"></div>
+            <div class="win-body">
+                <span class="win-kicker" id="victory-kicker">MISSION SUCCESS</span>
+                <h2 class="win-title" id="victory-title">Mission Cleared</h2>
+
+                <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="winStarGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff3a8"></stop><stop offset=".45" stop-color="#f9d423"></stop><stop offset="1" stop-color="#e8b80f"></stop></linearGradient></defs></svg>
+                <div class="win-stars" id="victory-stars-container" role="img" aria-label="3 of 3 stars">
+                    <span class="win-star s1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6.2 6.6.8-4.9 4.6 1.3 6.6L12 17.4l-5.9 3.3 1.3-6.6L2.5 9.5l6.6-.8z"></path></svg></span>
+                    <span class="win-star s2"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6.2 6.6.8-4.9 4.6 1.3 6.6L12 17.4l-5.9 3.3 1.3-6.6L2.5 9.5l6.6-.8z"></path></svg></span>
+                    <span class="win-star s3"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6.2 6.6.8-4.9 4.6 1.3 6.6L12 17.4l-5.9 3.3 1.3-6.6L2.5 9.5l6.6-.8z"></path></svg></span>
+                </div>
+
+                <div class="win-score-block">
+                    <span class="win-label">FINAL SCORE</span>
+                    <span class="win-score" id="vic-score">0</span>
+                    <span class="win-bonus" id="vic-bonus">+0 DROPS BONUS</span>
+                </div>
+
+                <div class="win-goals" id="vic-goals" role="list" aria-label="Star goals">
+                    <span class="win-goals-title">HOW YOU EARNED YOUR STARS</span>
+                    <div class="win-goals-list" id="vic-goals-list"></div>
+                </div>
+            </div>
+
+            <div class="win-actions">
+                <button type="button" id="btn-vic-next" class="win-next"><span id="vic-next-label">Next mission</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"></path></svg></button>
+                <div class="win-actions-row">
+                    <button type="button" id="btn-vic-replay" class="win-ghost"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path></svg> Replay</button>
+                    <button type="button" id="btn-vic-map" class="win-ghost"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="18" r="2.5"></circle><circle cx="18" cy="6" r="2.5"></circle><circle cx="17" cy="17" r="2"></circle><path d="M8 16.5L16 7.5M8.5 18h6.5"></path></svg> Map</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- MODAL: SETTINGS                            -->
+        <!-- ========================================== -->
+        <div id="modal-settings" class="overlay qs-overlay">
+            <div class="qs-sheet" role="dialog" aria-modal="true" aria-labelledby="qs-title">
+                <div class="qs-grabber" aria-hidden="true"></div>
+                <div class="qs-head">
+                    <div class="qs-title-group">
+                        <span class="qs-kicker">SYSTEM</span>
+                        <h2 id="qs-title">Settings</h2>
+                    </div>
+                    <button id="btn-close-settings" class="qs-close" aria-label="Close settings">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+                    </button>
+                </div>
+
+                <label class="qs-row" for="setting-sfx-toggle">
+                    <span class="qs-ic" style="color:#00f2fe;background:rgba(0, 242, 254, 0.12)">♪</span>
+                    <span class="qs-text">
+                        <strong>Sound Effects</strong>
+                        <span>Collisions, lasers, fusions &amp; blasts</span>
+                    </span>
+                    <input type="checkbox" id="setting-sfx-toggle" class="qs-input" role="switch" checked>
+                    <span class="qs-switch" aria-hidden="true"><span class="qs-knob"></span></span>
+                </label>
+                <label class="qs-row" for="setting-bgm-toggle">
+                    <span class="qs-ic" style="color:#c471ed;background:rgba(196, 113, 237, 0.14)">∿</span>
+                    <span class="qs-text">
+                        <strong>Ambient Music</strong>
+                        <span>Procedural sci-fi drone</span>
+                    </span>
+                    <input type="checkbox" id="setting-bgm-toggle" class="qs-input" role="switch">
+                    <span class="qs-switch" aria-hidden="true"><span class="qs-knob"></span></span>
+                </label>
+                <label class="qs-row" for="setting-vibration-toggle">
+                    <span class="qs-ic" style="color:#f9d423;background:rgba(249, 212, 35, 0.13)">⦿</span>
+                    <span class="qs-text">
+                        <strong>Haptics</strong>
+                        <span>Vibration on moves and impacts</span>
+                    </span>
+                    <input type="checkbox" id="setting-vibration-toggle" class="qs-input" role="switch" checked>
+                    <span class="qs-switch" aria-hidden="true"><span class="qs-knob"></span></span>
+                </label>
+
+                <div class="qs-row qs-row-shake">
+                    <span class="qs-ic" style="color:#f9d423;background:rgba(249, 212, 35, 0.14)">≈</span>
+                    <span class="qs-text">
+                        <strong>Screen Shake</strong>
+                        <span>Camera rumble on big blasts</span>
+                    </span>
+                    <div class="qs-pills" id="setting-shake-pills" role="radiogroup" aria-label="Screen shake">
+                        <button type="button" class="qs-pill" data-shake="high" role="radio">Full</button>
+                        <button type="button" class="qs-pill" data-shake="mild" role="radio">Mild</button>
+                        <button type="button" class="qs-pill" data-shake="off" role="radio">Off</button>
+                    </div>
+                </div>
+
+                <label class="qs-row" for="setting-labs-drag-toggle">
+                    <span class="qs-ic" style="color:#00f2fe;background:rgba(0, 242, 254, 0.12)">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V7M7 12l5-5 5 5"></path><rect x="8" y="19" width="8" height="2" rx="1"></rect></svg>
+                    </span>
+                    <span class="qs-text">
+                        <strong>Labs: Drag &amp; Place</strong>
+                        <span>Adds a Home switch to try the new drag controls</span>
+                    </span>
+                    <input type="checkbox" id="setting-labs-drag-toggle" class="qs-input" role="switch">
+                    <span class="qs-switch" aria-hidden="true"><span class="qs-knob"></span></span>
+                </label>
+
+                <button type="button" id="btn-reset-data" class="qs-row qs-row-reset">
+                    <span class="qs-ic" style="color:#ff6b8a;background:rgba(255, 78, 80, 0.13)">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path></svg>
+                    </span>
+                    <span class="qs-text">
+                        <strong>Reset Progress</strong>
+                        <span>Clear stars, unlocked levels &amp; high scores</span>
+                    </span>
+                    <svg class="qs-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+                </button>
+
+                <button type="button" id="btn-settings-save" class="qs-done">Done</button>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- MODAL: GAME OVER (Classic Containment Breach)-->
+        <!-- ========================================== -->
+        <div id="modal-gameover" class="overlay breach-screen" role="dialog" aria-modal="true" aria-labelledby="breach-title">
+            <div class="breach-body">
+                <span class="breach-kicker" id="go-kicker">REACTOR OVERLOAD</span>
+                <h2 class="breach-title" id="breach-title" aria-label="Containment breach">
+                    <span class="g1" aria-hidden="true">BREACH</span>
+                    <span class="g2" aria-hidden="true">BREACH</span>
+                    <span class="g0" aria-hidden="true">BREACH</span>
+                </h2>
+                <p class="breach-reason" id="go-reason">The reactor exceeded critical threshold capacity!</p>
+
+                <div class="breach-score-block">
+                    <span class="breach-label">SCORE</span>
+                    <span class="breach-score" id="go-score">0</span>
+                    <span class="breach-best" id="go-best">🏆 BEST 0</span>
+                </div>
+
+                <div class="breach-stats">
+                    <span><b id="go-cascade" class="c-purple">1x</b> cascade</span>
+                    <span><b id="go-zeroes" class="c-cyan">0</b> zero blasts</span>
+                </div>
+
+                <div class="breach-why" id="breach-why" hidden>
+                    <span class="breach-why-title">WHY THE NODE WASN'T CLEARED</span>
+                    <div class="breach-why-list" id="breach-why-list"></div>
+                    <span class="breach-why-tip" id="breach-why-tip"></span>
+                </div>
+
+                <div class="breach-retry-wrap">
+                    <span class="breach-ring" aria-hidden="true"></span>
+                    <button type="button" id="btn-play-again" class="breach-retry" aria-label="Retry">
+                        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path></svg>
+                        <span>RETRY</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="breach-links">
+                <button type="button" id="btn-go-menu" class="breach-link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg> Menu</button>
+                <button type="button" id="btn-go-map" class="breach-link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="18" r="2.5"></circle><circle cx="18" cy="6" r="2.5"></circle><circle cx="17" cy="17" r="2"></circle><path d="M8 16.5L16 7.5M8.5 18h6.5"></path></svg> Map</button>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- MODAL: NODE INSPECTION & PREVIEW           -->
+        <!-- ========================================== -->
+        <div id="modal-node-preview" class="overlay">
+            <div class="modal-card node-preview-card">
+                <div class="node-preview-header">
+                    <div class="node-badge-row">
+                        <span id="node-preview-sector-badge" class="badge-adventure">SECTOR 1</span>
+                        <span id="node-preview-id-badge" class="badge-node-id">NODE 1-04</span>
+                    </div>
+                    <button id="btn-close-node-preview" class="btn-icon" aria-label="Close">✕</button>
+                </div>
+
+                <h3 id="node-preview-title" class="node-preview-title">Dark Matter Trench</h3>
+                <p id="node-preview-desc" class="node-preview-desc">Shatter 3 Dark Matter obstacle cores</p>
+
+                <!-- Dynamic Modifiers List -->
+                <div id="node-preview-modifiers" class="node-modifiers-list">
+                    <!-- Dynamic tag pills: e.g. ⚡ Turbulent Flux, 🧩 Pure Singles -->
+                </div>
+
+                <!-- Star Requirements -->
+                <div class="node-star-targets">
+                    <div class="star-target-row" id="target-star-1">
+                        <span class="star-icon">⭐</span>
+                        <span class="star-desc" id="star-desc-1">Clear Node Objective</span>
+                        <span class="star-status" id="star-status-1">☆</span>
+                    </div>
+                    <div class="star-target-row" id="target-star-2">
+                        <span class="star-icon">⭐</span>
+                        <span class="star-desc" id="star-desc-2">Finish within 11 Drops</span>
+                        <span class="star-status" id="star-status-2">☆</span>
+                    </div>
+                    <div class="star-target-row" id="target-star-3">
+                        <span class="star-icon">⭐</span>
+                        <span class="star-desc" id="star-desc-3">Score 180+ Points</span>
+                        <span class="star-status" id="star-status-3">☆</span>
+                    </div>
+                </div>
+
+                <!-- Records Row -->
+                <div class="node-records-row">
+                    <span>🏆 Best: <strong id="node-best-score">-</strong></span>
+                    <span>🎯 Drops: <strong id="node-best-drops">-</strong></span>
+                </div>
+
+                <div class="node-preview-actions">
+                    <button id="btn-launch-node" class="btn-large btn-vibrant">LAUNCH NODE ➜</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Drag & Place: the orb that follows the finger -->
+    <div id="drag-ghost" class="drag-ghost next-orb next-orb-lg" aria-hidden="true"></div>
+
+    <!-- Scripts -->
+    <script src="audio.js"></script>
+    <script src="nodeGenerator.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
