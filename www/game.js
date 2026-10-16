@@ -3253,11 +3253,11 @@
 
     // Short label, intro hint and on-board callout text per objective type
     const OBJECTIVE_META = {
-        annihilations: { short: (o) => `Trigger ${o.target} Zero Blasts`, hint: 'Touch opposite numbers (like +3 and −3) to cancel them', event: 'ZERO BLAST' },
-        synthesis_tier: { short: (o) => `Build a +${o.target} orb`, hint: 'Merge matching numbers to double them', event: 'MERGED' },
-        clear_dark_matter: { short: () => 'Shatter Dark Matter cores', hint: 'Blast beside a core twice to shatter it', event: 'CORE SHATTERED' },
-        trigger_laser: { short: () => 'Fire a Cross Laser', hint: 'Cancel a ±4 pair to fire across the row and column', event: 'CROSS LASER!' },
-        activate_frenzy: { short: () => 'Unleash Frenzy', hint: 'Fill the Overdrive bar to 100%', event: 'FRENZY!' }
+        annihilations: { short: (o) => `Trigger ${o.target} Zero Blasts`, hint: 'Touch opposites like [pos:+3] [neg:−3] to cancel them', event: 'ZERO BLAST' },
+        synthesis_tier: { short: (o) => `Build a +${o.target} orb`, hint: 'Merge matching numbers like [pos:+2] [pos:+2] to double them', event: 'MERGED' },
+        clear_dark_matter: { short: () => 'Shatter Dark Matter cores', hint: 'Blast beside a [dm:◈] core twice to shatter it', event: 'CORE SHATTERED' },
+        trigger_laser: { short: () => 'Fire a Cross Laser', hint: 'Cancel a [pos:+4] [neg:−4] pair to fire across the row and column', event: 'CROSS LASER!' },
+        activate_frenzy: { short: () => 'Unleash Frenzy', hint: 'Blast to fill the [od:ϟ] Overdrive bar to 100%', event: 'FRENZY!' }
     };
 
     function getObjectiveGlyph(obj) {
@@ -3392,18 +3392,54 @@
         set('obj-intro-kicker', `${getLevelCode(level)} · OBJECTIVE`);
         set('obj-intro-glyph', getObjectiveGlyph(obj));
         set('obj-intro-title', level.desc || (meta ? meta.short(obj) : 'Complete the objective'));
-        set('obj-intro-hint', meta ? meta.hint : '');
-        set('obj-intro-drops', `${level.maxDrops} DROPS`);
-        set('obj-intro-stars', `★ WITHIN ${level.targetDropsForStar} · ★ ${level.targetScoreForStar.toLocaleString()}+ PTS`);
+        renderIntroHint(document.getElementById('obj-intro-hint'), meta ? meta.hint : '');
+
+        // One row per rule, then one per star goal
+        const rules = document.getElementById('obj-intro-rules');
+        if (rules) {
+            rules.innerHTML = '';
+            const row = (icon, kind, text) => {
+                const r = document.createElement('div');
+                r.className = 'obj-intro-rule';
+                r.setAttribute('role', 'listitem');
+                const i = document.createElement('span');
+                i.className = `obj-intro-rule-icon ${kind}`;
+                i.setAttribute('aria-hidden', 'true');
+                i.textContent = icon;
+                const t = document.createElement('span');
+                t.className = 'obj-intro-rule-text';
+                t.textContent = text;
+                r.append(i, t);
+                rules.appendChild(r);
+            };
+            row('↓', 'drops', `${level.maxDrops} drops available`);
+            row('★', 'star', meta ? meta.short(obj) : (level.desc || 'Complete the objective'));
+            row('★', 'star', `Finish within ${level.targetDropsForStar} drops`);
+            row('★', 'star', `Score ${level.targetScoreForStar.toLocaleString()}+ points`);
+        }
 
         const card = document.getElementById('obj-intro-card');
-        const fill = document.getElementById('obj-intro-timer-fill');
         overlay.classList.remove('leaving');
         if (card) { card.style.transform = ''; card.style.opacity = ''; card.style.animation = 'none'; void card.offsetWidth; card.style.animation = ''; }
-        if (fill) { fill.style.animation = 'none'; void fill.offsetWidth; fill.style.animation = 'objIntroTimer 3.5s linear forwards'; }
         overlay.hidden = false;
         clearTimeout(objIntroTimer);
-        objIntroTimer = setTimeout(dismissObjectiveIntro, 3500);
+    }
+
+    // Renders hint text where [kind:label] becomes a mini game orb (pos / neg / dm / od)
+    function renderIntroHint(el, text) {
+        if (!el) return;
+        el.innerHTML = '';
+        String(text).split(/(\[[a-z]+:[^\]]+\])/).forEach((part) => {
+            const m = part.match(/^\[([a-z]+):([^\]]+)\]$/);
+            if (m) {
+                const orb = document.createElement('span');
+                orb.className = `obj-intro-orb ${m[1]}`;
+                orb.textContent = m[2];
+                el.appendChild(orb);
+            } else if (part) {
+                el.appendChild(document.createTextNode(part));
+            }
+        });
     }
 
     function dismissObjectiveIntro() {

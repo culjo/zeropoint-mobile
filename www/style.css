@@ -5956,27 +5956,6 @@ input:checked + .toggle-slider:before {
     color: #a3acc6;
 }
 
-.obj-intro-chips {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px;
-    margin-top: 4px;
-}
-
-.obj-intro-chip {
-    height: 28px;
-    padding: 0 10px;
-    border-radius: 14px;
-    display: flex;
-    align-items: center;
-    font-size: 11px;
-    font-weight: 900;
-    white-space: nowrap;
-}
-
-.obj-intro-chip.drops { background: rgba(255, 107, 138, 0.1); border: 1px solid rgba(255, 107, 138, 0.35); color: #ff6b8a; }
-.obj-intro-chip.stars { background: rgba(249, 212, 35, 0.1); border: 1px solid rgba(249, 212, 35, 0.35); color: #f9d423; }
 
 .obj-intro-tap {
     margin-top: 8px;
@@ -5986,25 +5965,6 @@ input:checked + .toggle-slider:before {
     color: #8892b0;
 }
 
-.obj-intro-timer {
-    align-self: stretch;
-    height: 3px;
-    border-radius: 2px;
-    background: rgba(255, 255, 255, 0.06);
-    overflow: hidden;
-}
-
-.obj-intro-timer-fill {
-    height: 100%;
-    width: 100%;
-    background: #00f2fe;
-    transform-origin: left center;
-}
-
-@keyframes objIntroTimer {
-    from { transform: scaleX(1); }
-    to { transform: scaleX(0); }
-}
 
 /* ==========================================================
    Juice — score count-up, swap-at-max wiggle, hold pop
@@ -6476,3 +6436,62 @@ input:checked + .toggle-slider:before {
     font-weight: 900;
     cursor: pointer;
 }
+
+/* Objective intro — rules as rows, hint orbs (design update) */
+.obj-intro-hint {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+.obj-intro-orb {
+    width: 30px;
+    height: 30px;
+    box-sizing: border-box;
+    border-radius: 9px;
+    border: 2px solid;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Lato', sans-serif;
+    font-size: 14px;
+    font-weight: 900;
+    color: #f0f4fc;
+}
+.obj-intro-orb.pos { background: #0f2433; border-color: #00f2fe; box-shadow: 0 0 10px rgba(0, 242, 254, 0.4); }
+.obj-intro-orb.neg { background: #33141d; border-color: #ff4e50; box-shadow: 0 0 10px rgba(255, 78, 80, 0.35); }
+.obj-intro-orb.dm { background: repeating-linear-gradient(135deg, #1a1f2e 0 5px, #141826 5px 10px); border-color: #39405a; color: #8892b0; }
+.obj-intro-orb.od { background: #2a230a; border-color: #f9d423; color: #f9d423; }
+
+.obj-intro-rules {
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+}
+.obj-intro-rule {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    text-align: left;
+}
+.obj-intro-rule-icon {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 900;
+}
+.obj-intro-rule-icon.drops { background: rgba(255, 107, 138, 0.14); color: #ff6b8a; }
+.obj-intro-rule-icon.star { background: rgba(249, 212, 35, 0.14); color: #f9d423; }
+.obj-intro-rule-text { flex: 1; font-size: 13px; font-weight: 800; color: #f0f4fc; }
