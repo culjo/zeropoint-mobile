@@ -2845,8 +2845,8 @@
 
     // Pair animations run in two phases so players can see which orbs react:
     // a lock-on (both orbs pulse with a glowing outline and tether) then the move.
-    const MERGE_ANIM_DURATION = 0.6;
-    const COLLAPSE_ANIM_DURATION = 0.65;
+    const MERGE_ANIM_DURATION = 0.45;
+    const COLLAPSE_ANIM_DURATION = 0.5;
     const PAIR_LOCK_PHASE = 0.35;
 
     function easeInOutCubic(x) {
