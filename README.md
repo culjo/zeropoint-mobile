@@ -59,5 +59,5 @@ npm run cap:doctor
 
 ## ⚙️ Configuration
 - **App Name**: `Nullfall` (App Store title: "Nullfall: Puzzle Cascade")
-- **Bundle ID / App ID**: `com.pixelated.zeropoint`
+- **Bundle ID / App ID**: `com.noviac.nullfall`
 - **Platform Targets**: Android 14+ (API 34/35), iOS 17+

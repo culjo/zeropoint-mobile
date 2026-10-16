@@ -1,4 +1,4 @@
-package com.pixelated.zeropoint;
+package com.noviac.nullfall;
 
 import com.getcapacitor.BridgeActivity;
 

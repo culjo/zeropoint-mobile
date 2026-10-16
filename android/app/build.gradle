@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace "com.pixelated.zeropoint"
+    namespace "com.noviac.nullfall"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.pixelated.zeropoint"
+        applicationId "com.noviac.nullfall"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -32,6 +32,8 @@ repositories {
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
+    // Align kotlin-stdlib-jdk7/jdk8 (1.6.21 via kotlinx-coroutines) with kotlin-stdlib to avoid duplicate classes
+    implementation platform("org.jetbrains.kotlin:kotlin-bom:1.8.22")
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
