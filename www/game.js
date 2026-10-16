@@ -2843,6 +2843,38 @@
         return moved;
     }
 
+    // Pair animations run in two phases so players can see which orbs react:
+    // a lock-on (both orbs pulse with a glowing outline and tether) then the move.
+    const MERGE_ANIM_DURATION = 0.6;
+    const COLLAPSE_ANIM_DURATION = 0.65;
+    const PAIR_LOCK_PHASE = 0.35;
+
+    function easeInOutCubic(x) {
+        return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    }
+
+    // Splits progress into the lock-on amount (0→1) and the eased move amount (0→1)
+    function pairPhases(t) {
+        const lock = Math.min(1, t / PAIR_LOCK_PHASE);
+        const move = t <= PAIR_LOCK_PHASE ? 0 : (t - PAIR_LOCK_PHASE) / (1 - PAIR_LOCK_PHASE);
+        return { lock, move, ease: easeInOutCubic(move) };
+    }
+
+    // Glowing rounded outline drawn around an orb during the lock-on phase
+    function drawPairLockRing(x, y, size, color, alpha) {
+        if (alpha <= 0) return;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 16;
+        ctx.beginPath();
+        ctx.roundRect(x - size / 2, y - size / 2, size, size, 14);
+        ctx.stroke();
+        ctx.restore();
+    }
+
     function playSynthesisMergeAnim(rA, cA, rB, cB, tileA, tileB, fusedVal, chainStep) {
         return new Promise(resolvePromise => {
             // Temporarily clear grid slots so drawTiles() doesn't render static copies
@@ -2861,7 +2893,7 @@
                 tileB: { ...tileB },
                 fusedVal,
                 chainStep,
-                duration: 0.22,
+                duration: MERGE_ANIM_DURATION,
                 elapsed: 0,
                 progress: 0,
                 onComplete: () => {
@@ -2920,7 +2952,7 @@
                 tileB: { ...tileB },
                 magnitude,
                 chainStep,
-                duration: 0.24,
+                duration: COLLAPSE_ANIM_DURATION,
                 elapsed: 0,
                 progress: 0,
                 onComplete: () => {
@@ -5167,12 +5199,18 @@
         // 1. Draw Active Synthesis Merges
         for (const anim of activeMergeAnimations) {
             const t = anim.progress;
-            const ease = t * t * (3 - 2 * t); // smooth cubic curve
+            const { lock, move, ease } = pairPhases(t);
             const curAX = anim.xA + (anim.xB - anim.xA) * ease;
             const curAY = anim.yA + (anim.yB - anim.yA) * ease;
 
-            const scaleA = Math.max(0.65, 1.0 - ease * 0.28);
-            const scaleB = 1.0 + Math.sin(t * Math.PI) * 0.22;
+            // Lock-on: both orbs pulse in place; then A glides into B, shrinking only at the end
+            const lockPulse = Math.sin(lock * Math.PI) * 0.1;
+            const scaleA = move > 0 ? Math.max(0.6, 1.0 - Math.max(0, ease - 0.55) * 0.9) : 1.0 + lockPulse;
+            const scaleB = 1.0 + lockPulse + Math.sin(move * Math.PI) * 0.2;
+            const ringAlpha = move > 0 ? Math.max(0, 1 - move * 1.6) : lock;
+            const ringColor = anim.fusedVal > 0 ? '#00f2fe' : '#ff4e50';
+            drawPairLockRing(anim.xA, anim.yA, (cellW - 2) * (1 + lockPulse), ringColor, move > 0 ? 0 : ringAlpha);
+            drawPairLockRing(anim.xB, anim.yB, (cellW - 2) * (1 + lockPulse), ringColor, ringAlpha);
 
             const flavorA = anim.tileA.value > 0 ? 'pos' : 'neg';
             const flavorB = anim.tileB.value > 0 ? 'pos' : 'neg';
@@ -5186,6 +5224,7 @@
             ctx.lineWidth = 3.5 + Math.sin(t * Math.PI * 5) * 1.5;
             ctx.shadowColor = beamColor;
             ctx.shadowBlur = 12;
+            ctx.globalAlpha = 0.4 + lock * 0.6;
             ctx.setLineDash([6, 4]);
             ctx.lineDashOffset = -anim.elapsed * 140;
             ctx.beginPath();
@@ -5207,16 +5246,16 @@
             // Draw target Tile B (pulsing with absorption energy)
             const twB = (cellW - 8) * scaleB;
             const thB = (cellH - 8) * scaleB;
-            drawTileGraphic(anim.xB, anim.yB, twB, thB, labelB, flavorB, 0.35 * Math.sin(t * Math.PI));
+            drawTileGraphic(anim.xB, anim.yB, twB, thB, labelB, flavorB, 0.15 + 0.35 * Math.sin(t * Math.PI));
 
             // Draw moving Tile A (sliding with luminous wake)
             const twA = (cellW - 8) * scaleA;
             const thA = (cellH - 8) * scaleA;
-            drawTileGraphic(curAX, curAY, twA, thA, labelA, flavorA, 0.45);
+            drawTileGraphic(curAX, curAY, twA, thA, labelA, flavorA, 0.15 + lock * 0.3);
             ctx.restore();
 
-            // Spawn fusion spark trail
-            if (Math.random() < 0.65) {
+            // Spawn fusion spark trail while moving
+            if (move > 0 && Math.random() < 0.65) {
                 particles.push({
                     x: curAX + (Math.random() - 0.5) * 12,
                     y: curAY + (Math.random() - 0.5) * 12,
@@ -5232,13 +5271,18 @@
         // 2. Draw Active Zero Point Singularity Collapses
         for (const anim of activeZeroPointCollapses) {
             const t = anim.progress;
-            const ease = t * t; // quadratic gravitational acceleration
+            const { lock, move, ease } = pairPhases(t);
             const curAX = anim.xA + (anim.midX - anim.xA) * ease;
             const curAY = anim.yA + (anim.midY - anim.yA) * ease;
             const curBX = anim.xB + (anim.midX - anim.xB) * ease;
             const curBY = anim.yB + (anim.midY - anim.yB) * ease;
 
-            const scale = Math.max(0.18, 1.0 - ease * 0.82);
+            // Lock-on pulse, then both glide together and only shrink in the last stretch
+            const lockPulse = Math.sin(lock * Math.PI) * 0.1;
+            const scale = move > 0 ? Math.max(0.18, 1.0 - Math.max(0, ease - 0.5) * 1.64) : 1.0 + lockPulse;
+            const ringAlpha = move > 0 ? Math.max(0, 1 - move * 1.8) : lock;
+            drawPairLockRing(anim.xA, anim.yA, (cellW - 2) * (1 + lockPulse), anim.tileA.value > 0 ? '#00f2fe' : '#ff4e50', ringAlpha);
+            drawPairLockRing(anim.xB, anim.yB, (cellW - 2) * (1 + lockPulse), anim.tileB.value > 0 ? '#00f2fe' : '#ff4e50', ringAlpha);
             const flavorA = anim.tileA.value > 0 ? 'pos' : 'neg';
             const flavorB = anim.tileB.value > 0 ? 'pos' : 'neg';
             const labelA = anim.tileA.value > 0 ? `+${anim.tileA.value}` : `${anim.tileA.value}`;
@@ -5246,7 +5290,7 @@
 
             // Singularity Accretion Vortex at midpoint
             ctx.save();
-            const vortexR = (cellW * 0.44) * Math.sin(t * Math.PI * 0.95);
+            const vortexR = (cellW * 0.44) * Math.sin(move * Math.PI * 0.95);
             const vortexGrad = ctx.createRadialGradient(anim.midX, anim.midY, 2, anim.midX, anim.midY, vortexR + 12);
             vortexGrad.addColorStop(0, '#000000');
             vortexGrad.addColorStop(0.45, 'rgba(255, 255, 255, 0.75)');
@@ -5292,15 +5336,15 @@
             ctx.save();
             const twA = (cellW - 8) * scale;
             const thA = (cellH - 8) * scale;
-            drawTileGraphic(curAX, curAY, twA, thA, labelA, flavorA, 0.5 + t * 0.5);
+            drawTileGraphic(curAX, curAY, twA, thA, labelA, flavorA, 0.2 + lock * 0.2 + move * 0.6);
 
             const twB = (cellW - 8) * scale;
             const thB = (cellH - 8) * scale;
-            drawTileGraphic(curBX, curBY, twB, thB, labelB, flavorB, 0.5 + t * 0.5);
+            drawTileGraphic(curBX, curBY, twB, thB, labelB, flavorB, 0.2 + lock * 0.2 + move * 0.6);
             ctx.restore();
 
-            // Inward spiral suction sparks
-            if (Math.random() < 0.7) {
+            // Inward spiral suction sparks while the pair is moving
+            if (move > 0 && Math.random() < 0.7) {
                 const angle = Math.random() * Math.PI * 2;
                 const dist = cellW * (0.3 + Math.random() * 0.4);
                 particles.push({
