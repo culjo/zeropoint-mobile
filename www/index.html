@@ -451,9 +451,13 @@
         <!-- ========================================== -->
         <div class="od-tip" id="od-tip" role="dialog" aria-modal="true" aria-labelledby="od-tip-title" hidden>
             <div class="od-tip-bubble">
-                <span class="od-tip-kicker">⚡ NEW · OVERDRIVE READY</span>
-                <span class="od-tip-title" id="od-tip-title">Your next orb is a Frenzy orb</span>
-                <span class="od-tip-body">Every blast charges the Overdrive bar. At 100% you get one Frenzy special that clears a big chunk of the board. Drop it where the board is most crowded.</span>
+                <span class="od-tip-kicker"><svg class="od-tip-kicker-ic" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/></svg>OVERDRIVE READY</span>
+                <span class="od-tip-title" id="od-tip-title">Your next orb is a power-up!</span>
+                <ul class="od-tip-points">
+                    <li><span class="od-tip-ic ic-burst" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg></span><span>It's a <b>Vortex</b>, <b>Nova</b> or <b>Nuke</b>. Each one clears a big chunk of the board.</span></li>
+                    <li><span class="od-tip-ic ic-target" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg></span><span>Drop it where tiles are <b>piled highest</b>.</span></li>
+                    <li><span class="od-tip-ic ic-bolt" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/></svg></span><span>Blasts and merges charge the bar for the next one.</span></li>
+                </ul>
                 <button type="button" id="btn-od-tip-ok" class="od-tip-ok">Got it</button>
             </div>
         </div>
