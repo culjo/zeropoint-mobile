@@ -582,12 +582,6 @@ header {
     border: 1px solid rgba(249, 212, 35, 0.25);
 }
 
-.adv-obj-stars {
-    font-size: 0.85rem;
-    color: var(--gold);
-    letter-spacing: 1px;
-}
-
 .bounty-progress-text, .adv-obj-progress {
     font-family: var(--font-numbers);
     font-size: 0.78rem;
@@ -2447,12 +2441,6 @@ canvas {
     font-weight: 800;
     color: var(--gold);
     letter-spacing: 1px;
-}
-
-.adv-obj-stars {
-    font-size: 0.95rem;
-    color: var(--gold);
-    letter-spacing: 2px;
 }
 
 .adv-obj-desc-row {
@@ -5751,38 +5739,6 @@ input:checked + .toggle-slider:before {
     flex-shrink: 0;
     font-variant-numeric: tabular-nums;
 }
-
-/* Star thresholds on the strip: drops left needed for ★★ and ★★★; greys out once missed */
-.adv-obj-stars {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 1px;
-    flex-shrink: 0;
-    padding-right: 10px;
-    border-right: 1px solid rgba(255, 255, 255, 0.12);
-    font-family: 'Lato', sans-serif;
-    font-size: 9px;
-    font-weight: 900;
-    line-height: 1.15;
-    letter-spacing: 0.5px;
-    color: #f9d423;
-    white-space: nowrap;
-}
-
-.adv-obj-stars[hidden] { display: none; }
-
-.adv-obj-stars b {
-    display: inline-block;
-    min-width: 14px;
-    margin-left: 4px;
-    text-align: right;
-    color: #f0f4fc;
-    font-variant-numeric: tabular-nums;
-}
-
-.adv-obj-stars .lost { color: #4a5068; text-decoration: line-through; }
-.adv-obj-stars .lost b { color: #4a5068; }
 
 @keyframes objStripGlow {
     0%, 100% { box-shadow: 0 0 12px rgba(249, 212, 35, 0.2); }

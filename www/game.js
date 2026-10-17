@@ -4110,7 +4110,6 @@
         const togoEl = document.getElementById('adv-obj-togo');
         if (glyphEl) glyphEl.textContent = met ? '✓' : getObjectiveGlyph(obj);
         if (advObjDesc) advObjDesc.textContent = meta ? (goalLevel && meta.strip ? meta.strip(obj) : meta.short(obj)) : activeAdventureLevel.desc;
-        renderStripStars(goalLevel ? activeAdventureLevel.stars : null);
         if (advObjProgress) advObjProgress.textContent = text;
         if (togoEl) togoEl.hidden = !oneToGo;
         if (adventureObjectiveCard) {
@@ -4125,25 +4124,6 @@
 
         lastCoreHighlight = SHOW_LAST_CORE_MARKER && (obj.type === 'clear_dark_matter' || (obj.type === 'break_cores' && tgt - cur === 1))
             && !adventureObjectiveMet && countRemainingDarkMatter() === 1;
-    }
-
-    // Star thresholds on the strip ("★★ 4 · ★★★ 7" drops left); a star greys out once
-    // drops left fall below its threshold
-    function renderStripStars(stars) {
-        const el = document.getElementById('adv-obj-stars');
-        if (!el) return;
-        el.hidden = !stars;
-        if (!stars) return;
-        const have = getStarMeasure(stars);
-        const set = (sel, need) => {
-            const item = el.querySelector(sel);
-            if (!item) return;
-            item.querySelector('b').textContent = starUnit(stars, need);
-            item.classList.toggle('lost', have < need);
-        };
-        set('.s2', stars.two);
-        set('.s3', stars.three);
-        el.setAttribute('aria-label', `Two stars: ${starGoalText(stars, stars.two)}. Three stars: ${starGoalText(stars, stars.three)}`);
     }
 
     // Badge pops where the objective progressed ("◈ 3/4"), then flies into the
