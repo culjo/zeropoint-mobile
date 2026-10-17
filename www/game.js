@@ -512,6 +512,12 @@
     let starCells = [];        // Catch the Stars: fixed board cells { r, c, caught }
     let riserClock = 0;        // drops since the last Riser spawned
     let pendingDeals = [];     // tray guarantees, e.g. a Riser's opposite: { value, due }
+    let orbDealer = null;      // OrbBag dealer for the current run (bag randomizer + guarantees)
+    let orbDealerKey = null;   // what the dealer was built for (level config or 'classic:<tide>')
+    let classicTide = 0;       // Number Tide in Classic: rises every CLASSIC_TIDE_EVERY drops
+    let classicDrops = 0;
+    const CLASSIC_TIDE_EVERY = 25; // to be tuned (GDD §3.1)
+    const CLASSIC_TIDE_MAX = 4;
     let dropsUsed = 0;
     let maxDrops = 15;
 
@@ -2520,6 +2526,10 @@
         starCells = [];
         riserClock = 0;
         pendingDeals = [];
+        orbDealer = null;
+        orbDealerKey = null;
+        classicTide = 0;
+        classicDrops = 0;
         score = 0;
         resetScoreFlyers();
         setScoreDisplay(0, true);
@@ -2641,11 +2651,54 @@
             return { type: 'number', value: v, label: v > 0 ? `+${v}` : `${v}` };
         }
         if (pool.specials && Math.random() < pool.specials) return makeSpecialOrb();
-        const values = (pool.values && pool.values.length) ? pool.values.slice() : [1, 2, 3, 4];
-        if (pool.favor) values.push(pool.favor);
-        let val = values[Math.floor(Math.random() * values.length)];
-        if (Math.random() < 0.5) val = -val;
+        if (orbDealerKey !== activeAdventureLevel) {
+            const goal = activeAdventureLevel.goal;
+            orbDealer = OrbBag.createDealer({
+                values: pool.values,
+                favor: pool.favor,
+                pairBias: pool.pairBias,
+                // Collect: the target number turns up at least every 4 deals
+                collect: goal && goal.type === 'collect' ? { number: goal.number, every: 4 } : null
+            });
+            orbDealerKey = activeAdventureLevel;
+        }
+        return numberOrb(orbDealer.next({ exposed: getExposedValues() }));
+    }
+
+    function numberOrb(val) {
         return { type: 'number', value: val, label: val > 0 ? `+${val}` : `${val}` };
+    }
+
+    // Signed values of the number orb on top of each column (what a dealt orb could merge with)
+    function getExposedValues() {
+        const out = [];
+        for (let c = 0; c < COLS; c++) {
+            for (let r = 0; r < ROWS; r++) {
+                const t = grid[r][c];
+                if (!t) continue;
+                if (t.type === 'number') out.push(t.value);
+                break;
+            }
+        }
+        return out;
+    }
+
+    // Number magnitudes for Dark Matter shatters and rising rows: follow the level's tide
+    // (Adventure) or Classic's tide; small numbers elsewhere
+    function randomBoardMagnitude(maxBase) {
+        const pool = gameMode === 'adventure' && activeAdventureLevel && activeAdventureLevel.rules && activeAdventureLevel.rules.pool;
+        const tide = pool ? (pool.tide || 0) : (gameMode === 'classic' && !isTutorial ? classicTide : 0);
+        return (Math.floor(Math.random() * maxBase) + 1) * OrbBag.tideScale(tide);
+    }
+
+    // Classic Number Tide: the pool doubles every CLASSIC_TIDE_EVERY drops
+    function tickClassicTide() {
+        classicDrops++;
+        if (classicDrops % CLASSIC_TIDE_EVERY !== 0 || classicTide >= CLASSIC_TIDE_MAX) return;
+        classicTide++;
+        const vals = OrbBag.tideValues(classicTide);
+        addFloatingText(`NUMBER TIDE ↑ ±${vals[0]}–±${vals[vals.length - 1]}`, canvas.width / (2 * dpr), boardOffsetY + cellH * 2, '#00f2fe', 1.3);
+        sfx.playSpecial();
     }
 
     // Orb Generator
@@ -2676,6 +2729,14 @@
         } else if (poolType === 'high_energy') {
             const energyPool = [2, 4];
             val = energyPool[Math.floor(Math.random() * energyPool.length)];
+        } else if (gameMode === 'classic' && !isTutorial && typeof OrbBag !== 'undefined') {
+            // Classic: bag randomizer over the current Number Tide, leaning toward pairs
+            const key = `classic:${classicTide}`;
+            if (orbDealerKey !== key) {
+                orbDealer = OrbBag.createDealer({ values: OrbBag.tideValues(classicTide), pairBias: 0.2 });
+                orbDealerKey = key;
+            }
+            return numberOrb(orbDealer.next({ exposed: getExposedValues() }));
         } else {
             // Standard number orbs (range scales moderately with score)
             const maxVal = score > 5000 ? 8 : (score > 2000 ? 6 : 4);
@@ -2880,7 +2941,7 @@
             const crushed = [];
             hitNullCoreArea(0, ROWS - 1, col, col, 3, 1, { x: boardOffsetX + col * cellW + cellW / 2, y: boardOffsetY + cellH * 2.5 });
             for (let r = 0; r < ROWS; r++) {
-                if (grid[r][col] && grid[r][col].type !== 'null_core') {
+                if (grid[r][col] && !isFixedTile(grid[r][col])) {
                     const cx = boardOffsetX + col * cellW + cellW / 2;
                     const cy = boardOffsetY + r * cellH + cellH / 2;
                     createSparks(cx, cy, '#bc13fe', 12);
@@ -2928,7 +2989,7 @@
             hitNullCoreArea(row - 1, row + 1, col - 1, col + 1, 1, 1, { x: boardOffsetX + col * cellW + cellW / 2, y: boardOffsetY + row * cellH + cellH / 2 });
             for (let r = Math.max(0, row - 1); r <= Math.min(ROWS - 1, row + 1); r++) {
                 for (let c = Math.max(0, col - 1); c <= Math.min(COLS - 1, col + 1); c++) {
-                    if (grid[r][c] && grid[r][c].type !== 'null_core') {
+                    if (grid[r][c] && !isFixedTile(grid[r][c])) {
                         createSparks(boardOffsetX + c * cellW + cellW / 2, boardOffsetY + r * cellH + cellH / 2, '#c471ed', 12);
                         blasted.push(grid[r][c]);
                         grid[r][c] = null;
@@ -2938,7 +2999,7 @@
             noteTilesRemoved(blasted, { x: boardOffsetX + col * cellW + cellW / 2, y: boardOffsetY + row * cellH + cellH / 2 });
             addFloatingText('0 SINGULARITY!', boardOffsetX + col * cellW + cellW / 2, boardOffsetY + row * cellH, '#c471ed');
             addScore(40, { x: boardOffsetX + col * cellW + cellW / 2, y: boardOffsetY + row * cellH });
-        } else if (targetTile && targetTile.type !== 'null_core') {
+        } else if (targetTile && !isFixedTile(targetTile)) {
             sfx.playSpecial();
             if (sub === 'invert') {
                 targetTile.value = -targetTile.value;
@@ -3016,6 +3077,7 @@
                 await pushTutorialRiseRow();
             } else if (!isSwap && !firstPlay) {
                 if (gameMode === 'classic') {
+                    if (!isTutorial) tickClassicTide();
                     movesUntilRise--;
                     if (movesUntilRise <= 0) {
                         movesUntilRise = MOVES_PER_RISE;
@@ -3421,7 +3483,7 @@
 
             if (target.hp <= 0) {
                 // Shattered into a fresh random number!
-                const val = (Math.random() < 0.5 ? 1 : -1) * (Math.floor(Math.random() * 4) + 1);
+                const val = (Math.random() < 0.5 ? 1 : -1) * randomBoardMagnitude(4);
                 grid[r][c] = createTile(val);
                 addFloatingText('SHATTERED!', nx, ny, '#fff');
                 addScore(15, { x: nx, y: ny });
@@ -3493,7 +3555,7 @@
             if (r >= 0) {
                 for (let c = 0; c < COLS; c++) {
                     const tile = grid[r][c];
-                    if (tile && tile.type !== 'null_core') {
+                    if (tile && !isFixedTile(tile)) {
                         const tx = boardOffsetX + c * cellW + cellW / 2;
                         const ty = boardOffsetY + r * cellH + cellH / 2;
                         createSparks(tx, ty, '#c471ed', 12);
@@ -3521,7 +3583,7 @@
             if (Math.random() < 0.6) {
                 newRow.push(createTile(0, 'dark_matter'));
             } else {
-                const val = (Math.random() < 0.5 ? 1 : -1) * (Math.floor(Math.random() * 3) + 1);
+                const val = (Math.random() < 0.5 ? 1 : -1) * randomBoardMagnitude(3);
                 newRow.push(createTile(val));
             }
         }
@@ -3624,9 +3686,14 @@
         }
     }
 
-    // Risers and the Null Core ignore gravity
+    // Fixed in place and unbreakable: the Null Core and static blocks
+    function isFixedTile(t) {
+        return !!(t && (t.type === 'null_core' || t.type === 'static'));
+    }
+
+    // Risers, the Null Core and static blocks ignore gravity
     function isAnchoredTile(t) {
-        return !!(t && (t.riser || t.type === 'null_core'));
+        return !!(t && (t.riser || t.type === 'null_core' || t.type === 'static'));
     }
 
     // Orbs land on top of the stack (Risers can float with empty cells under them)
@@ -3724,7 +3791,7 @@
                 const t = grid[r][c];
                 if (!t || !t.riser) continue;
                 const above = grid[r - 1][c];
-                if (above && above.type === 'null_core') continue;
+                if (isFixedTile(above)) continue;
                 grid[r - 1][c] = t;
                 grid[r][c] = above || null;
                 t.animY = cellH;
@@ -3746,7 +3813,7 @@
             let top = ROWS;
             for (let r = 0; r < ROWS; r++) {
                 const t = grid[r][c];
-                if (t && t.type === 'null_core') hasCore = true;
+                if (isFixedTile(t)) hasCore = true; // never push a core or wall up
                 if (t && top === ROWS) top = r;
             }
             if (!hasCore) columns.push({ c, top });
@@ -4860,8 +4927,8 @@
     function performSwap(r1, c1, r, c) {
         const t1 = grid[r1][c1];
         const t2 = grid[r][c];
-        // The Null Core is fixed in place
-        if ((t1 && t1.type === 'null_core') || (t2 && t2.type === 'null_core')) {
+        // The Null Core and static blocks are fixed in place
+        if (isFixedTile(t1) || isFixedTile(t2)) {
             isSwapModeActive = false;
             firstSwapTile = null;
             if (swapBanner) swapBanner.style.display = 'none';
@@ -6920,6 +6987,8 @@
 
                 if (tile.type === 'dark_matter') {
                     drawDarkMatterTile(x, y, tw, th, tile.hp, tile.flash);
+                } else if (tile.type === 'static') {
+                    drawStaticBlock(x, y, tw, th);
                 } else if (tile.type === 'null_core') {
                     // One 2×2 graphic, drawn from the top-left cell
                     if (tile.part === 'tl') drawNullCore(x + cellW / 2, y + cellH / 2, cellW * 2 - 8, cellH * 2 - 8, tile.core);
@@ -6932,6 +7001,38 @@
                 }
             }
         }
+    }
+
+    // Static block: a fixed, unbreakable 0 wall
+    function drawStaticBlock(x, y, w, h) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.beginPath();
+        ctx.roundRect(-w / 2, -h / 2, w, h, 8);
+        ctx.fillStyle = '#232838';
+        ctx.fill();
+        ctx.save();
+        ctx.clip();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+        ctx.lineWidth = 4;
+        for (let k = -w; k < w; k += 11) {
+            ctx.beginPath();
+            ctx.moveTo(k, h / 2);
+            ctx.lineTo(k + h, -h / 2);
+            ctx.stroke();
+        }
+        ctx.restore();
+        ctx.beginPath(); // the hatch lines replaced the path; outline the block again
+        ctx.roundRect(-w / 2, -h / 2, w, h, 8);
+        ctx.strokeStyle = '#5a6380';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = '#8a93b0';
+        ctx.font = `900 ${Math.round(cellW * 0.3)}px 'Lato', 'Inter', sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('0', 0, 1);
+        ctx.restore();
     }
 
     // Catch the Stars: gold star in each uncaught star cell, under the tiles

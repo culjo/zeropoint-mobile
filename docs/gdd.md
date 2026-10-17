@@ -94,7 +94,7 @@ These appear in the tray now and then:
 
 ---
 
-## 3. Build bigger [PLANNED]
+## 3. Build bigger [§3.1–3.2 LIVE; §3.3 PLANNED]
 
 **The problem:** playtesters wanted higher numbers. Orbs start small (±1 to ±4) and big numbers get blasted before they can grow.
 
@@ -109,8 +109,10 @@ The smallest orb in the pool climbs over time, so the board keeps getting bigger
 | 3 | ±8 – ±32 |
 | … | doubles each step |
 
-- **Classic:** the tide rises every ~25 drops (to be tuned). This replaces today's score-based pool, which only reaches ±8.
-- **Adventure:** each sector starts at a higher tide. Sector 1 is Tide 0, and later sectors go up from there (§5.4).
+- **Pool at each tide:** 1, 2, 3 and 4 times 2^tide, so Tide 1 deals ±2, 4, 6, 8 and Tide 2 deals ±4, 8, 12, 16. Every value doubles cleanly, so merges keep working.
+- **Classic:** the tide rises every 25 drops (to be tuned), up to Tide 4, with a "NUMBER TIDE ↑" callout. This replaces today's score-based pool, which only reaches ±8.
+- **Adventure:** each sector starts one tide higher: Sector 1 is Tide 0, Sector 2 is Tide 1 and Sector 3 is Tide 2. Level data is written at Tide 0, and the loader doubles pools and starting boards (§5.4).
+- Dark Matter shatters and rising rows also follow the tide.
 
 ### 3.2 Merge-friendly tray
 - The bag randomizer (§5.5) leans toward **pairs**. It often deals an orb that matches one already on the board, so merges happen naturally.
@@ -203,7 +205,7 @@ The three current sectors are Subatomic Genesis, Ion Nebula and Event Horizon.
 **Risers** are orbs that climb one row after each drop. You clear them by cancelling with their opposite. A merged Riser keeps climbing. A Riser reaching the red line means you lose. Later sectors have several at once.
 
 **New content:** add **one new board element per sector or two**, never a new rule. Each one first appears in a handcrafted intro level (§6).
-- Sector 2 brings **static blocks** (0 walls that can't be cleared).
+- Sector 2 brings **static blocks** (0 walls that can't be cleared). [LIVE] They're fixed in place and unbreakable: they don't fall, can't be swapped or hit by specials, Risers can't climb past them, and they rise with rising rows.
 - **[OPEN]** later sectors. Ideas: sticky tiles, locked columns, portals.
 
 ### 5.3 Level building: hybrid
@@ -237,11 +239,11 @@ That's about 35% handcrafted overall.
 - the playtest bot (runs in Node)
 - a level editor behind debug mode: place tiles, stars, cores and Risers, then export
 
-### 5.4 Orbs during a level
+### 5.4 Orbs during a level [LIVE]
 - Each level sets its **orb pool**, using the sector's Number Tide plus any level-specific weighting.
 - **Fresh orbs on every attempt:** a new seed each attempt drives the tray, rising rows and shatters.
 
-### 5.5 Fairness rules
+### 5.5 Fairness rules [LIVE]
 - **Bag randomizer:** orbs are dealt from a shuffled bag, so there are no long droughts or streaks.
 - **Guarantees:**
   - **Collect:** the target number turns up at least every N drops.
@@ -384,6 +386,7 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 3. Classic tide speed. Should Classic also have Risers or Catch the Stars moments?
 4. What happens to Challenges: move them to the new goals, or fold them into Adventure?
 5. Whether Rescue opposites (§3.4) is needed, based on playtests.
+7. Blast tiers vs Number Tide. Tiers use the absolute number, so from Tide 2 (Sector 3) every blast is a Cross Laser or bigger. Keep that as the "build bigger" payoff, or make tiers relative to the tide?
 6. Monetisation and meta-progression (cosmetics for orb records?). Not discussed yet.
 
 ## 12. Decision log
@@ -406,5 +409,8 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 | 2026-10-17 | Challenges stay on the old objectives and score star until §4.2 is decided |
 | 2026-10-17 | Risers drawn with a gold ▲ chevron cap and a corner rows-left badge (red and pulsing at 1); upward trail only while moving up. Replaces the gold-ring design |
 | 2026-10-17 | Static blocks added to build phase 3 |
+| 2026-10-17 | Adventure tide: one step per sector (S1 = 0, S2 = 1, S3 = 2); pool at tide t = 1–4 × 2^t |
+| 2026-10-17 | Static blocks are fixed and unbreakable |
+| 2026-10-17 | Fairness as built: shuffled bag of ± each pool value; Collect number at least every 4 deals; 20% chance (45% on Big Orb) to deal a match for a column top; a Riser's opposite within 3 deals |
 | 2026-10-17 | Null Core: touching blast = 1 HP; laser through it, crater over it, Hyperspace and super-weapons = 3; can't be swapped; rises with rows |
 | 2026-10-17 | Survive headroom = empty rows above the tallest column, red line excluded |

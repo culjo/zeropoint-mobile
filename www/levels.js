@@ -11,8 +11,13 @@
 //   drops    drop budget (Survive uses its target instead)
 //   board    rows top to bottom, aligned to the bottom of the 6×8 board.
 //            Tokens: .  empty   +3 / -3  number orb   +3R  Riser   D  Dark Matter core
-//                    N  Null Core cell (4 make the 2×2 core)   *  star in an empty cell (never the top row)
-//   pool     { values: [magnitudes], specials: chance of a special orb, favor?: magnitude dealt twice as often }
+//                    N  Null Core cell (4 make the 2×2 core)   #  static block (fixed, unbreakable)
+//                    *  star in an empty cell (never the top row)
+//   pool     { values: [magnitudes], specials: chance of a special orb, favor?: magnitude dealt twice as often,
+//              pairBias?: chance to deal a match for a column top (default 0.2, Big Orb 0.45) }
+//            Values, favor and board numbers are written at Tide 0; the loader doubles them per tide step
+//            (Sector 1 = Tide 0, Sector 2 = Tide 1, Sector 3 = Tide 2; override with `tide`).
+//            Collect `number` is the real number shown, so it must be in the doubled pool.
 //   rise     a rising row every N drops (0 or missing = none)
 //   risers   { start, every, max }  Risers added at the start, then one every `every` drops
 //            while fewer than `max` are on the board (they push up from the bottom of the emptiest column)
@@ -60,6 +65,11 @@
             '+1 D  D  D  D  -1',
             '-2 D  +3 +1 D  +2',
             'D  +2 D  D  -2 D'
+        ],
+        // 2-3: static blocks split the board; opposites sit on either side of the wall
+        walls: [
+            '-1 .  +2 #  .  -2',
+            '+2 +1 -3 #  +3 -1'
         ],
         // Catch the Stars: stars just above the stack first, higher ones later
         stars3: [
@@ -128,10 +138,10 @@
     const nullCore = (hp) => ({ type: 'null_core', target: hp });
     const bigOrb = (size) => ({ type: 'big_orb', target: 1, size });
 
-    // Pair-friendly pools for Big Orb rifts (the bag randomizer in phase 3 takes over)
+    // Pair-friendly pools for Big Orb rifts (tide doubles them per sector: 8 / 16 / 32 targets)
     const POOL_PAIRS_1 = { values: [1, 2], specials: 0 };
-    const POOL_PAIRS_2 = { values: [1, 2, 4], specials: 0.08, favor: 2 };
-    const POOL_PAIRS_3 = { values: [2, 4, 8], specials: 0.08, favor: 4 };
+    const POOL_PAIRS_2 = { values: [1, 2], specials: 0.08, favor: 1 };
+    const POOL_PAIRS_3 = { values: [1, 2], specials: 0.08, favor: 1 };
 
     // Placeholder: a stand-in goal plays until the planned one is built
     const temp = (planned, level) => ({ ...level, temp: true, planned });
@@ -154,7 +164,7 @@
         // ===== Sector 2: Ion Nebula =====
         '2-1': { title: 'Plasma Surge', goal: zeroOut(20), drops: 20, board: B.threeRows, pool: POOL_STD },
         '2-2': { title: 'Nebula Drift', goal: clearRisers(2), drops: 16, board: B.risers1, pool: POOL_STD, risers: { every: 6, max: 1 } },
-        '2-3': temp('static blocks intro', { title: 'Ion Cascade', goal: collect(12, 2), drops: 20, board: B.twoRows, pool: { ...POOL_STD, favor: 2 } }),
+        '2-3': { title: 'Ion Cascade', goal: collect(12, 2), drops: 20, board: B.walls, pool: { ...POOL_STD, favor: 1 } },
         '2-bonus-1': { title: 'Charged Rift', goal: bigOrb(16), drops: 18, board: B.pairs, pool: POOL_PAIRS_2 },
         '2-4': { title: 'Charged Helix', goal: catchStars(5), drops: 16, board: B.stars5, pool: POOL_STD, risers: { start: 1 } },
         '2-5': { title: 'Solar Lattice', goal: breakCores(6), drops: 20, board: B.cores6, pool: POOL_STD, rise: 6 },
@@ -166,7 +176,7 @@
         '2-10': { title: 'Hypernova Gate', goal: nullCore(20), drops: 26, board: B.nullCore, pool: POOL_STD, rise: 4, risers: { every: 8, max: 2 } },
 
         // ===== Sector 3: Event Horizon =====
-        '3-1': { title: 'Graviton Well', goal: collect(14, 4), drops: 22, board: B.threeRows, pool: { ...POOL_STD, favor: 4 }, risers: { start: 1 } },
+        '3-1': { title: 'Graviton Well', goal: collect(14, 4), drops: 22, board: B.threeRows, pool: { ...POOL_STD, favor: 1 }, risers: { start: 1 } },
         '3-2': { title: 'Dark Barrier', goal: clearRisers(5), drops: 22, board: B.risers2, pool: POOL_STD, risers: { every: 5, max: 2 } },
         '3-3': { title: 'Event Perimeter', goal: catchStars(6), drops: 18, board: B.stars6, pool: POOL_STD, risers: { start: 2 } },
         '3-bonus-1': { title: 'Horizon Rift', goal: bigOrb(32), drops: 22, board: B.pairs, pool: POOL_PAIRS_3 },

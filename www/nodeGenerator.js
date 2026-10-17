@@ -119,7 +119,8 @@
     }
 
     // Board rows (top to bottom) are aligned to the bottom of the grid.
-    // Tokens: .  empty   +3 / -3  orb   +3R  Riser   D  Dark Matter   N  Null Core cell (2×2)   *  star (empty cell)
+    // Tokens: .  empty   +3 / -3  orb   +3R  Riser   D  Dark Matter   N  Null Core cell (2×2)
+    //         #  static block (0 wall)   *  star (empty cell)
     function parseBoard(rows) {
         const cells = [];
         const stars = [];
@@ -131,6 +132,7 @@
                 if (tok === '*') stars.push({ rowFromBottom, c });
                 else if (tok === 'D') cells.push({ rowFromBottom, c, value: 0, type: 'dark_matter' });
                 else if (tok === 'N') cells.push({ rowFromBottom, c, value: 0, type: 'null_core' });
+                else if (tok === '#') cells.push({ rowFromBottom, c, value: 0, type: 'static' });
                 else cells.push({ rowFromBottom, c, value: parseInt(tok, 10), type: 'number', riser: /R$/.test(tok) });
             });
         });
@@ -164,6 +166,20 @@
         if (risers && risers.every) modifiers.push({ icon: '▲', label: `New Riser every ${risers.every} drops` });
         else if (risers && risers.start) modifiers.push({ icon: '▲', label: `${risers.start} Riser${risers.start > 1 ? 's' : ''}` });
 
+        // Number Tide (GDD §3.1): each sector starts one tide higher. Pool values, favor and
+        // board numbers in levels.js are written at Tide 0 and doubled per tide step.
+        const tide = typeof data.tide === 'number' ? data.tide : sectorNum - 1;
+        const scale = Math.pow(2, tide);
+        const basePool = data.pool || { values: [1, 2, 3, 4], specials: 0.12 };
+        const pool = {
+            values: (basePool.values || [1, 2, 3, 4]).map((v) => v * scale),
+            specials: basePool.specials || 0,
+            favor: basePool.favor ? basePool.favor * scale : 0,
+            pairBias: typeof basePool.pairBias === 'number' ? basePool.pairBias : (goal.type === 'big_orb' ? 0.45 : 0.2),
+            tide
+        };
+        if (goal.type === 'collect' && !pool.values.includes(goal.number)) console.warn(`[levels] ${nodeLayout.id}: collect ${goal.number} is not in the pool`);
+
         const { cells, stars } = parseBoard(data.board);
         const setupBoard = function (grid, ROWS, COLS, createTile) {
             // One shared Null Core (2×2); each cell knows its corner so it's drawn once
@@ -175,13 +191,14 @@
                 const r = ROWS - 1 - rowFromBottom;
                 if (r < 0 || c >= COLS) return;
                 if (type === 'dark_matter') grid[r][c] = createTile(0, 'dark_matter');
+                else if (type === 'static') grid[r][c] = createTile(0, 'static');
                 else if (type === 'null_core') {
                     const t = createTile(0, 'null_core');
                     t.core = core;
                     t.part = `${rowFromBottom === coreTop ? 't' : 'b'}${c === coreLeft ? 'l' : 'r'}`;
                     grid[r][c] = t;
                 } else {
-                    grid[r][c] = createTile(value);
+                    grid[r][c] = createTile(value * scale);
                     if (riser) grid[r][c].riser = true;
                 }
             });
@@ -207,7 +224,7 @@
             planned: data.planned || null,
             rules: {
                 fluxRate,
-                pool: data.pool || { values: [1, 2, 3, 4], specials: 0.12 },
+                pool,
                 risers,
                 modifiers
             },
