@@ -3728,6 +3728,7 @@
                 grid[r - 1][c] = t;
                 grid[r][c] = above || null;
                 t.animY = cellH;
+                t.climbAt = performance.now(); // trail shows while it moves up
                 if (above) above.animY = -cellH;
                 moved = true;
             }
@@ -3771,6 +3772,7 @@
         const riser = createTile(val);
         riser.riser = true;
         riser.animY = cellH;
+        riser.climbAt = performance.now();
         riser.flash = 1;
         grid[ROWS - 1][c] = riser;
         ensureRiserOpposites();
@@ -6924,9 +6926,9 @@
                 } else {
                     const flavor = tile.value > 0 ? 'pos' : 'neg';
                     const label = tile.value > 0 ? `+${tile.value}` : `${tile.value}`;
-                    if (tile.riser) drawRiserTrail(x, y, tw, th, r);
+                    if (tile.riser) drawRiserTrail(x, y, tw, th, r, tile.climbAt);
                     drawTileGraphic(x, y, tw, th, label, flavor, tile.flash);
-                    if (tile.riser) drawRiserRing(x, y, tw, th, r);
+                    if (tile.riser) drawRiserCap(x, y, tw, th, r);
                 }
             }
         }
@@ -6958,47 +6960,69 @@
         });
     }
 
-    // Riser: faint upward streaks under the orb (drawn before it)
-    function drawRiserTrail(x, y, w, h, row) {
+    // Riser: upward streaks under the orb while it climbs (fade out ~0.7s after the move)
+    const RISER_TRAIL_MS = 700;
+    function drawRiserTrail(x, y, w, h, row, climbAt) {
+        const age = climbAt ? performance.now() - climbAt : Infinity;
+        if (age >= RISER_TRAIL_MS) return;
+        const fade = 1 - age / RISER_TRAIL_MS;
         const t = performance.now() / 1000;
         ctx.save();
         ctx.strokeStyle = row <= 1 ? '#ff4e50' : '#f9d423';
         ctx.lineWidth = 2;
         ctx.lineCap = 'round';
         [-0.25, 0, 0.25].forEach((k, i) => {
-            const phase = (t * 1.6 + i * 0.33) % 1;
-            ctx.globalAlpha = 0.45 * (1 - phase);
+            const phase = (t * 2.4 + i * 0.33) % 1;
+            ctx.globalAlpha = 0.6 * fade * (1 - phase * 0.6);
             const sx = x + k * w;
-            const top = y + h / 2 - 2 + phase * 4;
+            const top = y + h / 2 + 2;
             ctx.beginPath();
-            ctx.moveTo(sx, top + 4);
-            ctx.lineTo(sx, top + cellH * 0.32 - phase * cellH * 0.12);
+            ctx.moveTo(sx, top);
+            ctx.lineTo(sx, top + cellH * (0.25 + 0.2 * fade) - phase * cellH * 0.1);
             ctx.stroke();
         });
         ctx.restore();
     }
 
-    // Riser: gold ring plus "▲N" rows left before the red line (red and pulsing at 1)
-    function drawRiserRing(x, y, w, h, row) {
+    // Riser: glowing ▲ chevron on the top edge plus a rows-left badge in the top-right
+    // corner (rows before the red line); both turn red and pulse at 1
+    function drawRiserCap(x, y, w, h, row) {
         const danger = row <= 1;
-        const pulse = danger ? 0.6 + 0.4 * Math.sin(performance.now() / 120) : 1;
+        const now = performance.now();
+        const pulse = danger ? 0.6 + 0.4 * Math.sin(now / 120) : 0.85 + 0.15 * Math.sin(now / 330);
         const color = danger ? '#ff4e50' : '#f9d423';
+        const top = y - h / 2;
+        const cw = Math.max(9, w * 0.2);
         ctx.save();
         ctx.globalAlpha = pulse;
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2.5;
-        ctx.shadowColor = color;
-        ctx.shadowBlur = 12;
-        ctx.beginPath();
-        ctx.roundRect(x - w / 2 - 2, y - h / 2 - 2, w + 4, h + 4, 14);
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-        ctx.globalAlpha = 1;
         ctx.fillStyle = color;
-        ctx.font = `900 ${Math.max(9, Math.round(cellW * 0.17))}px 'Lato', 'Inter', sans-serif`;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 14;
+        ctx.beginPath();
+        ctx.moveTo(x - cw, top + 3);
+        ctx.lineTo(x, top - cw * 0.85);
+        ctx.lineTo(x + cw, top + 3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+
+        const br = Math.max(8, Math.round(cellW * 0.16));
+        const bx = x + w / 2 - br * 0.55;
+        const by = top + br * 0.55;
+        ctx.save();
+        ctx.globalAlpha = danger ? pulse : 1;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(bx, by, br, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(10, 14, 24, 0.9)';
+        ctx.stroke();
+        ctx.fillStyle = danger ? '#ffffff' : '#1a1302';
+        ctx.font = `900 ${Math.round(br * 1.15)}px 'Lato', 'Inter', sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(`▲${row}`, x, y + h / 2 - 7);
+        ctx.fillText(String(row), bx, by + 1);
         ctx.restore();
     }
 

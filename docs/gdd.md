@@ -404,6 +404,7 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 | 2026-10-17 | Sector 1 bonus rifts branch after 1-4 and 1-8 to match the concept ladder (§6.3) |
 | 2026-10-17 | Star thresholds round up to whole drops |
 | 2026-10-17 | Challenges stay on the old objectives and score star until §4.2 is decided |
-| 2026-10-17 | Risers drawn as gold ring + upward streaks + "▲N" rows left (red and pulsing at 1) |
+| 2026-10-17 | Risers drawn with a gold ▲ chevron cap and a corner rows-left badge (red and pulsing at 1); upward trail only while moving up. Replaces the gold-ring design |
+| 2026-10-17 | Static blocks added to build phase 3 |
 | 2026-10-17 | Null Core: touching blast = 1 HP; laser through it, crater over it, Hyperspace and super-weapons = 3; can't be swapped; rises with rows |
 | 2026-10-17 | Survive headroom = empty rows above the tallest column, red line excluded |

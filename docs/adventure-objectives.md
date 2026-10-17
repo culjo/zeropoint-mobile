@@ -199,7 +199,7 @@ All numbers are starting points for playtesting. These tables show the first thr
 - Save keys stay `zeropoint_*`. Old Adventure progress is wiped once on update (`adventureSaveVersion` 2).
 - Removal counting: every tile that leaves the board (blast, special orb, crater, vortex, Hyperspace) is reported once per event, so one Zero Blast counts −2. Cross Lasers don't remove number orbs today, so they only count through cores they break.
 - Levels are hybrid: handcrafted anchors plus generated levels, shipped as fixed data, with fresh orbs on each attempt (GDD §5.3–5.5).
-- **Riser look (decided 2026-10-17):** the normal ± orb with a gold outline ring, faint upward streaks under it, and "▲N" rows left under the value. The ring, streaks and count turn red and pulse at ▲1.
+- **Riser look (decided 2026-10-17):** the normal ± orb with a glowing gold ▲ chevron on its top edge and a round rows-left badge in the top-right corner. Both turn red and pulse at 1. Upward streaks show under it only while it's moving up (climbing or spawning), then fade out.
 - **Riser details as built:**
   - When a Riser swaps up past a tile, that tile then falls into any gap under the Riser.
   - New Risers push up from the bottom of the emptiest column (never a Null Core column). Their value is picked so they don't react with their neighbours straight away.
