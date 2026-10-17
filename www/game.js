@@ -186,6 +186,14 @@
     const settingDebugToggle = document.getElementById('setting-debug-toggle');
     const homeTitle = document.querySelector('#screen-home .home-title');
 
+    // How to play (maingameplay.html): 6 one-concept slides
+    const htpRoot = document.getElementById('htp');
+
+    // First-time play (maingameplay.html): coached run before Adventure node 1-1
+    const fpCoach = document.getElementById('fp-coach');
+    const fpHand = document.getElementById('fp-hand');
+    const fpHandOrb = document.getElementById('fp-hand-orb');
+
     // Pause Modal
     // Pause screen (objective core)
     const pauseRing = document.getElementById('pause-ring');
@@ -536,6 +544,7 @@
     let dragTray = [null, null];
     let activeDrag = null;     // { source: 'tray' | 'hold', slot, orb, col, ghostY, overHold }
     let boardSwapDrag = null;  // { r, c, x0, y0, target: { r, c } | null, warned }
+    let firstPlay = null;      // coached first run: { step, node, kind, slot, col, from, to, keep, dim, busy, anim }
 
     // Falling Projectile Animation
     let activeProjectile = null; // { col, startY, targetY, y, vy, orb, targetRow, isImpact }
@@ -574,6 +583,7 @@
     let pendingNodeConfig = null;
 
     function showScreen(screenId) {
+        if (screenId !== 'game' && firstPlay) fpTeardown();
         if (screenId !== 'game') hideObjectiveIntro();
         currentScreen = screenId;
         const screens = [screenHome, screenAdventureNodes, screenChallenges, screenAdventureMap, screenGame, screenCodex];
@@ -1032,6 +1042,14 @@
 
     function startNodeLevel(config) {
         if (!config) return;
+        // First Adventure node on the main gameplay: run the coached first play before it
+        // (new players only; debug mode can force it for testing)
+        const hasAdventureProgress = Object.values(career.adventureNodes || {}).some((n) => n && n.cleared);
+        if (MAIN_GAMEPLAY && config.id === '1-1' && !career.firstPlayDone && !firstPlay && fpCoach
+            && (!hasAdventureProgress || isDebugMode())) {
+            startFirstPlay(config);
+            return;
+        }
         gameMode = 'adventure';
         isTutorial = false;
         activeAdventureLevel = config;
@@ -1837,6 +1855,10 @@
     }
 
     function restartCurrentGame() {
+        if (firstPlay) {
+            fpLoadStep(firstPlay.step);
+            return;
+        }
         if (isTutorial) {
             startTutorialMode();
         } else if (gameMode === 'adventure' && activeAdventureLevel) {
@@ -1993,6 +2015,10 @@
         if (modalVictory && modalVictory.classList.contains('visible')) return;
 
         isPaused = (forceState !== undefined) ? forceState : !isPaused;
+        if (firstPlay) {
+            if (isPaused) fpHideHand();
+            else setTimeout(fpStartHand, 120);
+        }
 
         if (isPaused) {
             renderPauseScreen();
@@ -2050,8 +2076,12 @@
         if (cardPlayClassic) cardPlayClassic.addEventListener('click', startClassicMode);
         if (cardPlayAdventure) cardPlayAdventure.addEventListener('click', () => showScreen('adventure-nodes'));
         if (cardPlayChallenges) cardPlayChallenges.addEventListener('click', () => showScreen('challenges'));
-        if (btnHomeTutorial) btnHomeTutorial.addEventListener('click', startTutorialMode);
-        if (btnCodexTutorial) btnCodexTutorial.addEventListener('click', startTutorialMode);
+        // Main gameplay opens the How to play slides; the old interactive lessons stay on index.html as a backup
+        const openTutorial = (MAIN_GAMEPLAY && htpRoot) ? openHowToPlay : startTutorialMode;
+        if (btnHomeTutorial) btnHomeTutorial.addEventListener('click', openTutorial);
+        if (btnCodexTutorial) btnCodexTutorial.addEventListener('click', openTutorial);
+        if (MAIN_GAMEPLAY && htpRoot) setupHowToPlay();
+        if (MAIN_GAMEPLAY) setupFirstPlay();
         if (btnOpenCodex) btnOpenCodex.addEventListener('click', () => {
             codexPreviousScreen = 'home';
             showScreen('codex');
@@ -2229,7 +2259,8 @@
         // Hidden gesture: tap the NULLFALL title 5 times quickly to toggle debug mode
         if (homeTitle) {
             let taps = [];
-            homeTitle.addEventListener('click', () => {
+            // pointerup, not click: iOS WebKit doesn't send click to non-interactive elements
+            homeTitle.addEventListener('pointerup', () => {
                 const now = Date.now();
                 taps = taps.filter((t) => now - t < 2500);
                 taps.push(now);
@@ -2378,6 +2409,11 @@
         const debugParam = new URLSearchParams(window.location.search).get('debug');
         if (debugParam === '1') setDebugMode(true);
         else if (debugParam === '0') setDebugMode(false);
+        // ?firstplay=1 replays the coached first play on the next launch of node 1-1
+        if (new URLSearchParams(window.location.search).get('firstplay') === '1' && career.firstPlayDone) {
+            career.firstPlayDone = false;
+            saveCareerData();
+        }
         syncLabsUI();
 
         showScreen('home');
@@ -2875,7 +2911,7 @@
                 tutRisePending = false;
                 if (screenGame) screenGame.classList.remove('tut-rise');
                 await pushTutorialRiseRow();
-            } else if (!isSwap) {
+            } else if (!isSwap && !firstPlay) {
                 if (gameMode === 'classic') {
                     movesUntilRise--;
                     if (movesUntilRise <= 0) {
@@ -2908,6 +2944,7 @@
             updateHUD();
 
             if (isTutorial) tutEvaluate(isSwap ? 'swap' : 'drop');
+            if (firstPlay) fpOnTurnEnd();
         }
     }
 
@@ -4045,7 +4082,7 @@
 
     function addScore(pts, at = null) {
         score += pts;
-        if (gameMode === 'classic') {
+        if (gameMode === 'classic' && !firstPlay) {
             if (score > career.highScore) {
                 career.highScore = score;
                 saveCareerData();
@@ -4890,6 +4927,10 @@
         function beginDrag(source, slot, e) {
             const orb = source === 'hold' ? heldOrb : dragTray[slot];
             if (!orb || activeDrag || boardSwapDrag || !canPlay()) return;
+            if (firstPlay) {
+                if (!fpAllowsDrag(source, slot)) { fpNudge(); return; }
+                fpHideHand();
+            }
             e.preventDefault();
             sfx.init();
             activeDrag = { source, slot, orb, col: -1, ghostY: 0, overHold: false };
@@ -4910,8 +4951,9 @@
             placeGhost(clientX, clientY);
             const p = canvasPoint(clientX, clientY - LIFT);
             d.ghostY = p.y;
-            d.overHold = d.source === 'tray' && isOver(btnTouchHold, clientX, clientY);
-            const overBoard = !d.overHold
+            const fpHoldOnly = firstPlay && firstPlay.kind === 'hold';
+            d.overHold = d.source === 'tray' && (!firstPlay || fpHoldOnly) && isOver(btnTouchHold, clientX, clientY);
+            const overBoard = !d.overHold && !fpHoldOnly
                 && p.x >= boardOffsetX && p.x < boardOffsetX + cellW * COLS
                 && p.y >= 0 && p.y < boardOffsetY + cellH * ROWS;
             const col = overBoard ? Math.floor((p.x - boardOffsetX) / cellW) : -1;
@@ -4935,8 +4977,23 @@
             if (dragGhost) dragGhost.classList.remove('show');
             if (btnTouchHold) btnTouchHold.classList.remove('drop-target');
 
+            // First play: only the move this step teaches counts; anything else snaps back
+            if (!cancelled && firstPlay) {
+                const ok = firstPlay.kind === 'hold'
+                    ? d.overHold
+                    : (firstPlay.kind === 'place' && !d.overHold && d.col === firstPlay.col);
+                if (!ok) {
+                    cancelled = true;
+                    if (d.col >= 0 || d.overHold) fpNudge();
+                }
+            }
+
             if (!cancelled && d.overHold) {
                 holdFromTray(d.slot);
+                if (firstPlay) {
+                    firstPlay.busy = true;
+                    fpAdvanceSoon();
+                }
             } else if (!cancelled && d.col >= 0 && canPlay()) {
                 aimCol = d.col;
                 currentOrb = d.orb;
@@ -4944,8 +5001,10 @@
                     // The orb is in flight: refill its slot straight away
                     if (d.source === 'tray') dragTray[d.slot] = generateOrb();
                     else heldOrb = null;
+                    if (firstPlay) firstPlay.busy = true;
                 }
             }
+            if (firstPlay && !firstPlay.busy) fpStartHand();
             if (!activeProjectile) currentOrb = null;
             updateHUD();
         }
@@ -4971,6 +5030,13 @@
             const c = Math.floor((p.x - boardOffsetX) / cellW);
             const r = Math.floor((p.y - boardOffsetY) / cellH);
             if (r < 0 || r >= ROWS || c < 0 || c >= COLS || !grid[r][c]) return;
+            if (firstPlay) {
+                const f = firstPlay;
+                const onPair = f.kind === 'swap' && !f.busy
+                    && ((r === f.from.r && c === f.from.c) || (r === f.to.r && c === f.to.c));
+                if (!onPair) { fpNudge(); return; }
+                fpHideHand();
+            }
             e.preventDefault();
             sfx.init();
             boardSwapDrag = { r, c, x0: p.x, y0: p.y, target: null, warned: false };
@@ -5015,10 +5081,21 @@
             boardSwapDrag = null;
             isSwapModeActive = false;
             firstSwapTile = null;
+            if (!cancelled && firstPlay && s && s.target) {
+                const f = firstPlay;
+                const pairOk = (s.r === f.from.r && s.c === f.from.c && s.target.r === f.to.r && s.target.c === f.to.c)
+                    || (s.r === f.to.r && s.c === f.to.c && s.target.r === f.from.r && s.target.c === f.from.c);
+                if (!pairOk) {
+                    cancelled = true;
+                    fpNudge();
+                }
+            }
             if (!cancelled && s && s.target && swapTokens > 0 && canPlay()) {
                 performSwap(s.r, s.c, s.target.r, s.target.c);
+                if (firstPlay) firstPlay.busy = true;
             } else {
                 updateHUD();
+                if (firstPlay) fpStartHand();
             }
         }
 
@@ -5055,6 +5132,411 @@
                 addFloatingText('SLIDE A TILE ONTO ITS NEIGHBOUR TO SWAP', canvas.width / (2 * dpr), boardOffsetY + cellH * 3, '#00f2fe', 1.05);
             });
         }
+    }
+
+    // ---------- How to play (main gameplay): 6 one-concept slides ----------
+    const HTP_SLIDES = [
+        { title: 'Opposites cancel', body: 'Put a number next to its opposite and both vanish in a Zero Blast.' },
+        { title: 'Twins merge', body: 'Two matching numbers fuse into one bigger orb. Bigger orbs set off bigger blasts.' },
+        { title: 'Drag up to place', body: 'Drag an orb up from the tray. It drops onto the top of the column you let go over.' },
+        { title: 'Keep one for later', body: 'Not the number you need? Drop it into HOLD and bring it back when it fits.' },
+        { title: 'Slide to swap', body: 'Slide a tile onto its neighbour to trade places. You earn a new swap every 8 moves.' },
+        { title: 'Stay under the line', body: 'Dark Matter pushes the stack up. If it crosses the red line, the reactor breaches.' }
+    ];
+    let htpIndex = 0;
+
+    function htpEl(id) { return document.getElementById(id); }
+
+    function openHowToPlay() {
+        if (!htpRoot) return;
+        if (sfx) { sfx.init(); sfx.playMove(); }
+        hideTutWelcome();
+        htpRoot.hidden = false;
+        showHtpSlide(0, 0);
+    }
+
+    // Done goes back to the main menu; Close / Skip just dismiss (back to wherever it was opened from)
+    function closeHowToPlay(toMenu) {
+        if (!htpRoot || htpRoot.hidden) return;
+        htpRoot.hidden = true;
+        if (sfx) sfx.playMove();
+        if (toMenu && currentScreen !== 'home') showScreen('home');
+    }
+
+    function showHtpSlide(i, dir) {
+        const last = HTP_SLIDES.length - 1;
+        htpIndex = Math.max(0, Math.min(last, i));
+        const slide = HTP_SLIDES[htpIndex];
+        htpRoot.querySelectorAll('.htp-slide').forEach((el, n) => {
+            const on = n === htpIndex;
+            el.classList.toggle('is-active', on);
+            el.setAttribute('aria-hidden', on ? 'false' : 'true');
+            if (on) el.style.setProperty('--htp-dir', dir < 0 ? '-24px' : (dir > 0 ? '24px' : '0px'));
+        });
+        htpEl('htp-kicker').textContent = `HOW TO PLAY · ${htpIndex + 1} OF ${HTP_SLIDES.length}`;
+        htpEl('htp-title').textContent = slide.title;
+        htpEl('htp-body').textContent = slide.body;
+        const pips = htpEl('htp-pips');
+        pips.setAttribute('aria-label', `Lesson ${htpIndex + 1} of ${HTP_SLIDES.length}`);
+        Array.from(pips.children).forEach((p, n) => {
+            p.classList.toggle('on', n === htpIndex);
+            p.classList.toggle('done', n < htpIndex);
+        });
+        const isLast = htpIndex === last;
+        htpEl('htp-back').hidden = htpIndex === 0 || isLast;
+        htpEl('htp-next').hidden = isLast;
+        htpEl('htp-replay').hidden = !isLast;
+        htpEl('htp-done').hidden = !isLast;
+        htpEl('htp-skip').hidden = isLast;
+        fitHtpSlide();
+    }
+
+    // Scale the active slide's art down to fit the stage on short phones
+    function fitHtpSlide() {
+        const stage = htpEl('htp-stage');
+        const fit = stage && stage.querySelector('.htp-slide.is-active .htp-fit');
+        if (!fit) return;
+        fit.style.transform = 'none';
+        const pad = 24;
+        const scale = Math.min(1,
+            (stage.clientWidth - pad) / Math.max(1, fit.offsetWidth),
+            (stage.clientHeight - pad) / Math.max(1, fit.offsetHeight));
+        fit.style.transform = scale < 1 ? `scale(${scale})` : 'none';
+    }
+
+    function setupHowToPlay() {
+        const go = (step) => {
+            const next = htpIndex + step;
+            if (next < 0 || next >= HTP_SLIDES.length) return;
+            if (sfx) sfx.playMove();
+            triggerHaptic('tick');
+            showHtpSlide(next, step);
+        };
+        htpEl('htp-next').addEventListener('click', () => go(1));
+        htpEl('htp-back').addEventListener('click', () => go(-1));
+        htpEl('htp-replay').addEventListener('click', () => {
+            if (sfx) sfx.playMove();
+            showHtpSlide(0, -1);
+        });
+        htpEl('htp-done').addEventListener('click', () => closeHowToPlay(true));
+        htpEl('htp-close').addEventListener('click', () => closeHowToPlay(false));
+        htpEl('htp-skip').addEventListener('click', () => closeHowToPlay(false));
+
+        // Swipe left / right on the art to move between slides
+        const stage = htpEl('htp-stage');
+        let startX = null;
+        stage.addEventListener('pointerdown', (e) => { startX = e.clientX; });
+        stage.addEventListener('pointerup', (e) => {
+            if (startX === null) return;
+            const dx = e.clientX - startX;
+            startX = null;
+            if (Math.abs(dx) > 50) go(dx < 0 ? 1 : -1);
+        });
+        stage.addEventListener('pointercancel', () => { startX = null; });
+
+        window.addEventListener('keydown', (e) => {
+            if (htpRoot.hidden) return;
+            if (e.key === 'ArrowRight') go(1);
+            else if (e.key === 'ArrowLeft') go(-1);
+            else if (e.key === 'Escape') closeHowToPlay(false);
+        });
+        window.addEventListener('resize', () => { if (!htpRoot.hidden) fitHtpSlide(); });
+    }
+
+    // ---------- First-time play: coached run before Adventure node 1-1 (main gameplay) ----------
+    // Each step loads a small scripted board + tray, shows a coach card and a ghost hand, and only
+    // accepts the move it teaches. Boards are built so nothing blasts or merges at rest.
+    const FP_STEPS = [
+        {
+            kind: 'place', kicker: 'DRAG &amp; DROP', line: ['Drag the ', 3, ' up onto the ', -3, '.'],
+            why: 'Opposite numbers cancel out. Both orbs vanish in a Zero Blast and you score.',
+            tiles: [[7, 0, 2], [7, 1, -4], [7, 2, 1], [7, 3, -2], [7, 4, 3], [7, 5, -1], [6, 2, -3], [6, 0, -1], [6, 5, 4]],
+            tray: [3, -2], slot: 0, col: 2, keep: ['6-2', '7-2'], rise: 5
+        },
+        {
+            kind: 'place', kicker: 'MERGE', line: ['Nice blast! Now drop ', 2, ' on the ', 2, '.'],
+            why: 'Matching numbers fuse into one bigger orb, ready for a bigger blast.',
+            tiles: [[7, 0, -1], [6, 0, 2], [7, 1, -4], [7, 2, 1], [7, 3, -2], [7, 4, 3], [7, 5, -1], [6, 5, 4]],
+            tray: [2, -2], slot: 0, col: 0, keep: ['6-0', '7-0'], rise: 4
+        },
+        {
+            kind: 'hold', kicker: 'HOLD', line: ['No spot for ', -4, ' yet. Drag it into HOLD.'],
+            why: 'You can drag it back out on any move.',
+            tiles: [[7, 0, -1], [6, 0, 4], [7, 1, -4], [7, 2, 1], [7, 3, -2], [7, 4, 3], [7, 5, -1], [6, 5, 4]],
+            tray: [-4, 1], slot: 0, keep: [], rise: 3
+        },
+        {
+            kind: 'swap', kicker: 'SWAP', line: ['Slide ', 2, ' right. It lands next to ', -2, ' and blasts.'],
+            why: 'Uses 1 swap. You earn a new one every 8 moves.',
+            tiles: [[7, 0, 2], [6, 0, -1], [7, 1, -4], [7, 2, 1], [7, 3, 2], [7, 4, -4], [7, 5, -2], [6, 5, 4]],
+            tray: [1, -2], from: { r: 7, c: 3 }, to: { r: 7, c: 4 }, keep: ['7-3', '7-4', '7-5'], rise: 2, swaps: 1
+        },
+        {
+            kind: 'tap', kicker: 'WATCH THE RISE', line: ['Every few moves, Dark Matter pushes every column up one row.'],
+            why: 'Keep the stack below the red line. Tap anywhere to continue.',
+            tiles: [[7, 0, -1], [6, 0, 4], [5, 0, 1], [7, 1, -4], [6, 1, 3], [7, 2, 1], [6, 2, -2], [5, 2, 3], [4, 2, 1], [7, 3, -4], [6, 3, 2], [7, 4, 3], [7, 5, 2], [6, 5, 4], [5, 5, -1]],
+            tray: [1, -2], keep: [], rise: 1
+        },
+        {
+            kind: 'ready', kicker: 'YOU’RE READY', line: ['That’s everything. Time for your first mission!'],
+            why: 'Replay the basics any time from How to play.',
+            tiles: [[7, 0, -1], [6, 0, 4], [7, 1, -4], [6, 1, 3], [7, 2, 1], [7, 3, -4], [6, 3, 2], [7, 4, 3], [7, 5, 2], [6, 5, 4]],
+            tray: [-3, 2], keep: null, rise: 5
+        }
+    ];
+
+    function fpOrb(v) {
+        return { type: 'number', value: v, label: v > 0 ? `+${v}` : `${v}` };
+    }
+
+    function fpChip(v) {
+        return `<span class="fp-chip ${v > 0 ? 'pos' : 'neg'}">${v > 0 ? '+' + v : '−' + (-v)}</span>`;
+    }
+
+    function startFirstPlay(node) {
+        firstPlay = { step: 0, node };
+        gameMode = 'classic';
+        isTutorial = false;
+        activeAdventureLevel = null;
+        isGameOver = false;
+        isPaused = false;
+        [modalPause, modalVictory, modalGameOver, modalNodePreview].forEach((m) => { if (m) m.classList.remove('visible'); });
+        if (bountyCard) bountyCard.style.display = 'none';
+        if (adventureObjectiveCard) adventureObjectiveCard.style.display = 'none';
+        if (tutorialCard) tutorialCard.style.display = 'none';
+        if (bestLabel) bestLabel.textContent = 'Best';
+        if (bestVal) bestVal.textContent = (career.highScore || 0).toLocaleString();
+        showScreen('game');
+        startNewGame();
+        fpLoadStep(0);
+    }
+
+    function fpLoadStep(i) {
+        if (!firstPlay) return;
+        const st = FP_STEPS[i];
+        Object.assign(firstPlay, {
+            step: i, kind: st.kind, slot: st.slot || 0, col: st.col, from: st.from, to: st.to,
+            keep: new Set(st.keep || []), dim: Array.isArray(st.keep), busy: false
+        });
+
+        grid = Array(ROWS).fill(null).map(() => Array(COLS).fill(null));
+        st.tiles.forEach(([r, c, v]) => { grid[r][c] = createTile(v); });
+        dragTray = st.tray.map(fpOrb);
+        heldOrb = null;
+        canHold = true;
+        currentOrb = null;
+        activeProjectile = null;
+        isProcessing = false;
+        isSwapModeActive = false;
+        firstSwapTile = null;
+        combo = 1;
+        swapTokens = st.swaps || 1;
+        movesUntilRise = st.rise;
+
+        fpCoach.hidden = false;
+        fpCoach.classList.toggle('is-ready', st.kind === 'ready');
+        fpCoach.classList.remove('fp-nudge');
+        retriggerClass(fpCoach, 'fp-in');
+        document.getElementById('fp-kicker').innerHTML = st.kicker;
+        document.getElementById('fp-line').innerHTML = st.line.map((p) => (typeof p === 'number' ? fpChip(p) : p)).join('');
+        document.getElementById('fp-why').textContent = st.why;
+        document.getElementById('fp-cta').hidden = st.kind !== 'ready';
+        document.getElementById('fp-skip').hidden = st.kind === 'ready';
+        fpApplyFocus(st.kind);
+        updateHUD();
+        setTimeout(fpStartHand, 160);
+    }
+
+    // Dim the tray pieces this step doesn't use; highlight the one it does
+    function fpApplyFocus(kind) {
+        const slot0 = dragTraySlots[0] && dragTraySlots[0].closest('button');
+        const slot1 = dragTraySlots[1] && dragTraySlots[1].closest('button');
+        const all = [btnTouchHold, slot0, slot1, btnTouchSwap].filter(Boolean);
+        all.forEach((el) => el.classList.remove('fp-dim', 'fp-glow'));
+        if (holdSlot) holdSlot.classList.remove('fp-target');
+        if (riseStatusBar) riseStatusBar.classList.remove('fp-hl', 'fp-dim');
+        if (!kind) return;
+        const focusSlot = firstPlay && firstPlay.slot === 1 ? slot1 : slot0;
+        const dim = (els) => els.forEach((el) => el && el.classList.add('fp-dim'));
+        if (kind === 'place') {
+            dim(all.filter((el) => el !== focusSlot));
+            if (focusSlot) focusSlot.classList.add('fp-glow');
+        } else if (kind === 'hold') {
+            dim([slot0, slot1, btnTouchSwap].filter((el) => el !== focusSlot));
+            if (focusSlot) focusSlot.classList.add('fp-glow');
+            if (holdSlot) holdSlot.classList.add('fp-target');
+        } else if (kind === 'swap') {
+            dim([btnTouchHold, slot0, slot1]);
+            if (btnTouchSwap) btnTouchSwap.classList.add('fp-glow');
+        } else if (kind === 'tap') {
+            dim(all);
+        }
+        if (riseStatusBar) {
+            if (kind === 'tap') riseStatusBar.classList.add('fp-hl');
+            else if (kind !== 'ready') riseStatusBar.classList.add('fp-dim');
+        }
+    }
+
+    function fpLandingRow(col) {
+        for (let r = ROWS - 1; r >= 0; r--) {
+            if (!grid[r][col]) return r;
+        }
+        return 0;
+    }
+
+    // Ghost hand: presses the source, carries the orb to the target, lets go, loops
+    function fpStartHand() {
+        fpHideHand();
+        const f = firstPlay;
+        if (!f || f.busy || isPaused || !fpHand || !['place', 'hold', 'swap'].includes(f.kind)) return;
+        const cr = canvas.getBoundingClientRect();
+        const cellPt = (r, c) => ({ x: cr.left + boardOffsetX + (c + 0.5) * cellW, y: cr.top + boardOffsetY + (r + 0.5) * cellH });
+        const mid = (el) => { const b = el.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; };
+        const LIFT = 64; // same lift as the real drag, so the orb lands where the hand shows
+        let start;
+        let end;
+        let orb = null;
+        if (f.kind === 'swap') {
+            start = cellPt(f.from.r, f.from.c);
+            end = cellPt(f.to.r, f.to.c);
+        } else {
+            const slotBtn = dragTraySlots[f.slot] && dragTraySlots[f.slot].closest('button');
+            if (!slotBtn) return;
+            start = mid(slotBtn);
+            orb = dragTray[f.slot];
+            if (f.kind === 'place') {
+                end = cellPt(fpLandingRow(f.col), f.col);
+                end.y += LIFT;
+            } else {
+                end = mid(btnTouchHold);
+            }
+        }
+        if (orb) {
+            renderQueueSlot(fpHandOrb, orb);
+            fpHandOrb.style.top = `${-LIFT - 28}px`;
+            fpHandOrb.hidden = false;
+        } else {
+            fpHandOrb.hidden = true;
+        }
+        fpHand.hidden = false;
+        const at = (p) => `translate(${p.x}px, ${p.y}px)`;
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            fpHand.style.transform = at(start);
+            return;
+        }
+        f.anim = fpHand.animate([
+            { transform: at(start), opacity: 0, offset: 0 },
+            { transform: at(start), opacity: 1, offset: 0.1 },
+            { transform: at(start), opacity: 1, offset: 0.2 },
+            { transform: at(end), opacity: 1, offset: 0.68 },
+            { transform: at(end), opacity: 1, offset: 0.82 },
+            { transform: at(end), opacity: 0, offset: 1 }
+        ], { duration: 2800, iterations: Infinity, easing: 'ease-in-out' });
+    }
+
+    function fpHideHand() {
+        if (firstPlay && firstPlay.anim) {
+            firstPlay.anim.cancel();
+            firstPlay.anim = null;
+        }
+        if (fpHand) fpHand.hidden = true;
+    }
+
+    function fpAllowsDrag(source, slot) {
+        const f = firstPlay;
+        return !f || ((f.kind === 'place' || f.kind === 'hold') && !f.busy && source === 'tray' && slot === f.slot);
+    }
+
+    // Wrong move: a little shake on the coach card instead of an error
+    function fpNudge() {
+        if (!firstPlay || !['place', 'hold', 'swap'].includes(firstPlay.kind)) return;
+        if (sfx) sfx.playWarning();
+        triggerHaptic('tick');
+        fpCoach.classList.remove('fp-in');
+        retriggerClass(fpCoach, 'fp-nudge');
+        fpStartHand();
+    }
+
+    function fpAdvanceSoon(delayMs = 700) {
+        const step = firstPlay.step;
+        setTimeout(() => {
+            if (!firstPlay || firstPlay.step !== step) return;
+            if (step + 1 < FP_STEPS.length) fpLoadStep(step + 1);
+        }, delayMs);
+    }
+
+    // Called when a placed orb / swap has finished cascading
+    function fpOnTurnEnd() {
+        if (firstPlay && firstPlay.busy && (firstPlay.kind === 'place' || firstPlay.kind === 'swap')) fpAdvanceSoon();
+    }
+
+    function fpFinish() {
+        if (!firstPlay) return;
+        const node = firstPlay.node;
+        career.firstPlayDone = true;
+        saveCareerData();
+        fpTeardown();
+        startNodeLevel(node);
+    }
+
+    function fpTeardown() {
+        fpHideHand();
+        firstPlay = null;
+        if (fpCoach) fpCoach.hidden = true;
+        fpApplyFocus(null);
+    }
+
+    function drawFirstPlayHints() {
+        const f = firstPlay;
+        // Dim tiles outside the step's focus with a board-coloured wash (WebKit ignores globalAlpha
+        // around the tile drawing, so this paints over them instead)
+        if (f.dim) {
+            ctx.save();
+            ctx.fillStyle = 'rgba(10, 14, 24, 0.72)';
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    const tile = grid[r][c];
+                    if (!tile || f.keep.has(`${r}-${c}`)) continue;
+                    const x = boardOffsetX + c * cellW + (tile.animX || 0);
+                    const y = boardOffsetY + r * cellH + (tile.animY || 0);
+                    ctx.beginPath();
+                    ctx.roundRect(x + 1, y + 1, cellW - 2, cellH - 2, 14);
+                    ctx.fill();
+                }
+            }
+            ctx.restore();
+        }
+        if (f.busy || activeProjectile) return;
+        if (f.kind === 'place' && !activeDrag) {
+            const row = fpLandingRow(f.col);
+            drawLandingCellReticle(boardOffsetX + f.col * cellW, boardOffsetY + row * cellH, cellW, cellH, 'zero');
+        } else if (f.kind === 'swap' && !boardSwapDrag) {
+            ctx.save();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#f9d423';
+            ctx.shadowColor = '#f9d423';
+            ctx.shadowBlur = 12;
+            ctx.strokeRect(boardOffsetX + f.from.c * cellW + 3, boardOffsetY + f.from.r * cellH + 3, cellW - 6, cellH - 6);
+            ctx.strokeStyle = '#ffffff';
+            ctx.shadowColor = '#ffffff';
+            ctx.strokeRect(boardOffsetX + f.to.c * cellW + 3, boardOffsetY + f.to.r * cellH + 3, cellW - 6, cellH - 6);
+            ctx.restore();
+        }
+    }
+
+    function setupFirstPlay() {
+        if (!fpCoach) return;
+        document.getElementById('fp-skip').addEventListener('click', (e) => { e.stopPropagation(); fpFinish(); });
+        document.getElementById('fp-cta').addEventListener('click', (e) => { e.stopPropagation(); fpFinish(); });
+        // "Tap anywhere to continue" on the rise step
+        if (screenGame) {
+            screenGame.addEventListener('pointerdown', (e) => {
+                if (!firstPlay || firstPlay.kind !== 'tap' || isPaused) return;
+                if (e.target.closest('#btn-pause, #fp-skip')) return;
+                fpLoadStep(firstPlay.step + 1);
+            });
+        }
+        window.addEventListener('resize', () => { if (firstPlay) setTimeout(fpStartHand, 120); });
     }
 
     // ---------- Debug mode (shows the Labs switch between main gameplay and classic drop) ----------
@@ -5238,6 +5720,7 @@
 
         // 3. Draw Board Tiles
         drawTiles();
+        if (firstPlay) drawFirstPlayHints();
 
         // 3.2 Draw Active Merge & Collapse Animations (tethers, sliding orbs, vortices)
         drawMergeAndCollapseAnimations();
