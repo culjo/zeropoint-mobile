@@ -1,6 +1,6 @@
 # Nullfall: Adventure Objectives
 
-Status: **draft for review** (2026-10-17). Design only; no game code has changed.
+Status: **in build** (2026-10-17). Zero Out, Collect and Break the Cores are playable with drops-left stars; the other goals play stand-ins (`temp` in `www/levels.js`) until built.
 Replaces an earlier redesign (deleted 2026-10-17), which was rejected as too complex.
 Scope: Adventure node map and bonus rifts. Classic mode doesn't change.
 Board: 6 columns × 8 rows. The top row is the red line.
@@ -195,7 +195,8 @@ All numbers are starting points for playtesting. These tables show the first thr
 
 ## 7. Notes for the build
 
-- Sector 3 needs its own map layout. It currently reuses Sector 1's node IDs, which clash in save data.
-- Save keys stay `zeropoint_*`. Existing saved stars may need resetting, because star rules change.
+- ~~Sector 3 needs its own map layout.~~ Done: Sector 3 has its own `3-x` node IDs.
+- Save keys stay `zeropoint_*`. Old Adventure progress is wiped once on update (`adventureSaveVersion` 2).
+- Removal counting: every tile that leaves the board (blast, special orb, crater, vortex, Hyperspace) is reported once per event, so one Zero Blast counts −2. Cross Lasers don't remove number orbs today, so they only count through cores they break.
 - Levels are hybrid: handcrafted anchors plus generated levels, shipped as fixed data, with fresh orbs on each attempt (GDD §5.3–5.5).
 - Still open: how Risers are drawn.

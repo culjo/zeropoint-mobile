@@ -319,14 +319,14 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 
 ---
 
-## 7. Stars and progression [PLANNED]
+## 7. Stars and progression [LIVE for Adventure nodes; Survive PLANNED]
 
 | Level type | ★ | ★★ | ★★★ |
 |---|---|---|---|
 | Any goal except Survive | Clear the level | ≥ 25% of drops left | ≥ 45% of drops left |
 | Survive | Survive | Every column has ≥ 3 empty rows at the end | ≥ 5 empty rows |
 
-- The thresholds are **shown on the intro card and the strip**, e.g. "★★ 4 left".
+- The thresholds are **shown on the intro card and the strip**, e.g. "★★ 4 left". Percentages round **up** to whole drops (14 drops → ★★ 4, ★★★ 7).
 - The **score star is removed.**
 - Stars count toward sector totals.
 
@@ -372,10 +372,9 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 - **Start page:** `www/maingameplay.html` (drag & place).
 - **Files:** game logic in `www/game.js`, the current map and level generator in `www/nodeGenerator.js`.
 - **Saving:** progress is saved locally in `zeropoint_*` keys.
-- **[PLANNED]**
-  - A level data file.
-  - The generator, bot and editor tools.
-  - Save migration, because star rules change and existing saved stars may need resetting.
+- **Level data [LIVE]:** `www/levels.js` holds every Adventure node as fixed data; `www/nodeGenerator.js` holds the map layouts and turns that data into playable levels. Nodes whose goal isn't built yet are marked `temp` and play a stand-in goal.
+- **Save migration [LIVE]:** `adventureSaveVersion` 2 wiped old Adventure progress once (cleared nodes, stars, unlocks). Classic best, Challenges, settings and first play are kept.
+- **[PLANNED]** The generator, bot and editor tools.
 
 ---
 
@@ -401,3 +400,7 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 | 2026-10-17 | Build bigger: Number Tide, merge-friendly tray, celebrations without changing orb size; Rescue opposites kept as an option |
 | 2026-10-17 | Gradual concept unlocks tied to levels; first play cut to 3 concepts; Hold and Swap taught by behaviour hints; Discoveries page added |
 | 2026-10-17 | Static blocks introduced in Sector 2 (2-3), not Sector 1 |
+| 2026-10-17 | Star change: old Adventure progress is wiped once on update (not reset to 1★); Classic, Challenges and settings kept |
+| 2026-10-17 | Sector 1 bonus rifts branch after 1-4 and 1-8 to match the concept ladder (§6.3) |
+| 2026-10-17 | Star thresholds round up to whole drops |
+| 2026-10-17 | Challenges stay on the old objectives and score star until §4.2 is decided |

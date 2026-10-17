@@ -5752,6 +5752,38 @@ input:checked + .toggle-slider:before {
     font-variant-numeric: tabular-nums;
 }
 
+/* Star thresholds on the strip: drops left needed for ★★ and ★★★; greys out once missed */
+.adv-obj-stars {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1px;
+    flex-shrink: 0;
+    padding-right: 10px;
+    border-right: 1px solid rgba(255, 255, 255, 0.12);
+    font-family: 'Lato', sans-serif;
+    font-size: 9px;
+    font-weight: 900;
+    line-height: 1.15;
+    letter-spacing: 0.5px;
+    color: #f9d423;
+    white-space: nowrap;
+}
+
+.adv-obj-stars[hidden] { display: none; }
+
+.adv-obj-stars b {
+    display: inline-block;
+    min-width: 14px;
+    margin-left: 4px;
+    text-align: right;
+    color: #f0f4fc;
+    font-variant-numeric: tabular-nums;
+}
+
+.adv-obj-stars .lost { color: #4a5068; text-decoration: line-through; }
+.adv-obj-stars .lost b { color: #4a5068; }
+
 @keyframes objStripGlow {
     0%, 100% { box-shadow: 0 0 12px rgba(249, 212, 35, 0.2); }
     50% { box-shadow: 0 0 26px rgba(249, 212, 35, 0.45); }
@@ -6517,6 +6549,9 @@ input:checked + .toggle-slider:before {
 }
 .obj-intro-rule-icon.drops { background: rgba(255, 107, 138, 0.14); color: #ff6b8a; }
 .obj-intro-rule-icon.star { background: rgba(249, 212, 35, 0.14); color: #f9d423; }
+/* Adventure star rows (★★ / ★★★): every icon in the list becomes a pill of the same width */
+.obj-intro-rules.has-multi .obj-intro-rule-icon { width: 36px; border-radius: 11px; }
+.obj-intro-rule-icon.multi { font-size: 9px; letter-spacing: -0.5px; }
 .obj-intro-rule-text { flex: 1; font-size: 13px; font-weight: 800; color: #f0f4fc; }
 
 /* ==========================================================

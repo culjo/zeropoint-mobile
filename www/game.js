@@ -373,6 +373,9 @@
     ];
 
     // Career Persistence Functions
+    // 2: Adventure rebuilt on fixed level data with drops-left stars (old node progress wiped)
+    const ADVENTURE_SAVE_VERSION = 2;
+
     function loadCareerData() {
         const defaultCareer = {
             highScore: 0,
@@ -385,6 +388,7 @@
             tutorialDone: false,
             tutorialSkipped: false,
             seenOverdriveTip: false,
+            adventureSaveVersion: ADVENTURE_SAVE_VERSION,
             settings: {
                 sfx: true,
                 bgm: false, // ambient music off by default until the new soundtrack lands
@@ -402,6 +406,15 @@
                 if (parsed.settings && !parsed.settings.bgmOffMigrated) {
                     parsed.settings.bgm = false;
                     parsed.settings.bgmOffMigrated = true;
+                }
+                // One-time: Adventure moved to fixed level data and drops-left stars, so
+                // old node progress no longer matches. Wipe it (Classic, Challenges and settings stay).
+                if ((parsed.adventureSaveVersion || 1) < ADVENTURE_SAVE_VERSION) {
+                    parsed.adventureNodes = {};
+                    parsed.unlockedNodes = ['1-1'];
+                    parsed.currentSector = 1;
+                    parsed.adventureSaveVersion = ADVENTURE_SAVE_VERSION;
+                    try { localStorage.setItem('zeropoint_career', JSON.stringify(parsed)); } catch (e) { /* saved on next write */ }
                 }
                 return {
                     ...defaultCareer,
@@ -969,7 +982,9 @@
             if (config.maxDrops) chips.push(`<span class="node-chip">↓ ${config.maxDrops} drops</span>`);
             if (config.rules && config.rules.fluxRate) chips.push(`<span class="node-chip">↑ Flux every ${config.rules.fluxRate}</span>`);
             (config.rules?.modifiers || []).forEach(m => chips.push(`<span class="node-chip">${m.icon} ${m.label}</span>`));
-            if (config.targetScoreForStar) chips.push(`<span class="node-chip">★ ${config.targetScoreForStar}+ pts</span>`);
+            if (config.stars) chips.push(`<span class="node-chip">★★ ${config.stars.two} left · ★★★ ${config.stars.three} left</span>`);
+            // Debug: placeholder levels say what they stand in for (levels.js `temp`)
+            if (config.temp && isDebugMode()) chips.push(`<span class="node-chip">TEMP · planned ${config.planned}</span>`);
             nodeSheetChips.innerHTML = chips.join('');
         }
 
@@ -1019,8 +1034,8 @@
         }
 
         // Star targets
-        if (starDesc2) starDesc2.textContent = `Finish within ${config.targetDropsForStar} Drops`;
-        if (starDesc3) starDesc3.textContent = `Score ${config.targetScoreForStar}+ Points`;
+        if (starDesc2) starDesc2.textContent = `Finish with ${config.stars.two}+ drops left`;
+        if (starDesc3) starDesc3.textContent = `Finish with ${config.stars.three}+ drops left`;
 
         if (starStatus1) starStatus1.textContent = stars >= 1 ? '⭐' : '☆';
         if (starStatus2) starStatus2.textContent = stars >= 2 ? '⭐' : '☆';
@@ -1903,6 +1918,33 @@
             };
         }
 
+        if (gameMode === 'adventure' && lvl && isGoalLevel(lvl)) {
+            const obj = lvl.goal;
+            const meta = OBJECTIVE_META[obj.type];
+            const { cur, tgt, left } = getObjectiveCounts(obj);
+            const met = adventureObjectiveMet;
+            const dropsLeft = getDropsLeft();
+            const starGoal = (need) => {
+                const ok = dropsLeft >= need;
+                return { glyph: '★', label: `Finish with ${need}+ drops left`, detail: ok ? `${dropsLeft} left · on track` : `${dropsLeft} left · missed`, state: ok ? 'track' : 'todo' };
+            };
+            const meta2 = typeof NodeGenerator !== 'undefined' ? NodeGenerator.SECTOR_METADATA[lvl.sectorNum - 1] : null;
+            return {
+                accent: meta2 ? meta2.color : '#00f2fe',
+                chip: `ADVENTURE · NODE ${lvl.id}`,
+                title: String(lvl.title || '').replace(/^(Sector Boss|Bonus):\s*/, ''),
+                ringLabel: 'GOAL', ringValue: met ? 'Done' : `${left} left`, ringSub: meta ? meta.short(obj) : lvl.desc,
+                pct: met ? 100 : Math.round((cur / tgt) * 100),
+                goals: [
+                    { glyph: '★', label: meta ? meta.short(obj) : 'Complete the goal', detail: met ? 'Done' : `${left} left`, state: met ? 'done' : 'progress' },
+                    starGoal(lvl.stars.two),
+                    starGoal(lvl.stars.three)
+                ],
+                restart: 'Restart node',
+                exit: 'Exit to star map'
+            };
+        }
+
         if (gameMode === 'adventure' && lvl) {
             const obj = lvl.objective || { target: 1, label: 'Objective' };
             const tgt = obj.target || 1;
@@ -2564,12 +2606,35 @@
         };
     }
 
+    function makeSpecialOrb() {
+        const specials = ['invert', 'div2', 'mul2', 'zero'];
+        const chosen = specials[Math.floor(Math.random() * specials.length)];
+        return {
+            type: 'special',
+            subType: chosen,
+            label: chosen === 'invert' ? '±' :
+                   chosen === 'div2' ? '÷2' :
+                   chosen === 'mul2' ? '×2' : '0'
+        };
+    }
+
+    // pool: { values: [magnitudes], specials: chance, favor?: magnitude dealt twice as often }
+    function generateLevelPoolOrb(pool) {
+        if (pool.specials && Math.random() < pool.specials) return makeSpecialOrb();
+        const values = (pool.values && pool.values.length) ? pool.values.slice() : [1, 2, 3, 4];
+        if (pool.favor) values.push(pool.favor);
+        let val = values[Math.floor(Math.random() * values.length)];
+        if (Math.random() < 0.5) val = -val;
+        return { type: 'number', value: val, label: val > 0 ? `+${val}` : `${val}` };
+    }
+
     // Orb Generator
     function generateOrb() {
         // Dynamic spawn pool mutators from procedural node rules
-        const poolType = (gameMode === 'adventure' && activeAdventureLevel && activeAdventureLevel.rules)
-            ? activeAdventureLevel.rules.spawnPoolType
-            : 'standard';
+        const poolType = (gameMode === 'adventure' && activeAdventureLevel && activeAdventureLevel.rules && activeAdventureLevel.rules.spawnPoolType) || 'standard';
+        // Adventure nodes deal from the level's own pool (levels.js)
+        const levelPool = gameMode === 'adventure' && activeAdventureLevel && activeAdventureLevel.rules && activeAdventureLevel.rules.pool;
+        if (levelPool) return generateLevelPoolOrb(levelPool);
 
         let specialChance = poolType === 'wildcards' ? 0.25 : (poolType === 'singles' ? 0.05 : 0.12);
 
@@ -2798,15 +2863,18 @@
             });
 
             // Annihilate all tiles in this column
+            const crushed = [];
             for (let r = 0; r < ROWS; r++) {
                 if (grid[r][col]) {
                     const cx = boardOffsetX + col * cellW + cellW / 2;
                     const cy = boardOffsetY + r * cellH + cellH / 2;
                     createSparks(cx, cy, '#bc13fe', 12);
                     createSparks(cx, cy, '#ffd700', 8);
+                    crushed.push(grid[r][col]);
                     grid[r][col] = null;
                 }
             }
+            noteTilesRemoved(crushed, { x: boardOffsetX + col * cellW + cellW / 2, y: boardOffsetY + cellH * 2.5 });
 
             // Damage neighboring Dark Matter columns
             for (let r = 0; r < ROWS; r++) {
@@ -2839,14 +2907,17 @@
             // Singularity Bomb: clears 3x3 radius
             sfx.playAnnihilate(3);
             triggerScreenShake(12);
+            const blasted = [];
             for (let r = Math.max(0, row - 1); r <= Math.min(ROWS - 1, row + 1); r++) {
                 for (let c = Math.max(0, col - 1); c <= Math.min(COLS - 1, col + 1); c++) {
                     if (grid[r][c]) {
                         createSparks(boardOffsetX + c * cellW + cellW / 2, boardOffsetY + r * cellH + cellH / 2, '#c471ed', 12);
+                        blasted.push(grid[r][c]);
                         grid[r][c] = null;
                     }
                 }
             }
+            noteTilesRemoved(blasted, { x: boardOffsetX + col * cellW + cellW / 2, y: boardOffsetY + row * cellH + cellH / 2 });
             addFloatingText('0 SINGULARITY!', boardOffsetX + col * cellW + cellW / 2, boardOffsetY + row * cellH, '#c471ed');
             addScore(40, { x: boardOffsetX + col * cellW + cellW / 2, y: boardOffsetY + row * cellH });
         } else if (targetTile) {
@@ -3109,6 +3180,7 @@
                     if (tileB && tileB.type === 'number' && tileA.value + tileB.value === 0) {
                         totalZeroPoints++;
                         checkAdventureObjective('annihilations', 1, cellCenterBetween(r, c, r, c + 1));
+                        noteTilesRemoved([tileA, tileB], cellCenterBetween(r, c, r, c + 1));
                         const magnitude = Math.abs(tileA.value);
 
                         if (isTutorial) tutRecordBlast(magnitude);
@@ -3124,6 +3196,7 @@
                     if (tileB && tileB.type === 'number' && tileA.value + tileB.value === 0) {
                         totalZeroPoints++;
                         checkAdventureObjective('annihilations', 1, cellCenterBetween(r, c, r + 1, c));
+                        noteTilesRemoved([tileA, tileB], cellCenterBetween(r, c, r + 1, c));
                         const magnitude = Math.abs(tileA.value);
 
                         if (isTutorial) tutRecordBlast(magnitude);
@@ -3326,6 +3399,7 @@
                 addFloatingText('SHATTERED!', nx, ny, '#fff');
                 addScore(15, { x: nx, y: ny });
                 checkAdventureObjective('clear_dark_matter', 1, { x: nx, y: ny });
+                noteTilesRemoved([target], { x: nx, y: ny });
             } else {
                 target.flash = 0.8;
             }
@@ -3361,6 +3435,7 @@
         const maxR = Math.min(ROWS - 1, Math.max(r1, r2) + 1);
         const minC = Math.max(0, Math.min(c1, c2) - 1);
         const maxC = Math.min(COLS - 1, Math.max(c1, c2) + 1);
+        const vaporized = [];
 
         for (let r = minR; r <= maxR; r++) {
             for (let c = minC; c <= maxC; c++) {
@@ -3376,14 +3451,17 @@
                         const tx = boardOffsetX + c * cellW + cellW / 2;
                         const ty = boardOffsetY + r * cellH + cellH / 2;
                         createSparks(tx, ty, '#ffd700', 10);
+                        vaporized.push(tile);
                         grid[r][c] = null;
                     }
                 }
             }
         }
+        noteTilesRemoved(vaporized, cellCenterBetween(r1, c1, r2, c2));
     }
 
     function damageHyperspace() {
+        const swept = [];
         for (let r = ROWS - 3; r < ROWS; r++) {
             if (r >= 0) {
                 for (let c = 0; c < COLS; c++) {
@@ -3392,11 +3470,13 @@
                         const tx = boardOffsetX + c * cellW + cellW / 2;
                         const ty = boardOffsetY + r * cellH + cellH / 2;
                         createSparks(tx, ty, '#c471ed', 12);
+                        swept.push(tile);
                         grid[r][c] = null;
                     }
                 }
             }
         }
+        noteTilesRemoved(swept, { x: boardOffsetX + (COLS * cellW) / 2, y: boardOffsetY + (ROWS - 2) * cellH });
     }
 
     async function pushRisingRow() {
@@ -3452,11 +3532,50 @@
         synthesis_tier: { short: (o) => `Build a +${o.target} orb`, hint: 'Merge matching numbers like [pos:+2] [pos:+2] to double them', event: 'MERGED' },
         clear_dark_matter: { short: () => 'Shatter Dark Matter cores', hint: 'Blast beside a [dm:◈] core twice to shatter it', event: 'CORE SHATTERED' },
         trigger_laser: { short: () => 'Fire a Cross Laser', hint: 'Cancel a [pos:+4] [neg:−4] pair to fire across the row and column', event: 'CROSS LASER!' },
-        activate_frenzy: { short: () => 'Unleash Frenzy', hint: 'Blast to fill the [od:ϟ] Overdrive bar to 100%', event: 'FRENZY!' }
+        activate_frenzy: { short: () => 'Unleash Frenzy', hint: 'Blast to fill the [od:ϟ] Overdrive bar to 100%', event: 'FRENZY!' },
+        // Adventure goals (one per level; the counter only counts down)
+        zero_out: { short: (o) => `Clear ${o.target} orbs`, strip: () => 'Clear orbs', hint: 'Cancel opposites like [pos:+3] [neg:−3] to clear them', event: 'CLEARED' },
+        collect: { short: (o) => `Pop ${o.target} orbs showing ${o.number}`, strip: (o) => `Pop ${o.number}s`, hint: (o) => `[pos:+${o.number}] and [neg:−${o.number}] both count`, event: 'POPPED' },
+        break_cores: { short: (o) => `Break ${o.target} Dark Matter cores`, strip: () => 'Break cores', hint: 'Blast beside a [dm:◈] core twice to break it', event: 'CORE BROKEN' }
     };
 
+    const GOAL_GLYPHS = {
+        zero_out: () => '○',
+        collect: (o) => String(o.number),
+        break_cores: () => '◈'
+    };
+
+    // The active level's goal (Adventure nodes) or objective (Challenges)
+    function getLevelGoal(lvl) {
+        return lvl ? (lvl.goal || lvl.objective || null) : null;
+    }
+
+    function isGoalLevel(lvl) {
+        return !!(lvl && lvl.goal);
+    }
+
     function getObjectiveGlyph(obj) {
-        return (CHALLENGE_GLYPHS[obj.type] || (() => '★'))(obj);
+        return (GOAL_GLYPHS[obj.type] || CHALLENGE_GLYPHS[obj.type] || (() => '★'))(obj);
+    }
+
+    // How much a batch of removed tiles moves the goal counter
+    function goalCountForRemoved(goal, tiles) {
+        if (!goal) return 0;
+        if (goal.type === 'zero_out') return tiles.filter((t) => t && t.type === 'number').length;
+        if (goal.type === 'collect') return tiles.filter((t) => t && t.type === 'number' && Math.abs(t.value) === goal.number).length;
+        if (goal.type === 'break_cores') return tiles.filter((t) => t && t.type === 'dark_matter').length;
+        return 0;
+    }
+
+    // Tiles that left the board by any cause except merging (blasts, specials, craters, vortex)
+    function noteTilesRemoved(tiles, pos = null) {
+        if (gameMode !== 'adventure' || !isGoalLevel(activeAdventureLevel)) return;
+        const n = goalCountForRemoved(activeAdventureLevel.goal, tiles);
+        if (n > 0) checkAdventureObjective('goal', n, pos);
+    }
+
+    function getDropsLeft() {
+        return Math.max(0, maxDrops - dropsUsed);
     }
 
     // Board-space midpoint of two cells (canvas CSS pixels)
@@ -3468,6 +3587,11 @@
     }
 
     function getObjectiveCounts(obj, progress = adventureProgress, met = adventureObjectiveMet) {
+        if (GOAL_GLYPHS[obj.type]) {
+            const cur = Math.min(progress, obj.target);
+            const left = met ? 0 : Math.max(0, obj.target - cur);
+            return { cur, tgt: obj.target, left, text: met ? 'DONE' : String(left) };
+        }
         if (obj.type === 'synthesis_tier') {
             return { cur: met ? obj.target : progress, tgt: obj.target, text: met ? 'DONE' : `+${progress || 0}/+${obj.target}` };
         }
@@ -3480,12 +3604,17 @@
 
     function checkAdventureObjective(type, payload = 1, pos = null) {
         if (gameMode !== 'adventure' || !activeAdventureLevel || isGameOver) return;
-        const obj = activeAdventureLevel.objective;
+        const obj = getLevelGoal(activeAdventureLevel);
         if (!obj) return;
         const prevProgress = adventureProgress;
         const prevMet = adventureObjectiveMet;
 
-        if (obj.type === 'annihilations' && type === 'annihilations') {
+        if (isGoalLevel(activeAdventureLevel)) {
+            // Goal counters only count down: progress only ever grows
+            if (type !== 'goal' || adventureObjectiveMet) return;
+            adventureProgress = Math.min(obj.target, adventureProgress + payload);
+            if (adventureProgress >= obj.target) adventureObjectiveMet = true;
+        } else if (obj.type === 'annihilations' && type === 'annihilations') {
             adventureProgress = Math.min(obj.target, adventureProgress + payload);
             if (adventureProgress >= obj.target) adventureObjectiveMet = true;
         } else if (obj.type === 'synthesis_tier' && type === 'synthesis_tier') {
@@ -3531,19 +3660,21 @@
 
     function updateAdventureObjectiveUI(bump = false) {
         if (!activeAdventureLevel || gameMode !== 'adventure') return;
-        const obj = activeAdventureLevel.objective;
+        const obj = getLevelGoal(activeAdventureLevel);
         if (!obj) return;
 
         const meta = OBJECTIVE_META[obj.type];
+        const goalLevel = isGoalLevel(activeAdventureLevel);
         const met = objDisplay ? objDisplay.met : adventureObjectiveMet;
         const { cur, tgt, text } = objDisplay ? getObjectiveCounts(obj, objDisplay.progress, met) : getObjectiveCounts(obj);
-        const countable = obj.type === 'annihilations' || obj.type === 'clear_dark_matter';
+        const countable = goalLevel || obj.type === 'annihilations' || obj.type === 'clear_dark_matter';
         const oneToGo = countable && !met && tgt - cur === 1;
 
         const glyphEl = document.getElementById('adv-obj-glyph');
         const togoEl = document.getElementById('adv-obj-togo');
         if (glyphEl) glyphEl.textContent = met ? '✓' : getObjectiveGlyph(obj);
-        if (advObjDesc) advObjDesc.textContent = meta ? meta.short(obj) : activeAdventureLevel.desc;
+        if (advObjDesc) advObjDesc.textContent = meta ? (goalLevel && meta.strip ? meta.strip(obj) : meta.short(obj)) : activeAdventureLevel.desc;
+        renderStripStars(goalLevel ? activeAdventureLevel.stars : null);
         if (advObjProgress) advObjProgress.textContent = text;
         if (togoEl) togoEl.hidden = !oneToGo;
         if (adventureObjectiveCard) {
@@ -3556,7 +3687,27 @@
             }
         }
 
-        lastCoreHighlight = SHOW_LAST_CORE_MARKER && obj.type === 'clear_dark_matter' && !adventureObjectiveMet && countRemainingDarkMatter() === 1;
+        lastCoreHighlight = SHOW_LAST_CORE_MARKER && (obj.type === 'clear_dark_matter' || (obj.type === 'break_cores' && tgt - cur === 1))
+            && !adventureObjectiveMet && countRemainingDarkMatter() === 1;
+    }
+
+    // Star thresholds on the strip ("★★ 4 · ★★★ 7" drops left); a star greys out once
+    // drops left fall below its threshold
+    function renderStripStars(stars) {
+        const el = document.getElementById('adv-obj-stars');
+        if (!el) return;
+        el.hidden = !stars;
+        if (!stars) return;
+        const left = getDropsLeft();
+        const set = (sel, need) => {
+            const item = el.querySelector(sel);
+            if (!item) return;
+            item.querySelector('b').textContent = need;
+            item.classList.toggle('lost', left < need);
+        };
+        set('.s2', stars.two);
+        set('.s3', stars.three);
+        el.setAttribute('aria-label', `Two stars at ${stars.two} drops left, three stars at ${stars.three} drops left`);
     }
 
     // Badge pops where the objective progressed ("◈ 3/4"), then flies into the
@@ -3588,7 +3739,8 @@
         g.textContent = adventureObjectiveMet ? '✓' : getObjectiveGlyph(obj);
         const n = document.createElement('span');
         n.className = 'n';
-        n.textContent = obj.type === 'synthesis_tier' && !adventureObjectiveMet ? `+${cur}` : `${cur}/${tgt}`;
+        n.textContent = GOAL_GLYPHS[obj.type] ? (adventureObjectiveMet ? '0' : String(left))
+            : (obj.type === 'synthesis_tier' && !adventureObjectiveMet ? `+${cur}` : `${cur}/${tgt}`);
         badge.append(g, n);
         el.append(badge);
         document.body.appendChild(el);
@@ -3614,19 +3766,20 @@
 
     function showObjectiveIntro(level) {
         const overlay = document.getElementById('obj-intro');
-        const obj = level && level.objective;
+        const obj = getLevelGoal(level);
         if (!overlay || !obj || level.isTutorial) return;
         const meta = OBJECTIVE_META[obj.type];
         const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
-        set('obj-intro-kicker', `${getLevelCode(level)} · OBJECTIVE`);
+        set('obj-intro-kicker', `${getLevelCode(level)} · ${isGoalLevel(level) ? 'GOAL' : 'OBJECTIVE'}`);
         set('obj-intro-glyph', getObjectiveGlyph(obj));
         set('obj-intro-title', level.desc || (meta ? meta.short(obj) : 'Complete the objective'));
-        renderIntroHint(document.getElementById('obj-intro-hint'), meta ? meta.hint : '');
+        renderIntroHint(document.getElementById('obj-intro-hint'), meta ? (typeof meta.hint === 'function' ? meta.hint(obj) : meta.hint) : '');
 
         // One row per rule, then one per star goal
         const rules = document.getElementById('obj-intro-rules');
         if (rules) {
             rules.innerHTML = '';
+            rules.classList.toggle('has-multi', !!level.stars);
             const row = (icon, kind, text) => {
                 const r = document.createElement('div');
                 r.className = 'obj-intro-rule';
@@ -3643,8 +3796,13 @@
             };
             row('↓', 'drops', `${level.maxDrops} drops available`);
             row('★', 'star', meta ? meta.short(obj) : (level.desc || 'Complete the objective'));
-            row('★', 'star', `Finish within ${level.targetDropsForStar} drops`);
-            row('★', 'star', `Score ${level.targetScoreForStar.toLocaleString()}+ points`);
+            if (level.stars) {
+                row('★★', 'star multi', `Finish with ${level.stars.two}+ drops left`);
+                row('★★★', 'star multi', `Finish with ${level.stars.three}+ drops left`);
+            } else {
+                row('★', 'star', `Finish within ${level.targetDropsForStar} drops`);
+                row('★', 'star', `Score ${level.targetScoreForStar.toLocaleString()}+ points`);
+            }
         }
 
         const card = document.getElementById('obj-intro-card');
@@ -3803,7 +3961,10 @@
         synthesis_tier: 'Merge matching numbers to grow them before they run out.',
         clear_dark_matter: 'Blast beside a core twice to shatter it.',
         trigger_laser: 'Build a ±4 pair first, then cancel it.',
-        activate_frenzy: 'Chain blasts together to charge Overdrive faster.'
+        activate_frenzy: 'Chain blasts together to charge Overdrive faster.',
+        zero_out: 'Every blast clears two orbs. Set up chains so one drop clears more.',
+        collect: 'Pair the target number with its opposite: both orbs count.',
+        break_cores: 'Blast right beside a core. Big blasts hit several cores at once.'
     };
 
     function renderBreachWhy(show, outOfDrops) {
@@ -3818,7 +3979,7 @@
         if (!show) return;
 
         const lvl = activeAdventureLevel;
-        const obj = lvl && lvl.objective;
+        const obj = getLevelGoal(lvl);
         const meta = obj ? OBJECTIVE_META[obj.type] : null;
         list.innerHTML = '';
         const row = (glyph, glyphClass, title, pct, value) => {
@@ -3849,8 +4010,9 @@
         if (obj) {
             const { cur, tgt, text } = getObjectiveCounts(obj);
             remaining = Math.max(0, tgt - cur);
-            row(getObjectiveGlyph(obj), obj.type === 'clear_dark_matter' ? 'dm' : 'obj',
-                meta ? meta.short(obj) : (lvl.desc || 'Objective'), tgt ? (cur / tgt) * 100 : 0, text);
+            row(getObjectiveGlyph(obj), (obj.type === 'clear_dark_matter' || obj.type === 'break_cores') ? 'dm' : 'obj',
+                meta ? meta.short(obj) : (lvl.desc || 'Objective'), tgt ? (cur / tgt) * 100 : 0,
+                isGoalLevel(lvl) ? `${remaining} left` : text);
         }
         if (outOfDrops) {
             row('↓', 'drops', 'Drops ran out', 100, `${dropsUsed}/${maxDrops}`);
@@ -3872,10 +4034,15 @@
         sfx.playVictory();
         triggerScreenShake(8);
 
+        // Adventure nodes: stars from drops left. Challenges keep their drops + score stars.
+        const goalLevel = isGoalLevel(activeAdventureLevel);
+        const starDropsLeft = getDropsLeft();
         const star1 = 1;
-        const star2 = dropsUsed <= activeAdventureLevel.targetDropsForStar ? 1 : 0;
-        const star3 = score >= activeAdventureLevel.targetScoreForStar ? 1 : 0;
-        const totalStars = star1 + star2 + star3;
+        const star2 = goalLevel ? (starDropsLeft >= activeAdventureLevel.stars.two ? 1 : 0)
+            : (dropsUsed <= activeAdventureLevel.targetDropsForStar ? 1 : 0);
+        const star3 = goalLevel ? (starDropsLeft >= activeAdventureLevel.stars.three ? 1 : 0)
+            : (score >= activeAdventureLevel.targetScoreForStar ? 1 : 0);
+        const totalStars = goalLevel ? star1 + star2 + (star2 ? star3 : 0) : star1 + star2 + star3;
         const starScore = score;
 
         const prevBest = getStoredLevelBest(activeAdventureLevel);
@@ -3947,11 +4114,26 @@
             setVictoryNextLabel(lvlId < ADVENTURE_LEVELS.length ? 'Next mission' : 'All missions complete');
         }
 
-        const lvlObj = activeAdventureLevel.objective;
+        const lvlObj = getLevelGoal(activeAdventureLevel);
         const objMeta = lvlObj ? OBJECTIVE_META[lvlObj.type] : null;
         const dropTarget = activeAdventureLevel.targetDropsForStar;
         const scoreTarget = activeAdventureLevel.targetScoreForStar;
-        const goals = [
+        const starRow = (need, got) => ({
+            got,
+            title: `Finish with ${need}+ drops left`,
+            sub: got ? `${starDropsLeft} drops left` : `${starDropsLeft} left · ${need - starDropsLeft} short · replay for this star`,
+            val: String(starDropsLeft)
+        });
+        const goals = goalLevel ? [
+            {
+                got: true,
+                title: objMeta ? objMeta.short(lvlObj) : (activeAdventureLevel.desc || 'Complete the goal'),
+                sub: 'Goal complete',
+                val: '✓'
+            },
+            starRow(activeAdventureLevel.stars.two, !!star2),
+            starRow(activeAdventureLevel.stars.three, totalStars >= 3)
+        ] : [
             {
                 got: true,
                 title: objMeta ? objMeta.short(lvlObj) : (activeAdventureLevel.desc || 'Complete the objective'),
@@ -3974,7 +4156,7 @@
 
         renderVictoryScreen({
             goals,
-            starFlags: [true, !!star2, !!star3],
+            starFlags: goalLevel ? [true, totalStars >= 2, totalStars >= 3] : [true, !!star2, !!star3],
             kicker: `${getLevelCode(activeAdventureLevel)} · SUCCESS`,
             title: activeAdventureLevel.title,
             stars: totalStars,
