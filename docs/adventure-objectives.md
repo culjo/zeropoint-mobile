@@ -133,21 +133,22 @@ The fail screen shows goal progress, the reason, and one tip for that goal.
 
 Each sector has 10 main nodes plus 2 bonus rifts. **New** marks where something is introduced.
 
-**Sector 1: Subatomic Genesis** (learn the goals, no obstacles until node 9)
+**Sector 1: Subatomic Genesis** (one new concept per level; see GDD §6 for how each is introduced)
 
-| Node | Goal | Obstacle |
-|---|---|---|
-| 1-1 | Zero Out 10 (**new**) | none |
-| 1-2 | Zero Out 16 | none |
-| 1-3 | Collect 6 (**new**) | none |
-| 1-4 | Collect 10 | none |
-| 1-5 | Break the Cores 4 (**new**) | none |
-| 1-6 | Break the Cores 6 | none |
-| 1-7 | Catch the Stars 3 (**new**) | none |
-| 1-8 | Catch the Stars 5 | none |
-| 1-9 | Survive 12 (**new**, row every 5) | rising rows |
-| 1-10 | **Boss:** Null Core 12 (**new**) | core attacks |
-| Bonus ×2 | Big Orb 8 | none |
+| Node | Goal | Obstacle | New concept |
+|---|---|---|---|
+| 1-1 | Zero Out 10 | none | First play: blast, merge, red line |
+| 1-2 | Zero Out 16 | none | none (practice) |
+| 1-3 | Break the Cores 4 | none | **Dark Matter** |
+| 1-4 | Break the Cores 6 | none | none |
+| Bonus 1 | Big Orb 8 | none | **Bonus rifts** |
+| 1-5 | Zero Out 18 | none | **Power-ups:** special orbs + Overdrive |
+| 1-6 | Collect 8 | none | **Collect goal** |
+| 1-7 | Catch the Stars 3 | none | **Stars goal** |
+| 1-8 | Catch the Stars 5 | none | none (practice) |
+| Bonus 2 | Big Orb 8 | none | none |
+| 1-9 | Survive 12 (row every 5) | rising rows | **Rising rows** |
+| 1-10 | **Boss:** Null Core 12 | core attacks | **Null Core boss** |
 
 **Sector 2: Ion Nebula** (introduce Risers, mix in obstacles)
 
@@ -155,7 +156,7 @@ Each sector has 10 main nodes plus 2 bonus rifts. **New** marks where something 
 |---|---|---|
 | 2-1 | Zero Out 20 | none |
 | 2-2 | Risers: clear 2 (**new**) | none |
-| 2-3 | Collect 12 | none |
+| 2-3 | Collect 12 (**new:** static blocks, 0 walls) | none |
 | 2-4 | Catch the Stars 5 | 1 Riser |
 | 2-5 | Break the Cores 6 | rising rows |
 | 2-6 | Risers: clear 4 (new one every 6 drops) | none |

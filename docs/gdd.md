@@ -90,7 +90,7 @@ These appear in the tray now and then:
 ### 2.7 Scoring [LIVE]
 - **Blasts:** `10 × 2^(tier−1) × combo × chain step`.
 - **Other sources:** shattering Dark Matter, bounties, and +20 for each drop left when you clear a level.
-- **What score is used for:** best scores per mode and per level. It doesn't decide stars (§6).
+- **What score is used for:** best scores per mode and per level. It doesn't decide stars (§7).
 
 ---
 
@@ -148,7 +148,7 @@ If a big orb sits on the board for a while, the tray deals its exact opposite wi
 | **Adventure** | LIVE, being redesigned | Node map, one goal per level, limited drops, 3 stars |
 | **Classic** | LIVE | Endless. Dark Matter rises every 5 drops. Bounties. Go for a high score |
 | **Challenges** | LIVE | Five handmade missions plus a boss, plus Training |
-| **How to Play / First Play** | LIVE | A 6-slide How to Play, plus a 6-step coached first run on node 1-1 |
+| **How to Play / First Play** | LIVE, changing | A 6-slide How to Play, plus a coached first run on node 1-1. It's being cut to 3 concepts (§6.2) |
 | **Academy lessons** | LIVE, classic controls only | Interactive lessons, kept as a backup on `index.html` |
 
 ### 4.1 Classic [LIVE + PLANNED]
@@ -202,7 +202,9 @@ The three current sectors are Subatomic Genesis, Ion Nebula and Event Horizon.
 
 **Risers** are orbs that climb one row after each drop. You clear them by cancelling with their opposite. A merged Riser keeps climbing. A Riser reaching the red line means you lose. Later sectors have several at once.
 
-**New content:** add **one new board element per sector or two**, never a new rule. Each one first appears in a handcrafted intro level. **[OPEN]** which ones. Ideas: 0 walls, sticky tiles, locked columns, portals.
+**New content:** add **one new board element per sector or two**, never a new rule. Each one first appears in a handcrafted intro level (§6).
+- Sector 2 brings **static blocks** (0 walls that can't be cleared).
+- **[OPEN]** later sectors. Ideas: sticky tiles, locked columns, portals.
 
 ### 5.3 Level building: hybrid
 Every level ships as **fixed data**, so levels never change after an update and saved stars stay valid. Generation happens while we build the game, not on the player's device.
@@ -249,7 +251,75 @@ That's about 35% handcrafted overall.
 
 ---
 
-## 6. Stars and progression [PLANNED]
+## 6. Onboarding and discovery [PLANNED]
+
+New concepts unlock gradually as the player moves through the early levels. Each one is introduced once, at a fixed level, and players who aren't using a tool get gentle hints.
+
+### 6.1 Rules
+1. **Unlocks are tied to levels, not play counts.** A concept appears at a set node, e.g. Dark Matter at 1-3. Failing a level never brings a concept forward early.
+2. **A locked concept doesn't exist in the game.** Until it's introduced there are no Dark Matter rows, no special orbs, no Overdrive bar and no static blocks.
+   - Level templates are tagged with the concepts they need, and the orb pool is filtered the same way. Generated levels can never use something the player hasn't seen.
+3. **One new concept per level.** The level that introduces it is a calm, handcrafted level (§5.3).
+4. **Introductions never repeat.** Replaying a level doesn't show its introduction again. Players with existing saves have concepts marked as seen based on the nodes they've cleared.
+5. **Every card has Skip.**
+
+### 6.2 First play: 3 concepts
+The coached first run on node 1-1 is cut from 6 steps to 3:
+1. **Drag & drop:** opposites cancel (Zero Blast).
+2. **Merge:** matching numbers fuse.
+3. **The red line:** keep the stack below it.
+
+Hold and Swap move to behaviour hints (§6.5). The rise moves to node 1-9.
+
+### 6.3 Sector 1 concept ladder
+| Level | Goal | New concept |
+|---|---|---|
+| 1-1 | Zero Out | First play (§6.2) |
+| 1-2 | Zero Out | none (practice) |
+| 1-3 | Break the Cores | **Dark Matter** |
+| 1-4 | Break the Cores | none |
+| Bonus 1 | Big Orb | **Bonus rifts** |
+| 1-5 | Zero Out | **Power-ups:** special orbs + Overdrive (one card, two pages) |
+| 1-6 | Collect | **Collect goal** |
+| 1-7 | Catch the Stars | **Stars goal** |
+| 1-8 | Catch the Stars | none (practice) |
+| Bonus 2 | Big Orb | none |
+| 1-9 | Survive | **Rising rows** |
+| 1-10 | Boss | **Null Core boss** |
+
+**Sector 2:** Risers at 2-2 and static blocks at 2-3. Later sectors introduce their new board element at a handcrafted level the same way. Full tables are in [adventure-objectives.md](adventure-objectives.md) §5.
+
+### 6.4 What an introduction looks like
+- **New mechanic** (Dark Matter, power-ups, static blocks, rising rows, Risers):
+  1. A **"NEW: Dark Matter"** card with a short looping demo, in the style of the How to Play slides.
+  2. **One guided move** on the level's handcrafted board, in the style of the first play.
+  3. Then normal play.
+- **New goal:** the level intro card gets a **NEW GOAL** badge. No guided move.
+
+### 6.5 Behaviour hints (Hold and Swap)
+Hold and Swap are available from the start but aren't taught in the first play. Instead:
+- **Hold:** from 1-3, if Hold has never been used, wait for a useful moment, e.g. a tray orb with no good place to go. Then show a small bubble on Hold with a ghost-drag animation.
+- **Swap:** from 1-4, if Swap has never been used, wait for a moment where one swap would cause a blast and the player has a token. Then show the same kind of bubble.
+- **How they behave:** the bubble doesn't block play and can be dismissed.
+- **Limits:**
+  - At most twice per tool: once, then again 3 levels later.
+  - Stop for good once the player uses the tool.
+  - Also show the hint if the player fails the same level twice without using that tool.
+
+### 6.6 Discoveries page
+- **Where:** a collection screen opened from How to Play.
+- **What's on it:**
+  - Every concept as a card. Unlocked cards show the demo and a one-line rule; locked cards show as **"???"**.
+  - The **orb tier names** (§3.3: Nova, Star, Pulsar…), unlocked the first time the player makes each size. This ties "build bigger" into discovery.
+- **New badge:** a dot appears on How to Play when there's an unseen discovery.
+
+### 6.7 Classic and other modes
+- **Classic stays open** from the start.
+- The first time an unseen concept appears in Classic (e.g. rising Dark Matter, a special orb), its card shows just in time and the concept is marked as seen.
+
+---
+
+## 7. Stars and progression [PLANNED]
 
 | Level type | ★ | ★★ | ★★★ |
 |---|---|---|---|
@@ -267,7 +337,7 @@ That's about 35% handcrafted overall.
 
 ---
 
-## 7. Screens and UI [LIVE]
+## 8. Screens and UI [LIVE]
 
 **Screens**
 - Home: a big Play button for Adventure, plus Classic and Challenges tiles.
@@ -277,6 +347,7 @@ That's about 35% handcrafted overall.
 - Victory screen, showing how you earned each star.
 - Breach / out-of-drops screen, showing the reasons and a tip.
 - Settings, with Dev tools in debug mode.
+- **[PLANNED]** Discoveries page, opened from How to Play (§6.6).
 
 **Game screen layout**
 - **Top bar:** best score, score, Overdrive and pause.
@@ -290,13 +361,13 @@ That's about 35% handcrafted overall.
 
 ---
 
-## 8. Audio and feel [LIVE]
+## 9. Audio and feel [LIVE]
 - **Sound:** all generated in code with the Web Audio API, with no audio files. Audio warms up on the first tap.
 - **Haptics:** on drop, blast and combo (Capacitor).
 - **Screen:** locked to portrait, with a dark status bar.
 - **Fonts:** Inter and Lato, bundled in the app.
 
-## 9. Technology [LIVE]
+## 10. Technology [LIVE]
 - **Stack:** HTML5 Canvas and JavaScript, wrapped with Capacitor 7 for iOS and Android.
 - **Start page:** `www/maingameplay.html` (drag & place).
 - **Files:** game logic in `www/game.js`, the current map and level generator in `www/nodeGenerator.js`.
@@ -308,7 +379,7 @@ That's about 35% handcrafted overall.
 
 ---
 
-## 10. Open questions
+## 11. Open questions
 1. Names and themes for Sector 4 onwards, plus the new board element for each sector.
 2. Tier names from 256 up, and the colour for each doubling.
 3. Classic tide speed. Should Classic also have Risers or Catch the Stars moments?
@@ -316,7 +387,7 @@ That's about 35% handcrafted overall.
 5. Whether Rescue opposites (§3.4) is needed, based on playtests.
 6. Monetisation and meta-progression (cosmetics for orb records?). Not discussed yet.
 
-## 11. Decision log
+## 12. Decision log
 | Date | Decision |
 |---|---|
 | 2026-10-16 | Game renamed to Nullfall |
@@ -328,3 +399,5 @@ That's about 35% handcrafted overall.
 | 2026-10-17 | Hybrid levels: handcrafted anchors plus generated levels, shipped as fixed data; fresh orbs each attempt |
 | 2026-10-17 | 100+ levels; sectors grow from 12 to 20 levels |
 | 2026-10-17 | Build bigger: Number Tide, merge-friendly tray, celebrations without changing orb size; Rescue opposites kept as an option |
+| 2026-10-17 | Gradual concept unlocks tied to levels; first play cut to 3 concepts; Hold and Swap taught by behaviour hints; Discoveries page added |
+| 2026-10-17 | Static blocks introduced in Sector 2 (2-3), not Sector 1 |
