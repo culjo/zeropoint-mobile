@@ -94,7 +94,7 @@ These appear in the tray now and then:
 
 ---
 
-## 3. Build bigger [§3.1–3.2 LIVE; §3.3 PLANNED]
+## 3. Build bigger [LIVE]
 
 **The problem:** playtesters wanted higher numbers. Orbs start small (±1 to ±4) and big numbers get blasted before they can grow.
 
@@ -119,24 +119,25 @@ The smallest orb in the pool climbs over time, so the board keeps getting bigger
 
 ### 3.3 Celebrate new highs
 - **Orbs never change physical size.** They stay one grid cell so the board stays readable. Size is shown through:
-  - a **colour** for each doubling
-  - **glow and aura** strength
-  - a heavier number font
-  - a **deeper impact sound** as numbers grow
-- **Tier names**, announced the first time you make each one (draft names):
+  - a **tier ring** for each doubling from 8 up [LIVE]. The orb keeps its sign colour (+ cyan, − red), and a glowing ring in the tier colour goes around it.
+  - **glow strength** that grows with the tier [LIVE]
+  - a heavier number font and a **deeper impact sound** as numbers grow [PLANNED]
+- **Tier names**, announced the first time you make each one ("NOVA!" + "First 8 ever!") [LIVE]:
 
-  | Size | Name |
-  |---|---|
-  | 8 | Nova |
-  | 16 | Star |
-  | 32 | Pulsar |
-  | 64 | Quasar |
-  | 128 | Magnetar |
-  | 256+ | **[OPEN]** |
+  | Size | Name | Ring colour |
+  |---|---|---|
+  | 8 | Nova | violet |
+  | 16 | Star | gold |
+  | 32 | Pulsar | orange |
+  | 64 | Quasar | magenta |
+  | 128 | Magnetar | white |
+  | 256 | Hypernova | shifting rainbow |
+  | 512 | Blazar | shifting rainbow |
+  | 1024+ | Singularity | shifting rainbow |
 
-- **Records:**
-  - **Best orb per run**, shown on the game-over and victory screens.
-  - **Lifetime best orb**, celebrated as "First 128 ever!" and shown on the profile.
+- **Records [LIVE]:**
+  - **Best orb per run** (the biggest orb you merged), shown on the game-over and victory screens.
+  - **Lifetime best orb**, shown on the Discoveries page. A tier's first-ever announcement is the celebration.
 
 ### 3.4 Rescue opposites [OPTION, not committed]
 If a big orb sits on the board for a while, the tray deals its exact opposite within a few drops. We'll use this only if playtests show big numbers clogging the board.
@@ -253,7 +254,7 @@ That's about 35% handcrafted overall.
 
 ---
 
-## 6. Onboarding and discovery [PLANNED]
+## 6. Onboarding and discovery [LIVE]
 
 New concepts unlock gradually as the player moves through the early levels. Each one is introduced once, at a fixed level, and players who aren't using a tool get gentle hints.
 
@@ -382,7 +383,7 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 
 ## 11. Open questions
 1. Names and themes for Sector 4 onwards, plus the new board element for each sector.
-2. Tier names from 256 up, and the colour for each doubling.
+2. ~~Tier names from 256 up, and the colour for each doubling.~~ Decided 2026-10-17 (§3.3).
 3. Classic tide speed. Should Classic also have Risers or Catch the Stars moments?
 4. What happens to Challenges: move them to the new goals, or fold them into Adventure?
 5. Whether Rescue opposites (§3.4) is needed, based on playtests.
@@ -412,6 +413,8 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 | 2026-10-17 | Adventure tide: one step per sector (S1 = 0, S2 = 1, S3 = 2); pool at tide t = 1–4 × 2^t |
 | 2026-10-17 | Static blocks are fixed and unbreakable |
 | 2026-10-17 | Blast impact at high tides must be reduced; method left as a TODO for playtesting (§11 #7) |
+| 2026-10-17 | Tier names: 256 Hypernova, 512 Blazar, 1024+ Singularity. Each doubling gets a glow ring in its tier colour; the orb keeps its sign colour |
+| 2026-10-17 | Onboarding as built: Hold/Swap hints wait until 3 drops into a level; Hold and Swap appear in Discoveries once used or hinted; Classic shows Power-ups just in time on the first special orb or Overdrive charge, and Dark Matter + rising rows on the first rising row |
 | 2026-10-17 | Fairness as built: shuffled bag of ± each pool value; Collect number at least every 4 deals; 20% chance (45% on Big Orb) to deal a match for a column top; a Riser's opposite within 3 deals |
 | 2026-10-17 | Null Core: touching blast = 1 HP; laser through it, crater over it, Hyperspace and super-weapons = 3; can't be swapped; rises with rows |
 | 2026-10-17 | Survive headroom = empty rows above the tallest column, red line excluded |

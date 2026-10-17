@@ -339,6 +339,12 @@
                         <button type="button" class="fp-cta" id="fp-cta" hidden>Let’s go</button>
                     </div>
 
+                    <!-- Hold / Swap behaviour hint: a small bubble that never blocks play (GDD §6.5) -->
+                    <div class="tool-hint" id="tool-hint" role="status" aria-live="polite" hidden>
+                        <span class="tool-hint-text" id="tool-hint-text"></span>
+                        <button type="button" class="tool-hint-x" id="tool-hint-x" aria-label="Dismiss hint"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+                    </div>
+
                     <!-- Shown while a drag is outside the board: releasing cancels the drop -->
                     <div id="drop-cancel-hint" class="drop-cancel-hint" aria-hidden="true">
                         <span class="dc-x"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
@@ -410,9 +416,40 @@
         <!-- ========================================== -->
         <!-- OVERLAY: OBJECTIVE INTRO (mission card)    -->
         <!-- ========================================== -->
+        <!-- Concept card: NEW mechanic intro, just-in-time cards in Classic, and Discoveries detail (GDD §6.4) -->
+        <div id="concept" class="concept" role="dialog" aria-modal="true" aria-labelledby="concept-title" hidden>
+            <div class="concept-card" id="concept-card">
+                <div class="concept-top">
+                    <span class="concept-kicker" id="concept-kicker">NEW</span>
+                    <button type="button" class="concept-skip" id="concept-skip">Skip</button>
+                </div>
+                <div class="concept-demo" id="concept-demo" aria-hidden="true"></div>
+                <h2 class="concept-title" id="concept-title"></h2>
+                <p class="concept-rule" id="concept-rule"></p>
+                <div class="concept-pips" id="concept-pips" aria-hidden="true"></div>
+                <button type="button" class="concept-go" id="concept-go">Got it</button>
+            </div>
+        </div>
+
+        <!-- Discoveries: every concept and orb tier, unlocked as you meet them (GDD §6.6) -->
+        <div id="disc" class="disc" role="dialog" aria-modal="true" aria-labelledby="disc-title" hidden>
+            <div class="disc-inner">
+                <div class="disc-top">
+                    <h1 class="disc-title" id="disc-title">Discoveries</h1>
+                    <button type="button" class="disc-close" id="disc-close" aria-label="Close discoveries"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+                </div>
+                <p class="disc-sub" id="disc-sub"></p>
+                <h2 class="disc-h">Concepts</h2>
+                <div class="disc-grid" id="disc-concepts"></div>
+                <h2 class="disc-h">Orb tiers</h2>
+                <div class="disc-tiers" id="disc-tiers"></div>
+            </div>
+        </div>
+
         <div id="obj-intro" class="obj-intro" role="dialog" aria-modal="true" aria-labelledby="obj-intro-title" hidden>
             <div class="obj-intro-card" id="obj-intro-card">
                 <span class="obj-intro-kicker" id="obj-intro-kicker">NODE 1-1 · OBJECTIVE</span>
+                <span class="obj-intro-new" id="obj-intro-new" hidden>NEW GOAL</span>
                 <span class="obj-intro-glyph" id="obj-intro-glyph" aria-hidden="true">◈</span>
                 <h2 class="obj-intro-title" id="obj-intro-title">Shatter all Dark Matter cores</h2>
                 <p class="obj-intro-hint" id="obj-intro-hint">Blast beside a core twice to shatter it</p>
@@ -454,6 +491,7 @@
                 <div class="htp-top">
                     <button type="button" id="htp-close" class="htp-icon-btn" aria-label="Close how to play"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
                     <div class="htp-pips" id="htp-pips" role="img" aria-label="Lesson 1 of 6"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                    <button type="button" id="htp-disc" class="htp-disc">Discoveries</button>
                     <button type="button" id="htp-skip" class="htp-skip">Skip</button>
                 </div>
                 <div class="htp-head">
@@ -649,6 +687,7 @@
                     <span class="win-label">FINAL SCORE</span>
                     <span class="win-score" id="vic-score">0</span>
                     <span class="win-bonus" id="vic-bonus">+0 DROPS BONUS</span>
+                    <span class="run-orb" id="vic-orb" hidden></span>
                 </div>
 
                 <div class="win-goals" id="vic-goals" role="list" aria-label="Star goals">
@@ -768,6 +807,7 @@
                     <span class="breach-label">SCORE</span>
                     <span class="breach-score" id="go-score">0</span>
                     <span class="breach-best" id="go-best">🏆 BEST 0</span>
+                    <span class="run-orb" id="go-orb" hidden></span>
                 </div>
 
                 <div class="breach-stats">
@@ -861,6 +901,7 @@
     <!-- Scripts -->
     <script src="audio.js"></script>
     <script src="orbBag.js"></script>
+    <script src="concepts.js"></script>
     <script src="levels.js"></script>
     <script src="nodeGenerator.js"></script>
     <script src="game.js"></script>

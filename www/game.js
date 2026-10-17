@@ -389,6 +389,14 @@
             tutorialSkipped: false,
             seenOverdriveTip: false,
             adventureSaveVersion: ADVENTURE_SAVE_VERSION,
+            seenConcepts: {},      // concept id -> true once introduced (GDD §6.1)
+            discoveriesNew: {},    // concept ids / 'tier:N' not yet viewed in Discoveries
+            orbTiersMade: {},      // tier size -> true the first time it's made
+            bestOrb: 0,            // lifetime biggest orb made
+            usedHold: false,
+            usedSwap: false,
+            hints: { hold: { shown: 0, lastOrder: -99 }, swap: { shown: 0, lastOrder: -99 } },
+            levelFails: {},        // node id -> { noHold, noSwap } fails without using the tool
             settings: {
                 sfx: true,
                 bgm: false, // ambient music off by default until the new soundtrack lands
@@ -416,14 +424,15 @@
                     parsed.adventureSaveVersion = ADVENTURE_SAVE_VERSION;
                     try { localStorage.setItem('zeropoint_career', JSON.stringify(parsed)); } catch (e) { /* saved on next write */ }
                 }
-                return {
+                return backfillConcepts({
                     ...defaultCareer,
                     ...parsed,
+                    hints: { ...defaultCareer.hints, ...(parsed.hints || {}) },
                     adventureNodes: parsed.adventureNodes || {},
                     unlockedNodes: (parsed.unlockedNodes && parsed.unlockedNodes.length > 0) ? parsed.unlockedNodes : ['1-1'],
                     currentSector: parsed.currentSector || 1,
                     settings: { ...defaultCareer.settings, ...(parsed.settings || {}) }
-                };
+                });
             }
             // Backward compatibility with legacy key
             const legacyBest = parseInt(localStorage.getItem('zeropoint_highscore') || '0', 10);
@@ -434,6 +443,20 @@
             console.warn('Could not parse career data from storage', e);
         }
         return defaultCareer;
+    }
+
+    // Existing saves: concepts count as seen if their node is already cleared, and the basics
+    // once first play is done, so returning players don't get intros for things they know
+    function backfillConcepts(c) {
+        const concepts = (typeof NullfallConcepts !== 'undefined') ? NullfallConcepts.CONCEPTS : [];
+        concepts.forEach((k) => {
+            if (c.seenConcepts[k.id]) return;
+            const cleared = k.unlock !== 'start' && c.adventureNodes[k.unlock] && c.adventureNodes[k.unlock].cleared;
+            // Hold and Swap are discovered by using them or by their hint, not by first play
+            const taughtInFirstPlay = ['zero_blast', 'merge', 'red_line'].includes(k.id) && c.firstPlayDone;
+            if (cleared || taughtInFirstPlay) c.seenConcepts[k.id] = true;
+        });
+        return c;
     }
 
     function saveCareerData() {
@@ -472,6 +495,7 @@
     }
 
     function updateCareerDisplays() {
+        if (typeof updateDiscoveryDots === 'function') updateDiscoveryDots();
         const totalChallengeStars = getTotalStars();
         const campaignLevels = ADVENTURE_LEVELS.filter(lvl => !lvl.isTutorial);
         const maxChallengeStars = campaignLevels.length * 3;
@@ -513,6 +537,14 @@
     let riserClock = 0;        // drops since the last Riser spawned
     let pendingDeals = [];     // tray guarantees, e.g. a Riser's opposite: { value, due }
     let orbDealer = null;      // OrbBag dealer for the current run (bag randomizer + guarantees)
+    let guide = null;          // one guided move on a mechanic's intro level: { col, slot, kind, line, why, riseAfter, busy, anim }
+    let pendingGuide = null;   // starts when the level card is dismissed
+    let pendingJit = [];       // Classic/Challenges: concepts met for the first time, shown when the turn ends
+    let runBestOrb = 0;        // biggest orb made this run
+    let runUsedHold = false;
+    let runUsedSwap = false;
+    let runHintShown = {};     // tool -> true once its hint showed this run
+    let toolHint = null;       // active Hold/Swap hint: { tool, kind, slot, from, to, anim }
     let orbDealerKey = null;   // what the dealer was built for (level config or 'classic:<tide>')
     let classicTide = 0;       // Number Tide in Classic: rises every CLASSIC_TIDE_EVERY drops
     let classicDrops = 0;
@@ -1113,8 +1145,23 @@
         const riserRules = config.rules && config.rules.risers;
         for (let i = 0; i < ((riserRules && riserRules.start) || 0); i++) spawnRiser(false);
         ensureRiserOpposites();
+
+        // Concepts introduced here (GDD §6.4): a NEW card + one guided move for a mechanic,
+        // a NEW GOAL badge for a goal. Introductions never repeat.
+        const fresh = CONCEPTS.filter((k) => k.unlock === config.id && !career.seenConcepts[k.id]);
+        const freshMechanics = fresh.filter((k) => k.kind === 'mechanic');
+        const freshGoal = fresh.some((k) => k.kind === 'goal' && !k.silent);
+        fresh.forEach((k) => markConceptSeen(k.id));
+        pendingGuide = freshMechanics.length && config.guide ? config.guide : null;
+        if (pendingGuide && dragTray) {
+            dragTray[0] = pendingGuide.orb === 'zero'
+                ? { type: 'special', subType: 'zero', label: '0' }
+                : numberOrb(pendingGuide.orb);
+        }
         updateAdventureObjectiveUI();
-        showObjectiveIntro(config);
+        updateHUD();
+        showObjectiveIntro(config, { newGoal: freshGoal });
+        if (freshMechanics.length) showConceptCards(freshMechanics.map((k) => k.id), 'new');
     }
 
     // ==========================================================
@@ -2140,6 +2187,11 @@
         if (btnCodexTutorial) btnCodexTutorial.addEventListener('click', openTutorial);
         if (MAIN_GAMEPLAY && htpRoot) setupHowToPlay();
         if (MAIN_GAMEPLAY) setupFirstPlay();
+        setupConceptCard();
+        setupDiscoveries();
+        const hintX = document.getElementById('tool-hint-x');
+        if (hintX) hintX.addEventListener('click', (e) => { e.stopPropagation(); hideToolHint(); });
+        window.addEventListener('resize', () => { if (toolHint) positionToolHint(); });
         if (btnOpenCodex) btnOpenCodex.addEventListener('click', () => {
             codexPreviousScreen = 'home';
             showScreen('codex');
@@ -2530,6 +2582,13 @@
         orbDealerKey = null;
         classicTide = 0;
         classicDrops = 0;
+        runBestOrb = 0;
+        runUsedHold = false;
+        runUsedSwap = false;
+        runHintShown = {};
+        if (guide) endGuide();
+        pendingGuide = null;
+        hideToolHint();
         score = 0;
         resetScoreFlyers();
         setScoreDisplay(0, true);
@@ -2712,6 +2771,7 @@
         let specialChance = poolType === 'wildcards' ? 0.25 : (poolType === 'singles' ? 0.05 : 0.12);
 
         if (Math.random() < specialChance) {
+            if (!isTutorial) queueJit('power_ups');
             const specials = ['invert', 'div2', 'mul2', 'zero'];
             const chosen = specials[Math.floor(Math.random() * specials.length)];
             return {
@@ -3098,6 +3158,11 @@
         } finally {
             checkGameOver();
             isProcessing = false;
+            if (guide && guide.busy) endGuide();
+            if (!isGameOver) {
+                flushJit();
+                maybeShowToolHint();
+            }
             if (pendingOverdriveActivation && !isGameOver) {
                 pendingOverdriveActivation = false;
                 activateOverdrive();
@@ -3569,6 +3634,7 @@
     }
 
     async function pushRisingRow() {
+        if (gameMode === 'classic' && !isTutorial) queueJit('rising_rows', 'dark_matter');
         sfx.playWarning();
         triggerScreenShake(5);
 
@@ -3732,6 +3798,7 @@
 
     // Big Orb: any orb reaching the target size (merge or ×2) wins
     function noteOrbMade(magnitude, pos) {
+        if (!isTutorial && !firstPlay) noteOrbRecord(magnitude, pos);
         const goal = gameMode === 'adventure' && activeAdventureLevel && activeAdventureLevel.goal;
         if (goal && goal.type === 'big_orb' && magnitude >= goal.size) checkAdventureObjective('goal', 1, pos);
     }
@@ -4130,13 +4197,15 @@
     // ---------- Intro A: mission card before the first drop ----------
     let objIntroTimer = null;
 
-    function showObjectiveIntro(level) {
+    function showObjectiveIntro(level, opts = {}) {
         const overlay = document.getElementById('obj-intro');
         const obj = getLevelGoal(level);
         if (!overlay || !obj || level.isTutorial) return;
         const meta = OBJECTIVE_META[obj.type];
         const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
         set('obj-intro-kicker', `${getLevelCode(level)} · ${isGoalLevel(level) ? 'GOAL' : 'OBJECTIVE'}`);
+        const newBadge = document.getElementById('obj-intro-new');
+        if (newBadge) newBadge.hidden = !opts.newGoal;
         set('obj-intro-glyph', getObjectiveGlyph(obj));
         set('obj-intro-title', level.desc || (meta ? meta.short(obj) : 'Complete the objective'));
         renderIntroHint(document.getElementById('obj-intro-hint'), meta ? (typeof meta.hint === 'function' ? meta.hint(obj) : meta.hint) : '');
@@ -4215,6 +4284,10 @@
         setTimeout(() => {
             overlay.hidden = true;
             overlay.classList.remove('leaving');
+            if (pendingGuide && gameMode === 'adventure') {
+                startGuide(pendingGuide);
+                pendingGuide = null;
+            }
             if (adventureObjectiveCard) {
                 adventureObjectiveCard.classList.remove('bump');
                 void adventureObjectiveCard.offsetWidth;
@@ -4284,6 +4357,14 @@
 
         const isAdventureRun = gameMode === 'adventure' && !!activeAdventureLevel;
         const outOfDrops = /drops/i.test(message);
+        if (isAdventureRun && activeAdventureLevel.sectorNum) {
+            const f = career.levelFails[activeAdventureLevel.id] || { noHold: 0, noSwap: 0 };
+            if (!runUsedHold) f.noHold++;
+            if (!runUsedSwap) f.noSwap++;
+            career.levelFails[activeAdventureLevel.id] = f;
+            saveCareerData();
+        }
+        hideToolHint();
         const best = isAdventureRun ? getStoredLevelBest(activeAdventureLevel) : (career.highScore || 0);
         const isNewBest = score > 0 && (isAdventureRun ? score > best : score >= best);
 
@@ -4323,6 +4404,7 @@
         if (goZeroes) goZeroes.textContent = totalZeroPoints;
         if (btnGoMap) btnGoMap.hidden = !isAdventureRun || isTutorial || !!(activeAdventureLevel && activeAdventureLevel.isGraduation);
         renderBreachWhy(isAdventureRun && !isTutorial, outOfDrops, /riser/i.test(message));
+        showRunOrb('go-orb');
 
         setTimeout(() => {
             if (modalGameOver) modalGameOver.classList.add('visible');
@@ -4536,6 +4618,7 @@
             }
         ];
 
+        showRunOrb('vic-orb');
         renderVictoryScreen({
             goals,
             starFlags: goalLevel ? [true, totalStars >= 2, totalStars >= 3] : [true, !!star2, !!star3],
@@ -4679,7 +4762,8 @@
     }
 
     function addOverdriveCharge(pts) {
-        if (isFrenzyActive) return;
+        if (isFrenzyActive || !conceptActive('power_ups')) return;
+        if (gameMode === 'classic' || !(activeAdventureLevel && activeAdventureLevel.sectorNum)) queueJit('power_ups');
         overdriveCharge = Math.min(100, Math.round(overdriveCharge + pts));
         if (overdriveCharge >= 100) {
             overdriveCharge = 100;
@@ -4952,6 +5036,7 @@
         }
 
         swapTokens = Math.max(0, swapTokens - 1);
+        noteToolUsed('swap');
         sfx.playQuantumSwap();
         triggerHaptic('swap');
 
@@ -5113,8 +5198,9 @@
             }
             updateAdventureObjectiveUI();
         } else {
-            riseCounter.textContent = `${movesUntilRise}`;
-            if (turnCounterLabel) turnCounterLabel.textContent = 'Dark Matter Rises In';
+            // First play doesn't mention Dark Matter or rising rows (they unlock later)
+            riseCounter.textContent = firstPlay ? '' : `${movesUntilRise}`;
+            if (turnCounterLabel) turnCounterLabel.textContent = firstPlay ? '' : 'Dark Matter Rises In';
             if (riseFill) riseFill.style.height = `${Math.round(Math.min(1, (MOVES_PER_RISE - movesUntilRise + 1) / MOVES_PER_RISE) * 100)}%`;
             if (riseStatusBar) {
                 if (movesUntilRise <= 1) {
@@ -5126,6 +5212,8 @@
         }
 
         // Update Overdrive Gauge
+        // Overdrive doesn't exist before power-ups unlock (Adventure 1-5) or during first play
+        if (overdriveContainer) overdriveContainer.style.visibility = conceptActive('power_ups') ? '' : 'hidden';
         if (overdriveContainer && overdrivePercent && overdriveFill) {
             if (isFrenzyActive) {
                 overdriveContainer.classList.add('frenzy-active');
@@ -5510,6 +5598,12 @@
                 if (!fpAllowsDrag(source, slot)) { fpNudge(); return; }
                 fpHideHand();
             }
+            // Guided move: only the taught orb can be picked up
+            if (guide && !guide.busy) {
+                if (source !== 'tray' || slot !== guide.slot) { guideNudge(); return; }
+                fpHideHand(guide);
+            }
+            if (toolHint) fpHideHand(toolHint);
             e.preventDefault();
             sfx.init();
             activeDrag = { source, slot, orb, col: -1, ghostY: 0, overHold: false };
@@ -5567,6 +5661,11 @@
                 }
             }
 
+            if (!cancelled && guide && !guide.busy && (d.overHold || d.col !== guide.col)) {
+                cancelled = true;
+                if (d.col >= 0 || d.overHold) guideNudge();
+            }
+
             if (!cancelled && d.overHold) {
                 holdFromTray(d.slot);
                 if (firstPlay) {
@@ -5577,13 +5676,21 @@
                 aimCol = d.col;
                 currentOrb = d.orb;
                 if (dropActiveOrb({ startY: d.ghostY })) {
+                    hideToolHint(); // the moment has passed
                     // The orb is in flight: refill its slot straight away
                     if (d.source === 'tray') dragTray[d.slot] = generateOrb();
                     else heldOrb = null;
                     if (firstPlay) firstPlay.busy = true;
+                    if (guide && !guide.busy) {
+                        guide.busy = true;
+                        // Rising rows intro: the row rises right after the guided drop
+                        if (guide.riseAfter && activeAdventureLevel && activeAdventureLevel.rules && activeAdventureLevel.rules.fluxRate) movesUntilRise = 1;
+                    }
                 }
             }
             if (firstPlay && !firstPlay.busy) fpStartHand();
+            if (guide && !guide.busy) fpStartHand(guide);
+            if (toolHint && !activeProjectile) fpStartHand(toolHint);
             if (!activeProjectile) currentOrb = null;
             updateHUD();
         }
@@ -5598,6 +5705,7 @@
             dragTray[slot] = heldOrb || generateOrb(); // a held orb trades places, else the slot refills
             heldOrb = orb;
             canHold = false;
+            noteToolUsed('hold');
             sfx.playMove();
             triggerHaptic('swap');
             retriggerClass(btnTouchHold, 'hold-pop');
@@ -5669,6 +5777,11 @@
                     fpNudge();
                 }
             }
+            if (toolHint) fpHideHand(toolHint);
+            if (!cancelled && guide && !guide.busy) {
+                cancelled = true;
+                guideNudge();
+            }
             if (!cancelled && s && s.target && swapTokens > 0 && canPlay()) {
                 performSwap(s.r, s.c, s.target.r, s.target.c);
                 if (firstPlay) firstPlay.busy = true;
@@ -5711,6 +5824,437 @@
                 addFloatingText('SLIDE A TILE ONTO ITS NEIGHBOUR TO SWAP', canvas.width / (2 * dpr), boardOffsetY + cellH * 3, '#00f2fe', 1.05);
             });
         }
+    }
+
+    // ==========================================================
+    // CONCEPTS, NEW CARDS, GUIDED MOVES, HINTS, TIERS, DISCOVERIES (GDD §3.3, §6)
+    // ==========================================================
+    const CONCEPTS = (typeof NullfallConcepts !== 'undefined') ? NullfallConcepts.CONCEPTS : [];
+    const ORB_TIERS = (typeof NullfallConcepts !== 'undefined') ? NullfallConcepts.TIERS : [];
+
+    function conceptById(id) {
+        return CONCEPTS.find((k) => k.id === id) || null;
+    }
+
+    function nodeOrderOf(id) {
+        return typeof NodeGenerator !== 'undefined' && NodeGenerator.nodeOrder ? NodeGenerator.nodeOrder(id) : 0;
+    }
+
+    // In Adventure a concept doesn't exist before its node (GDD §6.1); Classic and Challenges have
+    // everything; first play has none of the extras
+    function conceptActive(id) {
+        if (firstPlay) return false;
+        const k = conceptById(id);
+        if (!k) return true;
+        if (gameMode === 'adventure' && activeAdventureLevel && activeAdventureLevel.sectorNum) {
+            return nodeOrderOf(k.unlock) <= nodeOrderOf(activeAdventureLevel.id);
+        }
+        return true;
+    }
+
+    function markConceptSeen(id, quiet = false) {
+        if (!career || career.seenConcepts[id]) return;
+        career.seenConcepts[id] = true;
+        const k = conceptById(id);
+        if (k && !k.silent && !quiet) career.discoveriesNew[id] = true;
+        saveCareerData();
+    }
+
+    // Classic / Challenges: the first time an unseen concept appears, its card shows just in time
+    function queueJit(...ids) {
+        if (firstPlay || isTutorial || (gameMode === 'adventure' && activeAdventureLevel && activeAdventureLevel.sectorNum)) return;
+        ids.forEach((id) => {
+            if (!career.seenConcepts[id] && !pendingJit.includes(id)) pendingJit.push(id);
+        });
+    }
+
+    function flushJit() {
+        if (!pendingJit.length || conceptOpen) return;
+        const ids = pendingJit.slice();
+        pendingJit = [];
+        ids.forEach((id) => markConceptSeen(id));
+        showConceptCards(ids, 'new');
+    }
+
+    // ---------- Concept card (NEW intro, JIT, Discoveries detail) ----------
+    let conceptOpen = null; // { pages, index, onDone, wasPaused }
+
+    function showConceptCards(ids, mode, onDone) {
+        const root = document.getElementById('concept');
+        if (!root) { if (onDone) onDone(); return; }
+        const pages = [];
+        ids.forEach((id) => {
+            const k = conceptById(id);
+            if (!k) return;
+            pages.push({ name: k.name, rule: k.rule, demo: k.demo, kind: k.kind });
+            (k.pages || []).forEach((p) => pages.push({ ...p, kind: k.kind }));
+        });
+        if (!pages.length) { if (onDone) onDone(); return; }
+        conceptOpen = { pages, index: 0, onDone, mode, wasPaused: isPaused };
+        if (mode !== 'view') isPaused = true;
+        root.hidden = false;
+        renderConceptPage();
+    }
+
+    function renderConceptPage() {
+        const c = conceptOpen;
+        if (!c) return;
+        const page = c.pages[c.index];
+        const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+        set('concept-kicker', c.mode === 'view' ? 'DISCOVERY' : (page.kind === 'goal' ? 'NEW GOAL' : 'NEW'));
+        set('concept-title', page.name);
+        set('concept-rule', page.rule);
+        renderConceptDemo(document.getElementById('concept-demo'), page.demo);
+        const pips = document.getElementById('concept-pips');
+        if (pips) {
+            pips.innerHTML = c.pages.length > 1 ? c.pages.map((_, i) => `<span class="${i === c.index ? 'on' : ''}"></span>`).join('') : '';
+        }
+        const last = c.index === c.pages.length - 1;
+        set('concept-go', last ? (c.mode === 'view' ? 'Close' : 'Got it') : 'Next');
+        const skip = document.getElementById('concept-skip');
+        if (skip) skip.hidden = c.mode === 'view'; // every intro card can be skipped (GDD §6.1)
+        const card = document.getElementById('concept-card');
+        if (card) retriggerClass(card, 'concept-in');
+    }
+
+    function closeConceptCards() {
+        const c = conceptOpen;
+        conceptOpen = null;
+        const root = document.getElementById('concept');
+        if (root) root.hidden = true;
+        if (!c) return;
+        if (c.mode !== 'view') isPaused = c.wasPaused;
+        if (c.onDone) c.onDone();
+        if (pendingJit.length && currentScreen === 'game' && !isProcessing && !isGameOver) flushJit();
+    }
+
+    // Small looping demos built from the How to play tile styles (CSS animations in maingameplay.css)
+    function renderConceptDemo(el, demo) {
+        if (!el) return;
+        const t = (v, cls = '') => {
+            const kind = v === '0' ? 'zero' : (String(v).startsWith('-') || String(v).startsWith('−') ? 'neg' : 'pos');
+            const label = typeof v === 'number' ? (v > 0 ? `+${v}` : `−${-v}`) : v;
+            return `<span class="cc-tile cc-${kind} ${cls}">${label}</span>`;
+        };
+        const html = {
+            blast: `<div class="cc-row cc-blast">${t(3, 'cc-in-l')}${t(-3, 'cc-in-r')}<span class="cc-burst"></span></div>`,
+            merge: `<div class="cc-row cc-merge">${t(2, 'cc-in-l')}${t(2, 'cc-in-r')}${t(4, 'cc-out')}</div>`,
+            redline: `<div class="cc-col cc-redline"><span class="cc-line"></span>${t(2, 'cc-warn')}${t(-1)}${t(3)}</div>`,
+            hold: `<div class="cc-row">${t(-4, 'cc-to-hold')}<span class="cc-hold">HOLD</span></div>`,
+            swap: `<div class="cc-row cc-swap">${t(2, 'cc-swap-a')}${t(-4, 'cc-swap-b')}</div>`,
+            dark_matter: `<div class="cc-row">${t(-1, 'cc-drop')}<span class="cc-tile cc-dm cc-crack">◈</span></div>`,
+            specials: `<div class="cc-row">${t('0', 'cc-pulse')}<span class="cc-tile cc-spec">±</span><span class="cc-tile cc-spec">×2</span><span class="cc-tile cc-spec">÷2</span></div>`,
+            overdrive: `<div class="cc-col"><span class="cc-bar"><i></i></span><span class="cc-tag">SUPER-WEAPON → TRAY</span></div>`,
+            collect: `<div class="cc-row"><span class="cc-chip">3</span>${t(3, 'cc-pop')}${t(-3, 'cc-pop cc-late')}</div>`,
+            stars: `<div class="cc-col"><span class="cc-star">★</span>${t(2, 'cc-drop-star')}</div>`,
+            rise: `<div class="cc-col cc-rise">${t(1)}${t(-3)}<span class="cc-tile cc-dm">◈</span></div>`,
+            null_core: `<div class="cc-row"><span class="cc-core"><b class="cc-hp"></b></span></div>`,
+            riser: `<div class="cc-col cc-climb">${t(2, 'cc-riser')}</div>`,
+            wall: `<div class="cc-col">${t(-2)}<span class="cc-tile cc-wall">0</span></div>`
+        }[demo] || '';
+        el.innerHTML = html;
+    }
+
+    function setupConceptCard() {
+        const go = document.getElementById('concept-go');
+        const skip = document.getElementById('concept-skip');
+        if (go) go.addEventListener('click', () => {
+            if (!conceptOpen) return;
+            sfx.init();
+            sfx.playMove();
+            if (conceptOpen.index < conceptOpen.pages.length - 1) {
+                conceptOpen.index++;
+                renderConceptPage();
+            } else {
+                closeConceptCards();
+            }
+        });
+        if (skip) skip.addEventListener('click', () => closeConceptCards());
+    }
+
+    // ---------- One guided move (GDD §6.4) ----------
+    function startGuide(g) {
+        if (!fpCoach) return;
+        guide = { ...g, kind: 'place', slot: 0, busy: false, anim: null };
+        fpCoach.hidden = false;
+        fpCoach.classList.remove('is-ready', 'fp-nudge', 'fp-low');
+        retriggerClass(fpCoach, 'fp-in');
+        document.getElementById('fp-kicker').textContent = 'TRY IT';
+        document.getElementById('fp-line').textContent = g.line;
+        document.getElementById('fp-why').textContent = g.why;
+        document.getElementById('fp-cta').hidden = true;
+        const skip = document.getElementById('fp-skip');
+        skip.hidden = false;
+        skip.textContent = 'Skip';
+        setTimeout(() => fpStartHand(guide), 160);
+    }
+
+    function endGuide() {
+        if (!guide) return;
+        fpHideHand(guide);
+        guide = null;
+        if (fpCoach && !firstPlay) fpCoach.hidden = true;
+        const skip = document.getElementById('fp-skip');
+        if (skip) skip.textContent = 'Skip tips';
+    }
+
+    function guideNudge() {
+        if (!guide) return;
+        sfx.playWarning();
+        triggerHaptic('tick');
+        fpCoach.classList.remove('fp-in');
+        retriggerClass(fpCoach, 'fp-nudge');
+        fpStartHand(guide);
+    }
+
+    // ---------- Hold and Swap behaviour hints (GDD §6.5) ----------
+    const TOOL_HINT_FROM = { hold: '1-3', swap: '1-4' };
+
+    function noteToolUsed(tool) {
+        if (tool === 'hold') runUsedHold = true;
+        else runUsedSwap = true;
+        markConceptSeen(tool);
+        const key = tool === 'hold' ? 'usedHold' : 'usedSwap';
+        if (!career[key]) {
+            career[key] = true;
+            saveCareerData();
+        }
+        if (toolHint && toolHint.tool === tool) hideToolHint();
+    }
+
+    function toolHintEligible(tool) {
+        const lvl = activeAdventureLevel;
+        if (gameMode !== 'adventure' || !lvl || !lvl.sectorNum || firstPlay || guide || conceptOpen || toolHint) return false;
+        if (career[tool === 'hold' ? 'usedHold' : 'usedSwap'] || runHintShown[tool]) return false;
+        if (dropsUsed < 3) return false; // let the level settle in first
+        const order = nodeOrderOf(lvl.id);
+        if (order < nodeOrderOf(TOOL_HINT_FROM[tool])) return false;
+        const h = career.hints[tool] || { shown: 0, lastOrder: -99 };
+        if (h.shown >= 2) return false;
+        const fails = career.levelFails[lvl.id] || {};
+        const failedWithout = (tool === 'hold' ? fails.noHold : fails.noSwap) >= 2;
+        return h.shown === 0 || order >= h.lastOrder + 3 || failedWithout;
+    }
+
+    // A tray orb with nowhere to blast or merge: a good moment for Hold
+    function findHoldMoment() {
+        const tops = getExposedValues();
+        for (let slot = 0; slot < (dragTray ? dragTray.length : 0); slot++) {
+            const orb = dragTray[slot];
+            if (!orb || orb.type !== 'number') continue;
+            if (!tops.some((v) => v === -orb.value || v === orb.value)) return { slot };
+        }
+        return null;
+    }
+
+    // One swap that would put two opposites side by side: a good moment for Swap
+    function findSwapMoment() {
+        if (swapTokens <= 0) return null;
+        const isNum = (t) => t && t.type === 'number' && !t.riser;
+        const blastsAt = (r, c, v, skipR, skipC) => [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]].some(([rr, cc]) =>
+            rr >= 0 && rr < ROWS && cc >= 0 && cc < COLS && !(rr === skipR && cc === skipC) && isNum(grid[rr][cc]) && grid[rr][cc].value === -v);
+        for (let r = 1; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                const a = grid[r][c];
+                if (!isNum(a)) continue;
+                for (const [dr, dc] of [[0, 1], [1, 0]]) {
+                    const r2 = r + dr;
+                    const c2 = c + dc;
+                    if (r2 >= ROWS || c2 >= COLS) continue;
+                    const b = grid[r2][c2];
+                    if (!isNum(b) || a.value === -b.value) continue;
+                    if (blastsAt(r2, c2, a.value, r, c) || blastsAt(r, c, b.value, r2, c2)) return { from: { r, c }, to: { r: r2, c: c2 } };
+                }
+            }
+        }
+        return null;
+    }
+
+    function maybeShowToolHint() {
+        if (toolHintEligible('hold')) {
+            const m = findHoldMoment();
+            if (m) return showToolHint('hold', { kind: 'hold', slot: m.slot }, 'Nothing fits this one? Drag it into Hold and use it later.');
+        }
+        if (toolHintEligible('swap')) {
+            const m = findSwapMoment();
+            if (m) return showToolHint('swap', { kind: 'swap', from: m.from, to: m.to }, 'Slide a tile onto its neighbour to swap. This swap sets off a blast.');
+        }
+    }
+
+    function showToolHint(tool, handTarget, text) {
+        const el = document.getElementById('tool-hint');
+        if (!el) return;
+        runHintShown[tool] = true;
+        markConceptSeen(tool);
+        const h = career.hints[tool] || { shown: 0, lastOrder: -99 };
+        h.shown++;
+        h.lastOrder = nodeOrderOf(activeAdventureLevel.id);
+        career.hints[tool] = h;
+        saveCareerData();
+        toolHint = { tool, ...handTarget, busy: false, anim: null };
+        document.getElementById('tool-hint-text').textContent = text;
+        el.dataset.tool = tool;
+        el.hidden = false;
+        retriggerClass(el, 'tool-hint-in');
+        positionToolHint();
+        fpStartHand(toolHint);
+    }
+
+    function positionToolHint() {
+        const el = document.getElementById('tool-hint');
+        const anchor = toolHint && (toolHint.tool === 'hold' ? btnTouchHold : btnTouchSwap);
+        const host = document.getElementById('canvas-container');
+        if (!el || !anchor || !host) return;
+        const a = anchor.getBoundingClientRect();
+        const hr = host.getBoundingClientRect();
+        const left = Math.max(8, Math.min(hr.width - el.offsetWidth - 8, a.left - hr.left + a.width / 2 - el.offsetWidth / 2));
+        el.style.left = `${left}px`;
+        // Sit above the ghost hand's carried orb so the text stays readable
+        el.style.top = `${Math.max(8, a.top - hr.top - el.offsetHeight - 108)}px`;
+        el.style.setProperty('--arrow-x', `${a.left - hr.left + a.width / 2 - left}px`);
+    }
+
+    function hideToolHint() {
+        if (!toolHint) return;
+        fpHideHand(toolHint);
+        toolHint = null;
+        const el = document.getElementById('tool-hint');
+        if (el) el.hidden = true;
+    }
+
+    // ---------- Orb tiers and records (GDD §3.3) ----------
+    function tierFor(magnitude) {
+        let found = null;
+        ORB_TIERS.forEach((t) => { if (magnitude >= t.size) found = t; });
+        return found;
+    }
+
+    function noteOrbRecord(magnitude, pos) {
+        runBestOrb = Math.max(runBestOrb, magnitude);
+        let changed = false;
+        if (magnitude > (career.bestOrb || 0)) {
+            career.bestOrb = magnitude;
+            changed = true;
+        }
+        const tier = ORB_TIERS.filter((t) => magnitude >= t.size && !career.orbTiersMade[t.size]).pop();
+        if (tier) {
+            ORB_TIERS.forEach((t) => { if (magnitude >= t.size) career.orbTiersMade[t.size] = true; });
+            career.discoveriesNew[`tier:${tier.size}`] = true;
+            changed = true;
+            const x = pos ? pos.x : canvas.width / (2 * dpr);
+            const y = pos ? pos.y : boardOffsetY + cellH * 3;
+            const color = tier.color === 'rainbow' ? '#ffffff' : tier.color;
+            addFloatingText(`${tier.name.toUpperCase()}!`, x, y - cellH * 0.9, color, 1.6);
+            addFloatingText(`First ${tier.size} ever!`, x, y - cellH * 0.35, color, 1.05);
+            triggerScreenShake(10);
+            sfx.playVictory();
+        }
+        if (changed) saveCareerData();
+    }
+
+    function tierRingColor(tier) {
+        if (!tier) return null;
+        if (tier.color !== 'rainbow') return tier.color;
+        return `hsl(${Math.round((performance.now() / 8) % 360)}, 100%, 65%)`;
+    }
+
+    // Board orbs keep their sign colour; from 8 up a ring in the tier colour glows around them
+    function drawTierRing(x, y, w, h, magnitude) {
+        const tier = tierFor(magnitude);
+        if (!tier) return;
+        const color = tierRingColor(tier);
+        const strength = Math.min(1, 0.45 + ORB_TIERS.indexOf(tier) * 0.12);
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2 + strength * 1.5;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 8 + strength * 14;
+        ctx.globalAlpha = 0.75 + 0.25 * Math.sin(performance.now() / 260);
+        ctx.beginPath();
+        ctx.roundRect(x - w / 2 - 3, y - h / 2 - 3, w + 6, h + 6, 15);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    function runOrbLine() {
+        if (!runBestOrb) return '';
+        const tier = tierFor(runBestOrb);
+        return `Best orb ${runBestOrb}${tier ? ` · ${tier.name}` : ''}`;
+    }
+
+    function showRunOrb(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const text = runOrbLine();
+        el.hidden = !text;
+        el.textContent = text;
+    }
+
+    // ---------- Discoveries page (GDD §6.6) ----------
+    function hasUnseenDiscoveries() {
+        return !!(career && career.discoveriesNew && Object.keys(career.discoveriesNew).length);
+    }
+
+    function updateDiscoveryDots() {
+        const dot = hasUnseenDiscoveries();
+        ['btn-home-tutorial', 'htp-disc'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) el.classList.toggle('has-dot', dot);
+        });
+    }
+
+    function openDiscoveries() {
+        const root = document.getElementById('disc');
+        if (!root) return;
+        const fresh = { ...(career.discoveriesNew || {}) };
+        const list = CONCEPTS.filter((k) => !k.silent);
+        const found = list.filter((k) => career.seenConcepts[k.id]).length;
+        const tiersMade = ORB_TIERS.filter((t) => career.orbTiersMade[t.size]).length;
+        document.getElementById('disc-sub').textContent = `${found} of ${list.length} concepts · ${tiersMade} of ${ORB_TIERS.length} tiers · best orb ${career.bestOrb || '-'}`;
+
+        const grid = document.getElementById('disc-concepts');
+        grid.innerHTML = '';
+        list.forEach((k) => {
+            const open = !!career.seenConcepts[k.id];
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = `disc-card${open ? '' : ' locked'}${fresh[k.id] ? ' is-new' : ''}`;
+            b.innerHTML = open
+                ? `<span class="disc-demo"></span><b></b><span class="disc-rule"></span>`
+                : `<span class="disc-demo disc-q">?</span><b>???</b><span class="disc-rule">Keep playing to discover</span>`;
+            if (open) {
+                renderConceptDemo(b.querySelector('.disc-demo'), k.demo);
+                b.querySelector('b').textContent = k.name;
+                b.querySelector('.disc-rule').textContent = k.rule;
+                b.addEventListener('click', () => showConceptCards([k.id], 'view'));
+            } else {
+                b.disabled = true;
+            }
+            grid.appendChild(b);
+        });
+
+        const tiers = document.getElementById('disc-tiers');
+        tiers.innerHTML = '';
+        ORB_TIERS.forEach((t) => {
+            const made = !!career.orbTiersMade[t.size];
+            const d = document.createElement('div');
+            d.className = `disc-tier${made ? '' : ' locked'}${fresh[`tier:${t.size}`] ? ' is-new' : ''}`;
+            const ring = t.color === 'rainbow' ? 'conic-gradient(#ff4e50, #f9d423, #00f2fe, #b46cff, #ff4fd8, #ff4e50)' : t.color;
+            d.innerHTML = `<span class="disc-orb" style="--ring:${made ? ring : '#39405a'}">${t.size}</span><b>${made ? t.name : '???'}</b>`;
+            tiers.appendChild(d);
+        });
+
+        career.discoveriesNew = {};
+        saveCareerData();
+        root.hidden = false;
+    }
+
+    function setupDiscoveries() {
+        const close = document.getElementById('disc-close');
+        if (close) close.addEventListener('click', () => { document.getElementById('disc').hidden = true; });
+        const fromHtp = document.getElementById('htp-disc');
+        if (fromHtp) fromHtp.addEventListener('click', () => { sfx.init(); openDiscoveries(); });
+        updateDiscoveryDots();
     }
 
     // ---------- How to play (main gameplay): 6 one-concept slides ----------
@@ -5839,22 +6383,10 @@
             tray: [2, -2], slot: 0, col: 0, keep: ['6-0', '7-0'], rise: 4
         },
         {
-            kind: 'hold', kicker: 'HOLD', line: ['No spot for ', -4, ' yet. Drag it into HOLD.'],
-            why: 'You can drag it back out on any move.',
-            tiles: [[7, 0, -1], [6, 0, 4], [7, 1, -4], [7, 2, 1], [7, 3, -2], [7, 4, 3], [7, 5, -1], [6, 5, 4]],
-            tray: [-4, 1], slot: 0, keep: [], rise: 3
-        },
-        {
-            kind: 'swap', kicker: 'SWAP', line: ['Slide ', 2, ' right. It lands next to ', -2, ' and blasts.'],
-            why: 'Uses 1 swap. You earn a new one every 8 moves.',
-            tiles: [[7, 0, 2], [6, 0, -1], [7, 1, -4], [7, 2, 1], [7, 3, 2], [7, 4, -4], [7, 5, -2], [6, 5, 4]],
-            tray: [1, -2], from: { r: 7, c: 3 }, to: { r: 7, c: 4 }, keep: ['7-3', '7-4', '7-5'], rise: 2, swaps: 1
-        },
-        {
-            kind: 'tap', kicker: 'WATCH THE RISE', line: ['Every few moves, Dark Matter pushes every column up one row.'],
-            why: 'Keep the stack below the red line. Tap anywhere to continue.',
-            tiles: [[7, 0, -1], [6, 0, 4], [5, 0, 1], [7, 1, -4], [6, 1, 3], [7, 2, 1], [6, 2, -2], [5, 2, 3], [4, 2, 1], [7, 3, -4], [6, 3, 2], [7, 4, 3], [7, 5, 2], [6, 5, 4], [5, 5, -1]],
-            tray: [1, -2], keep: [], rise: 1
+            kind: 'tap', kicker: 'THE RED LINE', line: ['Keep every column below the red line.'],
+            why: 'If a tile crosses it, the run ends. Tap anywhere to continue.',
+            tiles: [[7, 0, -1], [6, 0, 4], [5, 0, 1], [7, 1, -4], [6, 1, 3], [7, 2, 1], [6, 2, -2], [5, 2, 3], [4, 2, 1], [3, 2, -3], [2, 2, 2], [7, 3, -4], [6, 3, 2], [7, 4, 3], [7, 5, 2], [6, 5, 4], [5, 5, -1]],
+            tray: [1, -2], keep: ['2-2', '3-2', '4-2', '5-2', '6-2', '7-2'], rise: 99
         },
         {
             kind: 'ready', kicker: 'YOU’RE READY', line: ['That’s everything. Time for your first mission!'],
@@ -5914,6 +6446,7 @@
 
         fpCoach.hidden = false;
         fpCoach.classList.toggle('is-ready', st.kind === 'ready');
+        fpCoach.classList.toggle('fp-low', st.kind === 'tap'); // keep the red line in view
         fpCoach.classList.remove('fp-nudge');
         retriggerClass(fpCoach, 'fp-in');
         document.getElementById('fp-kicker').innerHTML = st.kicker;
@@ -5950,23 +6483,18 @@
         } else if (kind === 'tap') {
             dim(all);
         }
-        if (riseStatusBar) {
-            if (kind === 'tap') riseStatusBar.classList.add('fp-hl');
-            else if (kind !== 'ready') riseStatusBar.classList.add('fp-dim');
-        }
+        // Rising rows aren't introduced until 1-9, so the rise bar stays dimmed in first play
+        if (riseStatusBar && kind !== 'ready') riseStatusBar.classList.add('fp-dim');
     }
 
     function fpLandingRow(col) {
-        for (let r = ROWS - 1; r >= 0; r--) {
-            if (!grid[r][col]) return r;
-        }
-        return 0;
+        return Math.max(0, columnLandingRow(col));
     }
 
     // Ghost hand: presses the source, carries the orb to the target, lets go, loops
-    function fpStartHand() {
-        fpHideHand();
-        const f = firstPlay;
+    // f: the first-play step, a guided move or a Hold/Swap hint ({ kind, slot, col, from, to, busy, anim })
+    function fpStartHand(f = firstPlay) {
+        fpHideHand(f);
         if (!f || f.busy || isPaused || !fpHand || !['place', 'hold', 'swap'].includes(f.kind)) return;
         const cr = canvas.getBoundingClientRect();
         const cellPt = (r, c) => ({ x: cr.left + boardOffsetX + (c + 0.5) * cellW, y: cr.top + boardOffsetY + (r + 0.5) * cellH });
@@ -6013,10 +6541,10 @@
         ], { duration: 2800, iterations: Infinity, easing: 'ease-in-out' });
     }
 
-    function fpHideHand() {
-        if (firstPlay && firstPlay.anim) {
-            firstPlay.anim.cancel();
-            firstPlay.anim = null;
+    function fpHideHand(f = firstPlay) {
+        if (f && f.anim) {
+            f.anim.cancel();
+            f.anim = null;
         }
         if (fpHand) fpHand.hidden = true;
     }
@@ -6053,6 +6581,7 @@
         if (!firstPlay) return;
         const node = firstPlay.node;
         career.firstPlayDone = true;
+        ['zero_blast', 'merge', 'red_line'].forEach((id) => markConceptSeen(id, true));
         saveCareerData();
         fpTeardown();
         startNodeLevel(node);
@@ -6085,6 +6614,19 @@
             }
             ctx.restore();
         }
+        if (f.kind === 'tap') {
+            const pulse = 0.55 + 0.45 * Math.sin(performance.now() / 180);
+            ctx.save();
+            ctx.strokeStyle = `rgba(255, 42, 95, ${pulse})`;
+            ctx.shadowColor = '#ff2a5f';
+            ctx.shadowBlur = 16;
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(boardOffsetX, boardOffsetY + cellH);
+            ctx.lineTo(boardOffsetX + COLS * cellW, boardOffsetY + cellH);
+            ctx.stroke();
+            ctx.restore();
+        }
         if (f.busy || activeProjectile) return;
         if (f.kind === 'place' && !activeDrag) {
             const row = fpLandingRow(f.col);
@@ -6105,7 +6647,11 @@
 
     function setupFirstPlay() {
         if (!fpCoach) return;
-        document.getElementById('fp-skip').addEventListener('click', (e) => { e.stopPropagation(); fpFinish(); });
+        document.getElementById('fp-skip').addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (guide) endGuide();
+            else fpFinish();
+        });
         document.getElementById('fp-cta').addEventListener('click', (e) => { e.stopPropagation(); fpFinish(); });
         // "Tap anywhere to continue" on the rise step
         if (screenGame) {
@@ -6582,6 +7128,9 @@
         drawStarCells();
         drawTiles();
         if (firstPlay) drawFirstPlayHints();
+        if (guide && !guide.busy && !activeDrag && !activeProjectile) {
+            drawLandingCellReticle(boardOffsetX + guide.col * cellW, boardOffsetY + columnLandingRow(guide.col) * cellH, cellW, cellH, 'zero');
+        }
 
         // 3.2 Draw Active Merge & Collapse Animations (tethers, sliding orbs, vortices)
         drawMergeAndCollapseAnimations();
@@ -6997,6 +7546,7 @@
                     const label = tile.value > 0 ? `+${tile.value}` : `${tile.value}`;
                     if (tile.riser) drawRiserTrail(x, y, tw, th, r, tile.climbAt);
                     drawTileGraphic(x, y, tw, th, label, flavor, tile.flash);
+                    drawTierRing(x, y, tw, th, Math.abs(tile.value));
                     if (tile.riser) drawRiserCap(x, y, tw, th, r);
                 }
             }

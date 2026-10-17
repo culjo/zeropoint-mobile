@@ -83,6 +83,22 @@
         ]
     ];
 
+    // Progression order: each sector's main nodes in order, a bonus rift right after the node
+    // it branches from. Concept unlocks compare positions in this list (GDD §6.1).
+    const NODE_ORDER = [];
+    SECTOR_LAYOUTS.forEach((layout) => {
+        layout.filter((n) => n.type !== 'bonus').forEach((n) => {
+            NODE_ORDER.push(n.id);
+            layout.filter((b) => b.type === 'bonus' && b.branchOf === n.id).forEach((b) => NODE_ORDER.push(b.id));
+        });
+    });
+
+    function nodeOrder(id) {
+        if (id === 'start') return -1;
+        const i = NODE_ORDER.indexOf(id);
+        return i < 0 ? Infinity : i;
+    }
+
     // Level data lives in levels.js (fixed data, GDD §5.3)
     const LEVEL_DATA = (typeof module === 'object' && module.exports)
         ? require('./levels.js').LEVELS
@@ -220,6 +236,8 @@
             goal,
             stars: starThresholds(maxDrops, goal),
             starCells,
+            // One guided move for a mechanic's first appearance (GDD §6.4); the orb is scaled to the tide
+            guide: data.guide ? { ...data.guide, orb: data.guide.orb === 'zero' ? 'zero' : data.guide.orb * scale } : null,
             temp: !!data.temp,
             planned: data.planned || null,
             rules: {
@@ -273,6 +291,8 @@
     return {
         SECTOR_METADATA,
         SECTOR_LAYOUTS,
+        NODE_ORDER,
+        nodeOrder,
         GOAL_TYPES,
         starThresholds,
         starsForDropsLeft,
