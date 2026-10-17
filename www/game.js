@@ -2414,7 +2414,14 @@
             career.firstPlayDone = false;
             saveCareerData();
         }
+        if (applyDevGameplayPreference()) return;
+        setupDevTools();
         syncLabsUI();
+        // ?dev=1 opens the dev tools sheet straight away (turns debug mode on)
+        if (new URLSearchParams(window.location.search).get('dev') === '1') {
+            if (!isDebugMode()) setDebugMode(true);
+            openDevTools();
+        }
 
         showScreen('home');
         if (shouldOfferTutorial()) showTutWelcome();
@@ -5561,6 +5568,287 @@
             if (row) row.hidden = !on;
         }
         if (labsSwitch) labsSwitch.hidden = !on;
+        const devRow = document.getElementById('btn-open-devtools');
+        if (devRow) devRow.hidden = !on;
+        if (!on) closeDevTools();
+    }
+
+    // ---------- Dev tools (debug mode only) ----------
+    // A sheet of developer operations: wipe data, pick gameplay, unlock content.
+    // Built from JS so index.html and maingameplay.html share one copy.
+    const DEV_GAMEPLAY_KEY = 'zeropoint_dev_gameplay';
+    const GAMEPLAY_PAGES = { main: 'maingameplay.html', classic: 'index.html' };
+    let devRoot = null;
+
+    function getDevGameplay() {
+        try { return localStorage.getItem(DEV_GAMEPLAY_KEY); } catch (e) { return null; }
+    }
+
+    // In debug mode the chosen gameplay also opens on launch; returns true when it redirects
+    // (only on a fresh launch, so in-app links like the Labs switch aren't bounced back)
+    function applyDevGameplayPreference() {
+        if (!isDebugMode()) return false;
+        try {
+            if (sessionStorage.getItem('zeropoint_dev_launched')) return false;
+            sessionStorage.setItem('zeropoint_dev_launched', '1');
+        } catch (e) { return false; }
+        const pref = getDevGameplay();
+        const current = MAIN_GAMEPLAY ? 'main' : 'classic';
+        if (!pref || pref === current || !GAMEPLAY_PAGES[pref]) return false;
+        // On iOS, navigating before the web view has its safe-area insets leaves the next page
+        // with a zero inset (top bar under the status bar), so wait for the inset (max 1.5s)
+        document.documentElement.style.visibility = 'hidden';
+        const started = Date.now();
+        const tryGo = () => {
+            if (safeAreaTop() > 0 || Date.now() - started > 1500) window.location.replace(GAMEPLAY_PAGES[pref]);
+            else setTimeout(tryGo, 50);
+        };
+        tryGo();
+        return true;
+    }
+
+    function switchGameplay(mode) {
+        try { localStorage.setItem(DEV_GAMEPLAY_KEY, mode); } catch (e) { /* switch still works for this launch */ }
+        if (mode === (MAIN_GAMEPLAY ? 'main' : 'classic')) { renderDevTools(); return; }
+        window.location.href = GAMEPLAY_PAGES[mode];
+    }
+
+    function storageBytes() {
+        let total = 0;
+        try {
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                total += k.length + (localStorage.getItem(k) || '').length;
+            }
+        } catch (e) { return 0; }
+        return total * 2; // UTF-16
+    }
+
+    // Reads env(safe-area-inset-*) through a probe element, in CSS px
+    function readSafeArea() {
+        const probe = document.createElement('div');
+        probe.style.cssText = 'position:fixed;visibility:hidden;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)';
+        document.body.appendChild(probe);
+        const cs = getComputedStyle(probe);
+        const out = { top: parseFloat(cs.paddingTop) || 0, bottom: parseFloat(cs.paddingBottom) || 0 };
+        probe.remove();
+        return out;
+    }
+
+    function safeAreaTop() { return readSafeArea().top; }
+
+    function safeAreaText() {
+        const sa = readSafeArea();
+        return `top ${sa.top} · bottom ${sa.bottom}`;
+    }
+
+    function wipeAllData(keepDebug) {
+        try { localStorage.clear(); } catch (e) { /* nothing stored */ }
+        try { sessionStorage.clear(); } catch (e) { /* nothing stored */ }
+        if (keepDebug) setDebugMode(true);
+        // Reload the app's start page, as a fresh install would open
+        window.location.replace(GAMEPLAY_PAGES.main);
+    }
+
+    function unlockAllNodes() {
+        if (typeof NodeGenerator === 'undefined') return 0;
+        const set = new Set(career.unlockedNodes || ['1-1']);
+        NodeGenerator.SECTOR_LAYOUTS.forEach((layout) => layout.forEach((n) => set.add(n.id)));
+        const added = set.size - (career.unlockedNodes || []).length;
+        career.unlockedNodes = [...set];
+        saveCareerData();
+        return added;
+    }
+
+    function resetTutorialFlags() {
+        career.tutorialDone = false;
+        career.tutorialSkipped = false;
+        career.seenOverdriveTip = false;
+        career.firstPlayDone = false;
+        saveCareerData();
+    }
+
+    function devToast(text) {
+        const el = devRoot && devRoot.querySelector('.dev-toast');
+        if (!el) return;
+        el.textContent = text;
+        el.classList.remove('show');
+        void el.offsetWidth;
+        el.classList.add('show');
+    }
+
+    const DEV_ACTIONS = {
+        'unlock-nodes': () => {
+            const n = unlockAllNodes();
+            devToast(n > 0 ? `Unlocked ${n} nodes across all sectors` : 'Every node is already unlocked');
+        },
+        'replay-first-play': () => {
+            career.firstPlayDone = false;
+            saveCareerData();
+            devToast('First play runs on the next launch of node 1-1');
+        },
+        'reset-tutorials': () => {
+            resetTutorialFlags();
+            devToast('Tutorials, first play and tips will show again');
+        },
+        'copy-save': async () => {
+            let raw = '';
+            try { raw = localStorage.getItem('zeropoint_career') || '{}'; } catch (e) { raw = '{}'; }
+            try {
+                await navigator.clipboard.writeText(raw);
+                devToast(`Copied save data (${raw.length} chars)`);
+            } catch (e) {
+                console.log('[dev] zeropoint_career', raw);
+                devToast('Clipboard blocked: save data logged to the console');
+            }
+        },
+        'debug-off': () => {
+            setDebugMode(false);
+            if (modalSettings) modalSettings.classList.remove('visible');
+        }
+    };
+
+    function devRowHTML(action, title, sub, tone) {
+        return `<button type="button" class="dev-row${tone ? ` dev-row-${tone}` : ''}" data-dev="${action}">`
+            + `<span class="dev-row-text"><strong>${title}</strong><span>${sub}</span></span>`
+            + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>'
+            + '</button>';
+    }
+
+    function buildDevTools() {
+        if (devRoot) return devRoot;
+        devRoot = document.createElement('div');
+        devRoot.id = 'dev-tools';
+        devRoot.className = 'dev-overlay';
+        devRoot.hidden = true;
+        devRoot.innerHTML = `
+            <div class="dev-sheet" role="dialog" aria-modal="true" aria-labelledby="dev-title">
+                <div class="dev-head">
+                    <div><span class="dev-kicker">DEBUG MODE</span><h2 id="dev-title">Dev tools</h2></div>
+                    <button type="button" class="dev-close" data-dev="close" aria-label="Close dev tools">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+                    </button>
+                </div>
+
+                <h3 class="dev-section">Gameplay</h3>
+                <div class="dev-seg" role="radiogroup" aria-label="Gameplay">
+                    <button type="button" role="radio" data-gameplay-mode="main"><strong>Main</strong><span>Drag &amp; place</span></button>
+                    <button type="button" role="radio" data-gameplay-mode="classic"><strong>Old play</strong><span>Classic drop</span></button>
+                </div>
+                <p class="dev-note">Your pick also opens on launch while debug mode is on.</p>
+
+                <h3 class="dev-section">Progress</h3>
+                ${devRowHTML('unlock-nodes', 'Unlock all Adventure nodes', 'Opens every node and sector, keeps stars')}
+                ${devRowHTML('replay-first-play', 'Replay first play', 'Coached tutorial on node 1-1 runs again')}
+                ${devRowHTML('reset-tutorials', 'Reset tutorials &amp; tips', 'Welcome prompt, first play, Overdrive tip')}
+
+                <h3 class="dev-section">Data</h3>
+                ${devRowHTML('copy-save', 'Copy save data', 'Career JSON to the clipboard')}
+                <div class="dev-wipe">
+                    <label class="dev-check"><input type="checkbox" id="dev-keep-debug" checked> Keep debug mode on after wiping</label>
+                    <button type="button" class="dev-danger" data-dev="wipe">Clear all user data</button>
+                </div>
+
+                <h3 class="dev-section">Device</h3>
+                <dl class="dev-info" id="dev-info"></dl>
+
+                <button type="button" class="dev-off" data-dev="debug-off">Turn off debug mode</button>
+                <div class="dev-toast" role="status" aria-live="polite"></div>
+            </div>`;
+        document.body.appendChild(devRoot);
+
+        devRoot.addEventListener('click', (e) => {
+            if (e.target === devRoot) { closeDevTools(); return; }
+            const seg = e.target.closest('[data-gameplay-mode]');
+            if (seg) { switchGameplay(seg.dataset.gameplayMode); return; }
+            const btn = e.target.closest('[data-dev]');
+            if (!btn) return;
+            const action = btn.dataset.dev;
+            if (sfx) sfx.playMove();
+            if (action === 'close') { closeDevTools(); return; }
+            if (action === 'wipe') {
+                // Two taps: the first arms the button, the second wipes
+                if (!btn.classList.contains('armed')) {
+                    btn.classList.add('armed');
+                    btn.textContent = 'Tap again to wipe everything';
+                    clearTimeout(btn._disarm);
+                    btn._disarm = setTimeout(() => {
+                        btn.classList.remove('armed');
+                        btn.textContent = 'Clear all user data';
+                    }, 3000);
+                    return;
+                }
+                const keep = devRoot.querySelector('#dev-keep-debug');
+                wipeAllData(!keep || keep.checked);
+                return;
+            }
+            if (DEV_ACTIONS[action]) { DEV_ACTIONS[action](); renderDevTools(); }
+        });
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && devRoot && !devRoot.hidden) closeDevTools();
+        });
+        return devRoot;
+    }
+
+    function renderDevTools() {
+        if (!devRoot) return;
+        const current = MAIN_GAMEPLAY ? 'main' : 'classic';
+        devRoot.querySelectorAll('[data-gameplay-mode]').forEach((b) => {
+            const on = b.dataset.gameplayMode === current;
+            b.classList.toggle('is-on', on);
+            b.setAttribute('aria-checked', on ? 'true' : 'false');
+        });
+        const cleared = Object.values(career.adventureNodes || {}).filter((n) => n && n.cleared).length;
+        const rows = [
+            ['Page', GAMEPLAY_PAGES[current]],
+            ['Viewport', `${window.innerWidth}×${window.innerHeight} @${window.devicePixelRatio || 1}x`],
+            ['Safe area', safeAreaText()],
+            ['Storage', `${(storageBytes() / 1024).toFixed(1)} KB`],
+            ['Nodes', `${cleared} cleared · ${(career.unlockedNodes || []).length} unlocked`],
+            ['Best', String(career.highScore || 0)],
+            ['First play', career.firstPlayDone ? 'done' : 'pending']
+        ];
+        const info = devRoot.querySelector('#dev-info');
+        if (info) info.innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+    }
+
+    function openDevTools() {
+        buildDevTools();
+        renderDevTools();
+        if (modalSettings) modalSettings.classList.remove('visible');
+        devRoot.hidden = false;
+        requestAnimationFrame(() => devRoot.classList.add('visible'));
+    }
+
+    function closeDevTools() {
+        if (!devRoot || devRoot.hidden) return;
+        devRoot.classList.remove('visible');
+        setTimeout(() => { if (!devRoot.classList.contains('visible')) devRoot.hidden = true; }, 260);
+        if (currentScreen === 'home') updateCareerDisplays();
+    }
+
+    // Adds the "Dev tools" row to the Settings sheet (listed only in debug mode)
+    function setupDevTools() {
+        const anchor = document.getElementById('btn-reset-data');
+        if (!anchor || document.getElementById('btn-open-devtools')) return;
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.id = 'btn-open-devtools';
+        row.className = 'qs-row';
+        row.hidden = true;
+        row.innerHTML = '<span class="qs-ic" style="color:#f9d423;background:rgba(249, 212, 35, 0.13)">'
+            + '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"></path></svg>'
+            + '</span><span class="qs-text"><strong>Dev tools</strong><span>Wipe data, switch gameplay, unlock content</span></span>'
+            + '<svg class="qs-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>';
+        anchor.parentNode.insertBefore(row, anchor);
+        // The Labs switch is a gameplay switch too: remember it for the next launch
+        if (labsSwitch) labsSwitch.addEventListener('click', () => {
+            try { localStorage.setItem(DEV_GAMEPLAY_KEY, MAIN_GAMEPLAY ? 'classic' : 'main'); } catch (e) { /* ignore */ }
+        });
+        row.addEventListener('click', () => {
+            if (sfx) sfx.playMove();
+            openDevTools();
+        });
     }
 
     // Main Game Loop (60 FPS)
