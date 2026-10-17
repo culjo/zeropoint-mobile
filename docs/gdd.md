@@ -184,7 +184,7 @@ Six sectors give about 95 levels, so a seventh takes it past 100. **[OPEN]** sec
 
 The three current sectors are Subatomic Genesis, Ion Nebula and Event Horizon.
 
-### 5.2 Goals
+### 5.2 Goals [LIVE]
 **One goal per level** and **at most one obstacle**. Full rules are in [adventure-objectives.md](adventure-objectives.md).
 
 | Goal | Strip | Role |
@@ -319,7 +319,7 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 
 ---
 
-## 7. Stars and progression [LIVE for Adventure nodes; Survive PLANNED]
+## 7. Stars and progression [LIVE for Adventure nodes]
 
 | Level type | ★ | ★★ | ★★★ |
 |---|---|---|---|
@@ -404,3 +404,6 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 | 2026-10-17 | Sector 1 bonus rifts branch after 1-4 and 1-8 to match the concept ladder (§6.3) |
 | 2026-10-17 | Star thresholds round up to whole drops |
 | 2026-10-17 | Challenges stay on the old objectives and score star until §4.2 is decided |
+| 2026-10-17 | Risers drawn as gold ring + upward streaks + "▲N" rows left (red and pulsing at 1) |
+| 2026-10-17 | Null Core: touching blast = 1 HP; laser through it, crater over it, Hyperspace and super-weapons = 3; can't be swapped; rises with rows |
+| 2026-10-17 | Survive headroom = empty rows above the tallest column, red line excluded |

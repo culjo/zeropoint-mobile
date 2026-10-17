@@ -1,6 +1,6 @@
 # Nullfall: Adventure Objectives
 
-Status: **in build** (2026-10-17). Zero Out, Collect and Break the Cores are playable with drops-left stars; the other goals play stand-ins (`temp` in `www/levels.js`) until built.
+Status: **in build** (2026-10-17). All 8 goals are playable (`www/levels.js`). Only 2-3 is still a placeholder, because static blocks aren't built yet. Level numbers are untuned until the playtest bot exists.
 Replaces an earlier redesign (deleted 2026-10-17), which was rejected as too complex.
 Scope: Adventure node map and bonus rifts. Classic mode doesn't change.
 Board: 6 columns × 8 rows. The top row is the red line.
@@ -199,4 +199,15 @@ All numbers are starting points for playtesting. These tables show the first thr
 - Save keys stay `zeropoint_*`. Old Adventure progress is wiped once on update (`adventureSaveVersion` 2).
 - Removal counting: every tile that leaves the board (blast, special orb, crater, vortex, Hyperspace) is reported once per event, so one Zero Blast counts −2. Cross Lasers don't remove number orbs today, so they only count through cores they break.
 - Levels are hybrid: handcrafted anchors plus generated levels, shipped as fixed data, with fresh orbs on each attempt (GDD §5.3–5.5).
-- Still open: how Risers are drawn.
+- **Riser look (decided 2026-10-17):** the normal ± orb with a gold outline ring, faint upward streaks under it, and "▲N" rows left under the value. The ring, streaks and count turn red and pulse at ▲1.
+- **Riser details as built:**
+  - When a Riser swaps up past a tile, that tile then falls into any gap under the Riser.
+  - New Risers push up from the bottom of the emptiest column (never a Null Core column). Their value is picked so they don't react with their neighbours straight away.
+  - Each Riser's opposite is dealt within 3 tray refills, sooner as it nears the red line. A merge queues the new opposite.
+- **Catch the Stars as built:** a star is caught the moment any tile rests on its cell, even if that tile is blasted later in the same turn.
+- **Survive as built:** headroom counts the empty rows above the tallest column, not counting the red line (7 at most).
+- **Null Core as built:**
+  - A blast touching the core hits for 1.
+  - A Cross Laser through it, a Supernova crater over it, Hyperspace, Vortex, Nova and Nuke hit for 3. The 0 bomb hits for 1. Each blast hits once, however many core cells it touches.
+  - The core can't be swapped or targeted by ±, ÷2 or ×2. It doesn't fall, and it rises with rising rows.
+- **Big Orb as built:** a ×2 special that reaches the size counts too.

@@ -89,11 +89,13 @@
         : ((typeof NullfallLevels !== 'undefined' && NullfallLevels.LEVELS) || {});
 
     // Goals the game can play today; anything else needs a stand-in (see levels.js `temp`)
-    const GOAL_TYPES = ['zero_out', 'collect', 'break_cores'];
+    const GOAL_TYPES = ['zero_out', 'collect', 'break_cores', 'catch_stars', 'risers', 'survive', 'null_core', 'big_orb'];
 
-    // Stars from drops left: ★★ at ≥25%, ★★★ at ≥45%, rounded up to whole drops
-    function starThresholds(drops) {
-        return { two: Math.ceil(drops * 0.25), three: Math.ceil(drops * 0.45) };
+    // Stars from drops left: ★★ at ≥25%, ★★★ at ≥45%, rounded up to whole drops.
+    // Survive uses headroom instead: every column ends with ≥3 (★★) / ≥5 (★★★) empty rows.
+    function starThresholds(drops, goal) {
+        if (goal && goal.type === 'survive') return { kind: 'headroom', two: 3, three: 5 };
+        return { kind: 'drops', two: Math.ceil(drops * 0.25), three: Math.ceil(drops * 0.45) };
     }
 
     function starsForDropsLeft(dropsLeft, thresholds) {
@@ -108,22 +110,31 @@
         if (goal.type === 'zero_out') return `Clear ${goal.target} orbs`;
         if (goal.type === 'collect') return `Pop ${goal.target} orbs showing ${goal.number}`;
         if (goal.type === 'break_cores') return `Break ${goal.target} Dark Matter cores`;
+        if (goal.type === 'catch_stars') return `Catch ${goal.target} stars`;
+        if (goal.type === 'risers') return `Clear ${goal.target} Risers`;
+        if (goal.type === 'survive') return `Survive ${goal.target} drops`;
+        if (goal.type === 'null_core') return `Drain the Null Core (${goal.target} HP)`;
+        if (goal.type === 'big_orb') return `Merge an orb up to ${goal.size}`;
         return 'Complete the goal';
     }
 
-    // Board rows (top to bottom) are aligned to the bottom of the grid
+    // Board rows (top to bottom) are aligned to the bottom of the grid.
+    // Tokens: .  empty   +3 / -3  orb   +3R  Riser   D  Dark Matter   N  Null Core cell (2×2)   *  star (empty cell)
     function parseBoard(rows) {
         const cells = [];
+        const stars = [];
         const lines = rows || [];
         lines.forEach((line, i) => {
             const rowFromBottom = lines.length - 1 - i;
             String(line).trim().split(/\s+/).forEach((tok, c) => {
                 if (tok === '.' || tok === '') return;
-                if (tok === 'D') cells.push({ rowFromBottom, c, value: 0, type: 'dark_matter' });
-                else cells.push({ rowFromBottom, c, value: parseInt(tok, 10), type: 'number' });
+                if (tok === '*') stars.push({ rowFromBottom, c });
+                else if (tok === 'D') cells.push({ rowFromBottom, c, value: 0, type: 'dark_matter' });
+                else if (tok === 'N') cells.push({ rowFromBottom, c, value: 0, type: 'null_core' });
+                else cells.push({ rowFromBottom, c, value: parseInt(tok, 10), type: 'number', riser: /R$/.test(tok) });
             });
         });
-        return cells;
+        return { cells, stars };
     }
 
     /**
@@ -149,15 +160,35 @@
         const modifiers = [];
         const fluxRate = data.rise || 0;
         if (fluxRate) modifiers.push({ icon: '⏳', label: `Rising rows (every ${fluxRate} drops)` });
+        const risers = data.risers || null; // { start, every, max }
+        if (risers && risers.every) modifiers.push({ icon: '▲', label: `New Riser every ${risers.every} drops` });
+        else if (risers && risers.start) modifiers.push({ icon: '▲', label: `${risers.start} Riser${risers.start > 1 ? 's' : ''}` });
 
-        const cells = parseBoard(data.board);
+        const { cells, stars } = parseBoard(data.board);
         const setupBoard = function (grid, ROWS, COLS, createTile) {
-            cells.forEach(({ rowFromBottom, c, value, type }) => {
+            // One shared Null Core (2×2); each cell knows its corner so it's drawn once
+            const coreCells = cells.filter((cell) => cell.type === 'null_core');
+            const core = coreCells.length ? { hp: goal.type === 'null_core' ? goal.target : 12, maxHp: goal.type === 'null_core' ? goal.target : 12, flash: 0 } : null;
+            const coreTop = coreCells.length ? Math.max(...coreCells.map((cell) => cell.rowFromBottom)) : 0;
+            const coreLeft = coreCells.length ? Math.min(...coreCells.map((cell) => cell.c)) : 0;
+            cells.forEach(({ rowFromBottom, c, value, type, riser }) => {
                 const r = ROWS - 1 - rowFromBottom;
                 if (r < 0 || c >= COLS) return;
-                grid[r][c] = type === 'dark_matter' ? createTile(0, 'dark_matter') : createTile(value);
+                if (type === 'dark_matter') grid[r][c] = createTile(0, 'dark_matter');
+                else if (type === 'null_core') {
+                    const t = createTile(0, 'null_core');
+                    t.core = core;
+                    t.part = `${rowFromBottom === coreTop ? 't' : 'b'}${c === coreLeft ? 'l' : 'r'}`;
+                    grid[r][c] = t;
+                } else {
+                    grid[r][c] = createTile(value);
+                    if (riser) grid[r][c].riser = true;
+                }
             });
         };
+        // Star cells in board coordinates (they never move)
+        const starCells = (ROWS) => stars.map(({ rowFromBottom, c }) => ({ r: ROWS - 1 - rowFromBottom, c, caught: false }));
+        const maxDrops = goal.type === 'survive' ? goal.target : data.drops;
 
         return {
             id: nodeLayout.id,
@@ -168,14 +199,16 @@
             desc: describeGoal(goal),
             isBoss,
             isBonus,
-            maxDrops: data.drops,
+            maxDrops,
             goal,
-            stars: starThresholds(data.drops),
+            stars: starThresholds(maxDrops, goal),
+            starCells,
             temp: !!data.temp,
             planned: data.planned || null,
             rules: {
                 fluxRate,
                 pool: data.pool || { values: [1, 2, 3, 4], specials: 0.12 },
+                risers,
                 modifiers
             },
             setupBoard

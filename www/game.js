@@ -509,6 +509,9 @@
     let lastCoreHighlight = false; // gold target brackets on the final dark core
     const SHOW_LAST_CORE_MARKER = false; // marker hidden for now; flip to re-enable
     let adventureObjectiveMet = false;
+    let starCells = [];        // Catch the Stars: fixed board cells { r, c, caught }
+    let riserClock = 0;        // drops since the last Riser spawned
+    let pendingDeals = [];     // tray guarantees, e.g. a Riser's opposite: { value, due }
     let dropsUsed = 0;
     let maxDrops = 15;
 
@@ -980,9 +983,10 @@
         if (nodeSheetChips) {
             const chips = [];
             if (config.maxDrops) chips.push(`<span class="node-chip">↓ ${config.maxDrops} drops</span>`);
-            if (config.rules && config.rules.fluxRate) chips.push(`<span class="node-chip">↑ Flux every ${config.rules.fluxRate}</span>`);
             (config.rules?.modifiers || []).forEach(m => chips.push(`<span class="node-chip">${m.icon} ${m.label}</span>`));
-            if (config.stars) chips.push(`<span class="node-chip">★★ ${config.stars.two} left · ★★★ ${config.stars.three} left</span>`);
+            if (config.stars) chips.push(config.stars.kind === 'headroom'
+                ? `<span class="node-chip">★★ ${config.stars.two} free rows · ★★★ ${config.stars.three}</span>`
+                : `<span class="node-chip">★★ ${config.stars.two} left · ★★★ ${config.stars.three} left</span>`);
             // Debug: placeholder levels say what they stand in for (levels.js `temp`)
             if (config.temp && isDebugMode()) chips.push(`<span class="node-chip">TEMP · planned ${config.planned}</span>`);
             nodeSheetChips.innerHTML = chips.join('');
@@ -1034,8 +1038,8 @@
         }
 
         // Star targets
-        if (starDesc2) starDesc2.textContent = `Finish with ${config.stars.two}+ drops left`;
-        if (starDesc3) starDesc3.textContent = `Finish with ${config.stars.three}+ drops left`;
+        if (starDesc2) starDesc2.textContent = starGoalText(config.stars, config.stars.two);
+        if (starDesc3) starDesc3.textContent = starGoalText(config.stars, config.stars.three);
 
         if (starStatus1) starStatus1.textContent = stars >= 1 ? '⭐' : '☆';
         if (starStatus2) starStatus2.textContent = stars >= 2 ? '⭐' : '☆';
@@ -1099,6 +1103,10 @@
             grid = Array(ROWS).fill(null).map(() => Array(COLS).fill(null));
             config.setupBoard(grid, ROWS, COLS, createTile);
         }
+        starCells = config.starCells ? config.starCells(ROWS) : [];
+        const riserRules = config.rules && config.rules.risers;
+        for (let i = 0; i < ((riserRules && riserRules.start) || 0); i++) spawnRiser(false);
+        ensureRiserOpposites();
         updateAdventureObjectiveUI();
         showObjectiveIntro(config);
     }
@@ -1923,10 +1931,12 @@
             const meta = OBJECTIVE_META[obj.type];
             const { cur, tgt, left } = getObjectiveCounts(obj);
             const met = adventureObjectiveMet;
-            const dropsLeft = getDropsLeft();
+            const have = getStarMeasure(lvl.stars);
+            const headroom = lvl.stars.kind === 'headroom';
             const starGoal = (need) => {
-                const ok = dropsLeft >= need;
-                return { glyph: '★', label: `Finish with ${need}+ drops left`, detail: ok ? `${dropsLeft} left · on track` : `${dropsLeft} left · missed`, state: ok ? 'track' : 'todo' };
+                const ok = have >= need;
+                const now = headroom ? `${starUnit(lvl.stars, have)} free` : `${have} left`;
+                return { glyph: '★', label: starGoalText(lvl.stars, need), detail: `${now} · ${ok ? 'on track' : (headroom ? 'not yet' : 'missed')}`, state: ok ? 'track' : 'todo' };
             };
             const meta2 = typeof NodeGenerator !== 'undefined' ? NodeGenerator.SECTOR_METADATA[lvl.sectorNum - 1] : null;
             return {
@@ -2507,6 +2517,9 @@
             if (wasClassic !== isClassic) setTimeout(resizeCanvas, 60); // header height changed
         }
         grid = Array(ROWS).fill(null).map(() => Array(COLS).fill(null));
+        starCells = [];
+        riserClock = 0;
+        pendingDeals = [];
         score = 0;
         resetScoreFlyers();
         setScoreDisplay(0, true);
@@ -2620,6 +2633,13 @@
 
     // pool: { values: [magnitudes], specials: chance, favor?: magnitude dealt twice as often }
     function generateLevelPoolOrb(pool) {
+        // Guarantees first (a Riser's opposite turns up within a few deals)
+        pendingDeals.forEach((d) => { d.due--; });
+        const dueIdx = pendingDeals.findIndex((d) => d.due <= 0);
+        if (dueIdx >= 0) {
+            const v = pendingDeals.splice(dueIdx, 1)[0].value;
+            return { type: 'number', value: v, label: v > 0 ? `+${v}` : `${v}` };
+        }
         if (pool.specials && Math.random() < pool.specials) return makeSpecialOrb();
         const values = (pool.values && pool.values.length) ? pool.values.slice() : [1, 2, 3, 4];
         if (pool.favor) values.push(pool.favor);
@@ -2694,14 +2714,8 @@
 
         const col = aimCol;
 
-        // Find landing row in this column
-        let landingRow = -1;
-        for (let r = ROWS - 1; r >= 0; r--) {
-            if (!grid[r][col]) {
-                landingRow = r;
-                break;
-            }
-        }
+        // Find landing row in this column (on top of the stack; Risers can float)
+        const landingRow = columnLandingRow(col);
 
         const topOccupiedRow = landingRow + 1;
         const hasTopTile = topOccupiedRow < ROWS && grid[topOccupiedRow][col] !== null;
@@ -2864,8 +2878,9 @@
 
             // Annihilate all tiles in this column
             const crushed = [];
+            hitNullCoreArea(0, ROWS - 1, col, col, 3, 1, { x: boardOffsetX + col * cellW + cellW / 2, y: boardOffsetY + cellH * 2.5 });
             for (let r = 0; r < ROWS; r++) {
-                if (grid[r][col]) {
+                if (grid[r][col] && grid[r][col].type !== 'null_core') {
                     const cx = boardOffsetX + col * cellW + cellW / 2;
                     const cy = boardOffsetY + r * cellH + cellH / 2;
                     createSparks(cx, cy, '#bc13fe', 12);
@@ -2893,6 +2908,7 @@
 
             const epicR = Math.max(0, Math.min(ROWS - 1, row >= 0 ? row : ROWS - 1));
             damageSupernovaArea(epicR, col, epicR, col);
+            hitNullCoreArea(epicR - 1, epicR + 1, col - 1, col + 1, 3, 1, { x: boardOffsetX + col * cellW + cellW / 2, y: boardOffsetY + epicR * cellH });
             addFloatingText('🌟 SUPERNOVA CORE!', boardOffsetX + col * cellW + cellW / 2, boardOffsetY + epicR * cellH, '#ffd700', 1.45);
             addScore(120, { x: boardOffsetX + col * cellW + cellW / 2, y: boardOffsetY + epicR * cellH });
         } else if (sub === 'antimatter_nuke') {
@@ -2901,6 +2917,7 @@
             triggerScreenShake(18);
             const epicR = Math.max(0, Math.min(ROWS - 1, row >= 0 ? row : ROWS - 1));
             damageSupernovaArea(epicR, col, epicR, col);
+            hitNullCoreArea(epicR - 1, epicR + 1, col - 1, col + 1, 3, 1, { x: boardOffsetX + col * cellW + cellW / 2, y: boardOffsetY + epicR * cellH });
             addFloatingText('💥 ANTIMATTER NUKE!', boardOffsetX + col * cellW + cellW / 2, boardOffsetY + epicR * cellH, '#ff4e50', 1.35);
             addScore(90, { x: boardOffsetX + col * cellW + cellW / 2, y: boardOffsetY + epicR * cellH });
         } else if (sub === 'zero') {
@@ -2908,9 +2925,10 @@
             sfx.playAnnihilate(3);
             triggerScreenShake(12);
             const blasted = [];
+            hitNullCoreArea(row - 1, row + 1, col - 1, col + 1, 1, 1, { x: boardOffsetX + col * cellW + cellW / 2, y: boardOffsetY + row * cellH + cellH / 2 });
             for (let r = Math.max(0, row - 1); r <= Math.min(ROWS - 1, row + 1); r++) {
                 for (let c = Math.max(0, col - 1); c <= Math.min(COLS - 1, col + 1); c++) {
-                    if (grid[r][c]) {
+                    if (grid[r][c] && grid[r][c].type !== 'null_core') {
                         createSparks(boardOffsetX + c * cellW + cellW / 2, boardOffsetY + r * cellH + cellH / 2, '#c471ed', 12);
                         blasted.push(grid[r][c]);
                         grid[r][c] = null;
@@ -2920,7 +2938,7 @@
             noteTilesRemoved(blasted, { x: boardOffsetX + col * cellW + cellW / 2, y: boardOffsetY + row * cellH + cellH / 2 });
             addFloatingText('0 SINGULARITY!', boardOffsetX + col * cellW + cellW / 2, boardOffsetY + row * cellH, '#c471ed');
             addScore(40, { x: boardOffsetX + col * cellW + cellW / 2, y: boardOffsetY + row * cellH });
-        } else if (targetTile) {
+        } else if (targetTile && targetTile.type !== 'null_core') {
             sfx.playSpecial();
             if (sub === 'invert') {
                 targetTile.value = -targetTile.value;
@@ -2937,47 +2955,54 @@
             } else if (sub === 'mul2') {
                 targetTile.value = targetTile.value * 2;
                 targetTile.flash = 1;
+                noteOrbMade(Math.abs(targetTile.value), { x: boardOffsetX + col * cellW + cellW / 2, y: boardOffsetY + row * cellH + cellH / 2 });
                 addFloatingText('AMPLIFY ×2', boardOffsetX + col * cellW + cellW / 2, boardOffsetY + row * cellH, '#f9d423');
             }
         }
     }
 
     // Cascade Pipeline: Gravity -> Adjacency -> Gravity until stable
+    // Gravity -> matches until the board is stable. `state` carries the chain across calls
+    // so Riser climbs and spawns keep the combo going.
+    async function settleBoard(state) {
+        const maxChainSteps = 40;
+        while (state.chainStep < maxChainSteps) {
+            // 1. Apply Gravity with smooth downward slide
+            const fell = applyGravity();
+            if (fell) {
+                await delay(160);
+            }
+            checkStarCatches();
+
+            // 2. Scan Adjacency Matches with animated merges and collapses
+            const matchFound = await scanAndResolveMatches(state.chainStep);
+            if (matchFound) {
+                state.cascadeOccurred = true;
+                state.chainStep++;
+                combo++;
+                if (combo > maxCombo) maxCombo = combo;
+                if (isTutorial && tutTurn) tutTurn.chain = Math.max(tutTurn.chain, state.chainStep);
+                if (combo >= 2) {
+                    checkBountyProgress('cascade', 1);
+                }
+                updateHUD();
+                await delay(120);
+                continue; // Re-check gravity and subsequent cascades
+            }
+
+            // If no fell and no matches, board is in equilibrium!
+            break;
+        }
+    }
+
     async function resolveBoardCascades(isSwap = false) {
         try {
-            let cascadeOccurred = false;
-            let chainStep = 0;
-            const maxChainSteps = 40;
+            const state = { chainStep: 0, cascadeOccurred: false };
 
             // Initial settle pause so player clearly sees the landed orb / swapped tile
             await delay(120);
-
-            while (chainStep < maxChainSteps) {
-                // 1. Apply Gravity with smooth downward slide
-                const fell = applyGravity();
-                if (fell) {
-                    await delay(160);
-                }
-
-                // 2. Scan Adjacency Matches with animated merges and collapses
-                const matchFound = await scanAndResolveMatches(chainStep);
-                if (matchFound) {
-                    cascadeOccurred = true;
-                    chainStep++;
-                    combo++;
-                    if (combo > maxCombo) maxCombo = combo;
-                    if (isTutorial && tutTurn) tutTurn.chain = Math.max(tutTurn.chain, chainStep);
-                    if (combo >= 2) {
-                        checkBountyProgress('cascade', 1);
-                    }
-                    updateHUD();
-                    await delay(120);
-                    continue; // Re-check gravity and subsequent cascades
-                }
-
-                // If no fell and no matches, board is in equilibrium!
-                break;
-            }
+            await settleBoard(state);
+            const cascadeOccurred = state.cascadeOccurred;
 
             // End of player turn actions:
             if (!cascadeOccurred) {
@@ -2996,12 +3021,8 @@
                         movesUntilRise = MOVES_PER_RISE;
                         await pushRisingRow();
                     }
-                } else if (gameMode === 'adventure' && activeAdventureLevel && activeAdventureLevel.rules && activeAdventureLevel.rules.fluxRate > 0) {
-                    movesUntilRise--;
-                    if (movesUntilRise <= 0) {
-                        movesUntilRise = activeAdventureLevel.rules.fluxRate;
-                        await pushRisingRow();
-                    }
+                } else if (gameMode === 'adventure' && activeAdventureLevel) {
+                    await runAdventureTurnEffects(state);
                 }
             }
 
@@ -3030,7 +3051,7 @@
         let moved = false;
         for (let c = 0; c < COLS; c++) {
             for (let r = ROWS - 2; r >= 0; r--) {
-                if (grid[r][c] && !grid[r + 1][c]) {
+                if (grid[r][c] && !grid[r + 1][c] && !isAnchoredTile(grid[r][c])) {
                     // Fall down to the lowest open spot
                     let dropTo = r + 1;
                     while (dropTo + 1 < ROWS && !grid[dropTo + 1][c]) {
@@ -3103,6 +3124,8 @@
                 onComplete: () => {
                     // Place new fused tile at (rB, cB) with squash/stretch pop & white flash
                     grid[rB][cB] = createTile(fusedVal);
+                    // A merged Riser keeps climbing (+3R and +3 make a +6 Riser)
+                    if (tileA.riser || tileB.riser) grid[rB][cB].riser = true;
                     grid[rB][cB].flash = 1;
                     grid[rB][cB].scaleX = 1.45;
                     grid[rB][cB].scaleY = 1.45;
@@ -3220,6 +3243,7 @@
                     if (tileB && tileB.type === 'number' && tileA.value === tileB.value) {
                         const fusedVal = tileA.value * 2;
                         checkAdventureObjective('synthesis_tier', Math.abs(fusedVal), cellCenterBetween(r, c, r, c + 1));
+                        noteOrbMade(Math.abs(fusedVal), cellCenterBetween(r, c, r, c + 1));
 
                         if (isTutorial) tutRecordMerge(Math.abs(fusedVal));
 
@@ -3234,6 +3258,7 @@
                     if (tileB && tileB.type === 'number' && tileA.value === tileB.value) {
                         const fusedVal = tileA.value * 2;
                         checkAdventureObjective('synthesis_tier', Math.abs(fusedVal), cellCenterBetween(r, c, r + 1, c));
+                        noteOrbMade(Math.abs(fusedVal), cellCenterBetween(r, c, r + 1, c));
 
                         if (isTutorial) tutRecordMerge(Math.abs(fusedVal));
 
@@ -3349,6 +3374,8 @@
             bannerColor = '#c471ed';
             bannerScale = 1.65;
         }
+
+        damageNullCoreForBlast(r, c, r2, c2, tier, { x, y });
 
         // Float equation text & tier banner
         addFloatingText(equationText, x, y - 14, '#ffffff', 1.05);
@@ -3466,7 +3493,7 @@
             if (r >= 0) {
                 for (let c = 0; c < COLS; c++) {
                     const tile = grid[r][c];
-                    if (tile) {
+                    if (tile && tile.type !== 'null_core') {
                         const tx = boardOffsetX + c * cellW + cellW / 2;
                         const ty = boardOffsetY + r * cellH + cellH / 2;
                         createSparks(tx, ty, '#c471ed', 12);
@@ -3536,13 +3563,23 @@
         // Adventure goals (one per level; the counter only counts down)
         zero_out: { short: (o) => `Clear ${o.target} orbs`, strip: () => 'Clear orbs', hint: 'Cancel opposites like [pos:+3] [neg:−3] to clear them', event: 'CLEARED' },
         collect: { short: (o) => `Pop ${o.target} orbs showing ${o.number}`, strip: (o) => `Pop ${o.number}s`, hint: (o) => `[pos:+${o.number}] and [neg:−${o.number}] both count`, event: 'POPPED' },
-        break_cores: { short: (o) => `Break ${o.target} Dark Matter cores`, strip: () => 'Break cores', hint: 'Blast beside a [dm:◈] core twice to break it', event: 'CORE BROKEN' }
+        break_cores: { short: (o) => `Break ${o.target} Dark Matter cores`, strip: () => 'Break cores', hint: 'Blast beside a [dm:◈] core twice to break it', event: 'CORE BROKEN' },
+        catch_stars: { short: (o) => `Catch ${o.target} stars`, strip: () => 'Catch stars', hint: 'Land an orb on a ★ cell to catch it. Stars stay put', event: 'STAR CAUGHT' },
+        risers: { short: (o) => `Clear ${o.target} Risers`, strip: () => 'Clear Risers', hint: 'Risers climb every drop. Cancel one with its opposite, like [pos:+3] [neg:−3]', event: 'RISER CLEARED' },
+        survive: { short: (o) => `Survive ${o.target} drops`, strip: () => 'Survive', hint: 'Rows keep rising. Keep the stack below the red line', event: 'SURVIVED' },
+        null_core: { short: (o) => `Drain the Null Core (${o.target} HP)`, strip: () => 'Null Core HP', hint: 'Blast beside the core. Cross Lasers and big blasts hit it for 3', event: 'CORE HIT' },
+        big_orb: { short: (o) => `Merge an orb up to ${o.size}`, strip: (o) => `Make ${o.size}`, hint: () => 'Merge pairs like [pos:+2] [pos:+2] to double them', event: 'BIG ORB!' }
     };
 
     const GOAL_GLYPHS = {
         zero_out: () => '○',
         collect: (o) => String(o.number),
-        break_cores: () => '◈'
+        break_cores: () => '◈',
+        catch_stars: () => '★',
+        risers: () => '▲',
+        survive: () => '⏳',
+        null_core: () => '◉',
+        big_orb: (o) => String(o.size)
     };
 
     // The active level's goal (Adventure nodes) or objective (Challenges)
@@ -3564,6 +3601,7 @@
         if (goal.type === 'zero_out') return tiles.filter((t) => t && t.type === 'number').length;
         if (goal.type === 'collect') return tiles.filter((t) => t && t.type === 'number' && Math.abs(t.value) === goal.number).length;
         if (goal.type === 'break_cores') return tiles.filter((t) => t && t.type === 'dark_matter').length;
+        if (goal.type === 'risers') return tiles.filter((t) => t && t.riser).length;
         return 0;
     }
 
@@ -3576,6 +3614,265 @@
 
     function getDropsLeft() {
         return Math.max(0, maxDrops - dropsUsed);
+    }
+
+    function forEachTile(fn) {
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                if (grid[r][c]) fn(grid[r][c], r, c);
+            }
+        }
+    }
+
+    // Risers and the Null Core ignore gravity
+    function isAnchoredTile(t) {
+        return !!(t && (t.riser || t.type === 'null_core'));
+    }
+
+    // Orbs land on top of the stack (Risers can float with empty cells under them)
+    function columnLandingRow(col) {
+        for (let r = 0; r < ROWS; r++) {
+            if (grid[r][col]) return r - 1;
+        }
+        return ROWS - 1;
+    }
+
+    // Empty rows above the stack in the emptiest-filled column (red line excluded); Survive stars
+    function minColumnHeadroom() {
+        let min = ROWS - 1;
+        for (let c = 0; c < COLS; c++) {
+            let top = ROWS;
+            for (let r = 0; r < ROWS; r++) { if (grid[r][c]) { top = r; break; } }
+            min = Math.min(min, Math.max(0, top - 1));
+        }
+        return min;
+    }
+
+    // Value the star thresholds compare against: drops left, or headroom for Survive
+    function getStarMeasure(stars) {
+        return stars && stars.kind === 'headroom' ? minColumnHeadroom() : getDropsLeft();
+    }
+
+    function starGoalText(stars, need) {
+        return stars && stars.kind === 'headroom'
+            ? `End with ${need}+ empty rows in every column`
+            : `Finish with ${need}+ drops left`;
+    }
+
+    function starUnit(stars, n) {
+        return stars && stars.kind === 'headroom' ? `${n} row${n === 1 ? '' : 's'}` : String(n);
+    }
+
+    // Big Orb: any orb reaching the target size (merge or ×2) wins
+    function noteOrbMade(magnitude, pos) {
+        const goal = gameMode === 'adventure' && activeAdventureLevel && activeAdventureLevel.goal;
+        if (goal && goal.type === 'big_orb' && magnitude >= goal.size) checkAdventureObjective('goal', 1, pos);
+    }
+
+    // Catch the Stars: an orb resting on a star cell collects it
+    function checkStarCatches() {
+        if (!starCells.length) return;
+        starCells.forEach((st) => {
+            if (st.caught || !grid[st.r] || !grid[st.r][st.c]) return;
+            st.caught = true;
+            const x = boardOffsetX + st.c * cellW + cellW / 2;
+            const y = boardOffsetY + st.r * cellH + cellH / 2;
+            createSparks(x, y, '#f9d423', 18);
+            shockwaves.push({ x, y, radius: 6, maxRadius: cellW * 1.6, alpha: 1, color: '#f9d423' });
+            sfx.playSpecial();
+            const goal = activeAdventureLevel && activeAdventureLevel.goal;
+            if (goal && goal.type === 'catch_stars') checkAdventureObjective('goal', 1, { x, y });
+        });
+    }
+
+    // ---------- Risers ----------
+    function countRisers() {
+        let n = 0;
+        forEachTile((t) => { if (t.riser) n++; });
+        return n;
+    }
+
+    // Deal this value's opposite within a few tray refills (GDD §5.5)
+    function queueOpposite(value, due = 3) {
+        const v = -value;
+        const pending = pendingDeals.find((d) => d.value === v);
+        if (pending) pending.due = Math.min(pending.due, due);
+        else pendingDeals.push({ value: v, due });
+    }
+
+    // Once per Riser value (a merge changes it), make sure its opposite gets dealt,
+    // sooner as the Riser nears the red line (row = rows left)
+    function ensureRiserOpposites() {
+        forEachTile((t, r) => {
+            if (!t.riser) return;
+            const due = Math.max(1, Math.min(3, r - 2));
+            if (t.oppQueued !== t.value) {
+                queueOpposite(t.value, due);
+                t.oppQueued = t.value;
+            } else {
+                const pending = pendingDeals.find((d) => d.value === -t.value);
+                if (pending) pending.due = Math.min(pending.due, due);
+            }
+        });
+    }
+
+    // Every Riser climbs one row: it swaps with the tile above or floats into the empty cell
+    function climbRisers() {
+        let moved = false;
+        for (let r = 1; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                const t = grid[r][c];
+                if (!t || !t.riser) continue;
+                const above = grid[r - 1][c];
+                if (above && above.type === 'null_core') continue;
+                grid[r - 1][c] = t;
+                grid[r][c] = above || null;
+                t.animY = cellH;
+                if (above) above.animY = -cellH;
+                moved = true;
+            }
+        }
+        if (moved) sfx.playMove();
+        return moved;
+    }
+
+    // A new Riser pushes up from the bottom of the emptiest column (never the core's columns)
+    function spawnRiser(announce = true) {
+        const pool = (activeAdventureLevel && activeAdventureLevel.rules && activeAdventureLevel.rules.pool) || { values: [1, 2, 3] };
+        const columns = [];
+        for (let c = 0; c < COLS; c++) {
+            let hasCore = false;
+            let top = ROWS;
+            for (let r = 0; r < ROWS; r++) {
+                const t = grid[r][c];
+                if (t && t.type === 'null_core') hasCore = true;
+                if (t && top === ROWS) top = r;
+            }
+            if (!hasCore) columns.push({ c, top });
+        }
+        if (!columns.length) return false;
+        const best = Math.max(...columns.map((x) => x.top));
+        const pick = columns.filter((x) => x.top === best);
+        const c = pick[Math.floor(Math.random() * pick.length)].c;
+
+        // Pick a value that won't react with its new neighbours straight away
+        const below = grid[ROWS - 1][c];
+        const sideL = c > 0 ? grid[ROWS - 1][c - 1] : null;
+        const sideR = c < COLS - 1 ? grid[ROWS - 1][c + 1] : null;
+        const touching = [below, sideL, sideR].filter((t) => t && t.type === 'number').map((t) => Math.abs(t.value));
+        const values = (pool.values || [1, 2, 3]).filter((v) => !touching.includes(v));
+        const mags = values.length ? values : (pool.values || [1, 2, 3]);
+        const val = mags[Math.floor(Math.random() * mags.length)] * (Math.random() < 0.5 ? 1 : -1);
+
+        for (let r = 0; r < ROWS - 1; r++) {
+            grid[r][c] = grid[r + 1][c];
+            if (grid[r][c]) grid[r][c].animY = cellH;
+        }
+        const riser = createTile(val);
+        riser.riser = true;
+        riser.animY = cellH;
+        riser.flash = 1;
+        grid[ROWS - 1][c] = riser;
+        ensureRiserOpposites();
+        if (announce) {
+            addFloatingText('▲ RISER!', boardOffsetX + c * cellW + cellW / 2, boardOffsetY + (ROWS - 1.5) * cellH, '#f9d423', 1.2);
+            sfx.playWarning();
+        }
+        return true;
+    }
+
+    // Turn effects for Adventure nodes, after the board settles (not on swaps):
+    // Risers climb, new Risers spawn, rows rise, Survive counts the drop
+    async function runAdventureTurnEffects(state) {
+        const lvl = activeAdventureLevel;
+        const rules = lvl.rules || {};
+        if (countRisers() > 0 && climbRisers()) {
+            await delay(200);
+            await settleBoard(state);
+            for (let c = 0; c < COLS; c++) {
+                if (grid[0][c] && grid[0][c].riser) return; // checkGameOver ends the run
+            }
+            ensureRiserOpposites();
+        }
+        if (rules.risers && rules.risers.every) {
+            riserClock++;
+            if (riserClock >= rules.risers.every) {
+                riserClock = 0;
+                if (countRisers() < (rules.risers.max || 1) && spawnRiser(true)) {
+                    await delay(200);
+                    await settleBoard(state);
+                }
+            }
+        }
+        if (rules.fluxRate > 0) {
+            movesUntilRise--;
+            if (movesUntilRise <= 0) {
+                movesUntilRise = rules.fluxRate;
+                await pushRisingRow();
+                checkStarCatches();
+            }
+        }
+        if (lvl.goal && lvl.goal.type === 'survive' && dropsUsed > adventureProgress) {
+            checkAdventureObjective('goal', dropsUsed - adventureProgress, false);
+        }
+    }
+
+    // ---------- Null Core boss ----------
+    function findNullCoreCells() {
+        const cells = [];
+        forEachTile((t, r, c) => { if (t.type === 'null_core') cells.push({ r, c, tile: t }); });
+        return cells;
+    }
+
+    function damageNullCore(core, dmg, pos) {
+        if (!core || core.hp <= 0 || dmg <= 0) return;
+        const d = Math.min(dmg, core.hp);
+        core.hp -= d;
+        core.flash = 1;
+        sfx.playCrack();
+        triggerScreenShake(6 + d * 2);
+        if (pos) addFloatingText(`-${d} HP`, pos.x, pos.y - 20, '#ff4e50', d >= 3 ? 1.35 : 1.1);
+        const goal = activeAdventureLevel && activeAdventureLevel.goal;
+        if (goal && goal.type === 'null_core') checkAdventureObjective('goal', d, pos);
+        if (core.hp <= 0) {
+            // Core collapses: its cells leave the board
+            findNullCoreCells().forEach(({ r, c, tile }) => {
+                if (tile.core !== core) return;
+                createSparks(boardOffsetX + c * cellW + cellW / 2, boardOffsetY + r * cellH + cellH / 2, '#ff4e50', 24);
+                grid[r][c] = null;
+            });
+            screenFlash = 0.6;
+            screenFlashColor = '#ff4e50';
+        }
+    }
+
+    // A blast touching the core hits for 1; a Cross Laser through it, a Supernova crater
+    // over it, or Hyperspace hits for 3. One hit per blast however many core cells it touches.
+    function damageNullCoreForBlast(r, c, r2, c2, tier, pos) {
+        const cells = findNullCoreCells();
+        if (!cells.length) return;
+        const core = cells[0].tile.core;
+        const adjacent = (cr, cc) => [[r, c], [r2, c2]].some(([br, bc]) => Math.abs(br - cr) + Math.abs(bc - cc) === 1);
+        let dmg = 0;
+        cells.forEach(({ r: cr, c: cc }) => {
+            if (tier === 3 && (cr === r || cr === r2 || cc === c || cc === c2)) dmg = Math.max(dmg, 3);
+            else if (tier === 4 && cr >= Math.min(r, r2) - 1 && cr <= Math.max(r, r2) + 1 && cc >= Math.min(c, c2) - 1 && cc <= Math.max(c, c2) + 1) dmg = Math.max(dmg, 3);
+            else if (tier >= 5) dmg = Math.max(dmg, 3);
+            else if (adjacent(cr, cc)) dmg = Math.max(dmg, 1);
+        });
+        damageNullCore(core, dmg, pos);
+    }
+
+    // Specials: `dmgIn` when the area covers a core cell, `dmgNear` when it only touches one
+    function hitNullCoreArea(r1, r2, c1, c2, dmgIn, dmgNear, pos) {
+        const cells = findNullCoreCells();
+        if (!cells.length) return;
+        let dmg = 0;
+        cells.forEach(({ r, c }) => {
+            if (r >= r1 && r <= r2 && c >= c1 && c <= c2) dmg = Math.max(dmg, dmgIn);
+            else if ((r >= r1 - 1 && r <= r2 + 1 && c >= c1 && c <= c2) || (c >= c1 - 1 && c <= c2 + 1 && r >= r1 && r <= r2)) dmg = Math.max(dmg, dmgNear);
+        });
+        damageNullCore(cells[0].tile.core, dmg, pos);
     }
 
     // Board-space midpoint of two cells (canvas CSS pixels)
@@ -3644,7 +3941,7 @@
         if (advanced && !objDisplay) objDisplay = { progress: prevProgress, met: prevMet };
         const snap = { progress: adventureProgress, met: adventureObjectiveMet };
         const session = scoreFlySession;
-        const flew = advanced && showObjectiveCallout(obj, pos, () => {
+        const flew = advanced && pos !== false && showObjectiveCallout(obj, pos, () => {
             if (session !== scoreFlySession) return;
             objFlyersInFlight = Math.max(0, objFlyersInFlight - 1);
             objDisplay = objFlyersInFlight > 0 ? snap : null;
@@ -3667,7 +3964,7 @@
         const goalLevel = isGoalLevel(activeAdventureLevel);
         const met = objDisplay ? objDisplay.met : adventureObjectiveMet;
         const { cur, tgt, text } = objDisplay ? getObjectiveCounts(obj, objDisplay.progress, met) : getObjectiveCounts(obj);
-        const countable = goalLevel || obj.type === 'annihilations' || obj.type === 'clear_dark_matter';
+        const countable = (goalLevel && obj.type !== 'big_orb') || obj.type === 'annihilations' || obj.type === 'clear_dark_matter';
         const oneToGo = countable && !met && tgt - cur === 1;
 
         const glyphEl = document.getElementById('adv-obj-glyph');
@@ -3698,16 +3995,16 @@
         if (!el) return;
         el.hidden = !stars;
         if (!stars) return;
-        const left = getDropsLeft();
+        const have = getStarMeasure(stars);
         const set = (sel, need) => {
             const item = el.querySelector(sel);
             if (!item) return;
-            item.querySelector('b').textContent = need;
-            item.classList.toggle('lost', left < need);
+            item.querySelector('b').textContent = starUnit(stars, need);
+            item.classList.toggle('lost', have < need);
         };
         set('.s2', stars.two);
         set('.s3', stars.three);
-        el.setAttribute('aria-label', `Two stars at ${stars.two} drops left, three stars at ${stars.three} drops left`);
+        el.setAttribute('aria-label', `Two stars: ${starGoalText(stars, stars.two)}. Three stars: ${starGoalText(stars, stars.three)}`);
     }
 
     // Badge pops where the objective progressed ("◈ 3/4"), then flies into the
@@ -3794,11 +4091,12 @@
                 r.append(i, t);
                 rules.appendChild(r);
             };
-            row('↓', 'drops', `${level.maxDrops} drops available`);
+            if (!(level.goal && level.goal.type === 'survive')) row('↓', 'drops', `${level.maxDrops} drops available`);
+            if (level.rules && level.rules.fluxRate) row('↑', 'drops', `A row rises every ${level.rules.fluxRate} drops`);
             row('★', 'star', meta ? meta.short(obj) : (level.desc || 'Complete the objective'));
             if (level.stars) {
-                row('★★', 'star multi', `Finish with ${level.stars.two}+ drops left`);
-                row('★★★', 'star multi', `Finish with ${level.stars.three}+ drops left`);
+                row('★★', 'star multi', starGoalText(level.stars, level.stars.two));
+                row('★★★', 'star multi', starGoalText(level.stars, level.stars.three));
             } else {
                 row('★', 'star', `Finish within ${level.targetDropsForStar} drops`);
                 row('★', 'star', `Score ${level.targetScoreForStar.toLocaleString()}+ points`);
@@ -3863,7 +4161,14 @@
     }
 
     function checkGameOver() {
-        if (isTutorial) return; // Tutorial mode never triggers game over
+        if (isTutorial || isGameOver) return; // Tutorial mode never triggers game over
+        // 0. A Riser on the red line loses, the same as a breach
+        for (let c = 0; c < COLS; c++) {
+            if (grid[0][c] && grid[0][c].riser) {
+                triggerGameOver('A Riser reached the red line!');
+                return;
+            }
+        }
         // 1. If any tile reaches row 0, reactor breach!
         for (let c = 0; c < COLS; c++) {
             if (grid[0][c]) {
@@ -3948,7 +4253,7 @@
         if (goCascade) goCascade.textContent = `${maxCombo}x`;
         if (goZeroes) goZeroes.textContent = totalZeroPoints;
         if (btnGoMap) btnGoMap.hidden = !isAdventureRun || isTutorial || !!(activeAdventureLevel && activeAdventureLevel.isGraduation);
-        renderBreachWhy(isAdventureRun && !isTutorial, outOfDrops);
+        renderBreachWhy(isAdventureRun && !isTutorial, outOfDrops, /riser/i.test(message));
 
         setTimeout(() => {
             if (modalGameOver) modalGameOver.classList.add('visible');
@@ -3964,10 +4269,15 @@
         activate_frenzy: 'Chain blasts together to charge Overdrive faster.',
         zero_out: 'Every blast clears two orbs. Set up chains so one drop clears more.',
         collect: 'Pair the target number with its opposite: both orbs count.',
-        break_cores: 'Blast right beside a core. Big blasts hit several cores at once.'
+        break_cores: 'Blast right beside a core. Big blasts hit several cores at once.',
+        catch_stars: 'Catch the low stars first, then build up carefully toward the high ones.',
+        risers: 'Keep the Riser\'s opposite in Hold so you can cancel it when it climbs.',
+        survive: 'Clear the tallest column first. A rising row lifts everything by one.',
+        null_core: 'Build ±4 pairs next to the core: a Cross Laser hits it for 3.',
+        big_orb: 'Keep matching numbers apart until you can merge them in a chain.'
     };
 
-    function renderBreachWhy(show, outOfDrops) {
+    function renderBreachWhy(show, outOfDrops, riserBreach = false) {
         const panel = document.getElementById('breach-why');
         const list = document.getElementById('breach-why-list');
         const tip = document.getElementById('breach-why-tip');
@@ -4017,7 +4327,7 @@
         if (outOfDrops) {
             row('↓', 'drops', 'Drops ran out', 100, `${dropsUsed}/${maxDrops}`);
         } else {
-            row('⚠', 'drops', 'A tile crossed the red line', 100, 'BREACH');
+            row(riserBreach ? '▲' : '⚠', 'drops', riserBreach ? 'A Riser reached the red line' : 'A tile crossed the red line', 100, 'BREACH');
         }
 
         if (tip) {
@@ -4036,7 +4346,7 @@
 
         // Adventure nodes: stars from drops left. Challenges keep their drops + score stars.
         const goalLevel = isGoalLevel(activeAdventureLevel);
-        const starDropsLeft = getDropsLeft();
+        const starDropsLeft = goalLevel ? getStarMeasure(activeAdventureLevel.stars) : getDropsLeft();
         const star1 = 1;
         const star2 = goalLevel ? (starDropsLeft >= activeAdventureLevel.stars.two ? 1 : 0)
             : (dropsUsed <= activeAdventureLevel.targetDropsForStar ? 1 : 0);
@@ -4118,10 +4428,13 @@
         const objMeta = lvlObj ? OBJECTIVE_META[lvlObj.type] : null;
         const dropTarget = activeAdventureLevel.targetDropsForStar;
         const scoreTarget = activeAdventureLevel.targetScoreForStar;
+        const headroomStars = goalLevel && activeAdventureLevel.stars.kind === 'headroom';
         const starRow = (need, got) => ({
             got,
-            title: `Finish with ${need}+ drops left`,
-            sub: got ? `${starDropsLeft} drops left` : `${starDropsLeft} left · ${need - starDropsLeft} short · replay for this star`,
+            title: starGoalText(activeAdventureLevel.stars, need),
+            sub: headroomStars
+                ? (got ? `Tallest column has ${starUnit(activeAdventureLevel.stars, starDropsLeft)} free` : `Tallest column has ${starUnit(activeAdventureLevel.stars, starDropsLeft)} free · replay for this star`)
+                : (got ? `${starDropsLeft} drops left` : `${starDropsLeft} left · ${need - starDropsLeft} short · replay for this star`),
             val: String(starDropsLeft)
         });
         const goals = goalLevel ? [
@@ -4545,6 +4858,14 @@
     function performSwap(r1, c1, r, c) {
         const t1 = grid[r1][c1];
         const t2 = grid[r][c];
+        // The Null Core is fixed in place
+        if ((t1 && t1.type === 'null_core') || (t2 && t2.type === 'null_core')) {
+            isSwapModeActive = false;
+            firstSwapTile = null;
+            if (swapBanner) swapBanner.style.display = 'none';
+            updateHUD();
+            return;
+        }
 
         grid[r1][c1] = t2;
         grid[r][c] = t1;
@@ -6188,7 +6509,8 @@
         // 2. Draw Aim Line & Landing Ghost Preview
         drawAimerAndPreview();
 
-        // 3. Draw Board Tiles
+        // 3. Draw Board Tiles (star cells sit underneath)
+        drawStarCells();
         drawTiles();
         if (firstPlay) drawFirstPlayHints();
 
@@ -6391,13 +6713,7 @@
 
         // Ghost Tile & Mathematical Outcome Preview!
         if (!activeProjectile && currentOrb) {
-            let landingRow = -1;
-            for (let r = ROWS - 1; r >= 0; r--) {
-                if (!grid[r][col]) {
-                    landingRow = r;
-                    break;
-                }
-            }
+            const landingRow = columnLandingRow(col);
 
             const topRow = landingRow + 1;
             const hasTop = topRow < ROWS && grid[topRow][col] !== null;
@@ -6602,13 +6918,133 @@
 
                 if (tile.type === 'dark_matter') {
                     drawDarkMatterTile(x, y, tw, th, tile.hp, tile.flash);
+                } else if (tile.type === 'null_core') {
+                    // One 2×2 graphic, drawn from the top-left cell
+                    if (tile.part === 'tl') drawNullCore(x + cellW / 2, y + cellH / 2, cellW * 2 - 8, cellH * 2 - 8, tile.core);
                 } else {
                     const flavor = tile.value > 0 ? 'pos' : 'neg';
                     const label = tile.value > 0 ? `+${tile.value}` : `${tile.value}`;
+                    if (tile.riser) drawRiserTrail(x, y, tw, th, r);
                     drawTileGraphic(x, y, tw, th, label, flavor, tile.flash);
+                    if (tile.riser) drawRiserRing(x, y, tw, th, r);
                 }
             }
         }
+    }
+
+    // Catch the Stars: gold star in each uncaught star cell, under the tiles
+    function drawStarCells() {
+        if (!starCells.length) return;
+        const t = performance.now() / 1000;
+        starCells.forEach((st, i) => {
+            if (st.caught || (grid[st.r] && grid[st.r][st.c])) return;
+            const x = boardOffsetX + st.c * cellW + cellW / 2;
+            const y = boardOffsetY + st.r * cellH + cellH / 2;
+            const pulse = 0.75 + 0.25 * Math.sin(t * 3 + i);
+            ctx.save();
+            ctx.globalAlpha = 0.9 * pulse;
+            ctx.fillStyle = 'rgba(249, 212, 35, 0.08)';
+            ctx.beginPath();
+            ctx.roundRect(x - cellW / 2 + 5, y - cellH / 2 + 5, cellW - 10, cellH - 10, 12);
+            ctx.fill();
+            ctx.shadowColor = '#f9d423';
+            ctx.shadowBlur = 14 * pulse;
+            ctx.fillStyle = '#f9d423';
+            ctx.font = `900 ${Math.round(cellW * 0.42)}px 'Lato', 'Inter', sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('★', x, y + 1);
+            ctx.restore();
+        });
+    }
+
+    // Riser: faint upward streaks under the orb (drawn before it)
+    function drawRiserTrail(x, y, w, h, row) {
+        const t = performance.now() / 1000;
+        ctx.save();
+        ctx.strokeStyle = row <= 1 ? '#ff4e50' : '#f9d423';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        [-0.25, 0, 0.25].forEach((k, i) => {
+            const phase = (t * 1.6 + i * 0.33) % 1;
+            ctx.globalAlpha = 0.45 * (1 - phase);
+            const sx = x + k * w;
+            const top = y + h / 2 - 2 + phase * 4;
+            ctx.beginPath();
+            ctx.moveTo(sx, top + 4);
+            ctx.lineTo(sx, top + cellH * 0.32 - phase * cellH * 0.12);
+            ctx.stroke();
+        });
+        ctx.restore();
+    }
+
+    // Riser: gold ring plus "▲N" rows left before the red line (red and pulsing at 1)
+    function drawRiserRing(x, y, w, h, row) {
+        const danger = row <= 1;
+        const pulse = danger ? 0.6 + 0.4 * Math.sin(performance.now() / 120) : 1;
+        const color = danger ? '#ff4e50' : '#f9d423';
+        ctx.save();
+        ctx.globalAlpha = pulse;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.roundRect(x - w / 2 - 2, y - h / 2 - 2, w + 4, h + 4, 14);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = color;
+        ctx.font = `900 ${Math.max(9, Math.round(cellW * 0.17))}px 'Lato', 'Inter', sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`▲${row}`, x, y + h / 2 - 7);
+        ctx.restore();
+    }
+
+    // Null Core boss: a 2×2 red core with its HP and an HP ring
+    function drawNullCore(x, y, w, h, core) {
+        const radius = Math.min(w, h) / 2;
+        if (!core || !(radius > 10)) return; // board not laid out yet
+        const t = performance.now() / 1000;
+        core.flash = Math.max(0, (core.flash || 0) * 0.92 - 0.005);
+        ctx.save();
+        ctx.translate(x, y);
+        const grad = ctx.createRadialGradient(0, 0, radius * 0.1, 0, 0, radius);
+        grad.addColorStop(0, '#3a0d16');
+        grad.addColorStop(1, '#12060a');
+        ctx.fillStyle = grad;
+        ctx.shadowColor = '#ff4e50';
+        ctx.shadowBlur = 18 + 8 * Math.sin(t * 2.5) + core.flash * 20;
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        // HP ring
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = 'rgba(255, 78, 80, 0.18)';
+        ctx.beginPath();
+        ctx.arc(0, 0, radius - 6, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = '#ff4e50';
+        ctx.beginPath();
+        ctx.arc(0, 0, radius - 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (core.hp / Math.max(1, core.maxHp)));
+        ctx.stroke();
+        if (core.flash > 0.05) {
+            ctx.fillStyle = `rgba(255, 255, 255, ${core.flash * 0.35})`;
+            ctx.beginPath();
+            ctx.arc(0, 0, radius - 8, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.fillStyle = '#ffe3e4';
+        ctx.font = `900 ${Math.round(radius * 0.62)}px 'Lato', 'Inter', sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(core.hp), 0, 2);
+        ctx.fillStyle = 'rgba(255, 150, 152, 0.8)';
+        ctx.font = `800 ${Math.round(radius * 0.2)}px 'Inter', sans-serif`;
+        ctx.fillText('NULL CORE', 0, radius * 0.48);
+        ctx.restore();
     }
 
     function drawMergeAndCollapseAnimations() {
