@@ -11,7 +11,9 @@
     "cap:sync": "cap sync",
     "cap:doctor": "cap doctor",
     "cap:open:ios": "cap open ios",
-    "cap:open:android": "cap open android"
+    "cap:open:android": "cap open android",
+    "playtest": "node tools/playtest.js",
+    "levelgen": "node tools/levelgen.js"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",

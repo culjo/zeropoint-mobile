@@ -51,35 +51,40 @@
             { id: '1-9', num: 9, x: 72, y: 22, type: 'normal', branchOf: null },
             { id: '1-10', num: 10, x: 50, y: 12, type: 'boss', branchOf: null }
         ],
-        // Sector 2
+        // Sector 2 (12 main nodes + 2 bonus rifts = 14 levels, GDD §5.1)
         [
-            { id: '2-1', num: 1, x: 25, y: 88, type: 'start', branchOf: null },
-            { id: '2-2', num: 2, x: 52, y: 80, type: 'normal', branchOf: null },
-            { id: '2-3', num: 3, x: 75, y: 72, type: 'normal', branchOf: null },
-            { id: '2-bonus-1', num: 'B1', x: 85, y: 60, type: 'bonus', branchOf: '2-3' },
-            { id: '2-4', num: 4, x: 45, y: 64, type: 'normal', branchOf: null },
-            { id: '2-5', num: 5, x: 22, y: 56, type: 'normal', branchOf: null },
-            { id: '2-6', num: 6, x: 45, y: 48, type: 'normal', branchOf: null },
-            { id: '2-bonus-2', num: 'B2', x: 20, y: 38, type: 'bonus', branchOf: '2-5' },
-            { id: '2-7', num: 7, x: 70, y: 40, type: 'normal', branchOf: null },
-            { id: '2-8', num: 8, x: 48, y: 32, type: 'normal', branchOf: null },
-            { id: '2-9', num: 9, x: 30, y: 22, type: 'normal', branchOf: null },
-            { id: '2-10', num: 10, x: 50, y: 12, type: 'boss', branchOf: null }
+            { id: '2-1', num: 1, x: 25, y: 92, type: 'start', branchOf: null },
+            { id: '2-2', num: 2, x: 52, y: 84, type: 'normal', branchOf: null },
+            { id: '2-3', num: 3, x: 75, y: 77, type: 'normal', branchOf: null },
+            { id: '2-bonus-1', num: 'B1', x: 88, y: 73, type: 'bonus', branchOf: '2-3' },
+            { id: '2-4', num: 4, x: 48, y: 69, type: 'normal', branchOf: null },
+            { id: '2-5', num: 5, x: 24, y: 61, type: 'normal', branchOf: null },
+            { id: '2-6', num: 6, x: 46, y: 54, type: 'normal', branchOf: null },
+            { id: '2-bonus-2', num: 'B2', x: 12, y: 50, type: 'bonus', branchOf: '2-6' },
+            { id: '2-7', num: 7, x: 72, y: 46, type: 'normal', branchOf: null },
+            { id: '2-8', num: 8, x: 50, y: 39, type: 'normal', branchOf: null },
+            { id: '2-9', num: 9, x: 28, y: 31, type: 'normal', branchOf: null },
+            { id: '2-10', num: 10, x: 54, y: 23, type: 'normal', branchOf: null },
+            { id: '2-11', num: 11, x: 74, y: 16, type: 'normal', branchOf: null },
+            { id: '2-12', num: 12, x: 50, y: 8, type: 'boss', branchOf: null }
         ],
-        // Sector 3 (its own IDs; it used to fall back to Sector 1's and clash in saves)
+        // Sector 3 (13 main nodes + 2 bonus rifts = 15 levels); its own 3-x IDs
         [
-            { id: '3-1', num: 1, x: 75, y: 88, type: 'start', branchOf: null },
-            { id: '3-2', num: 2, x: 48, y: 80, type: 'normal', branchOf: null },
-            { id: '3-3', num: 3, x: 25, y: 72, type: 'normal', branchOf: null },
-            { id: '3-bonus-1', num: 'B1', x: 15, y: 60, type: 'bonus', branchOf: '3-3' },
-            { id: '3-4', num: 4, x: 55, y: 64, type: 'normal', branchOf: null },
-            { id: '3-5', num: 5, x: 78, y: 56, type: 'normal', branchOf: null },
-            { id: '3-6', num: 6, x: 55, y: 48, type: 'normal', branchOf: null },
-            { id: '3-bonus-2', num: 'B2', x: 80, y: 38, type: 'bonus', branchOf: '3-6' },
-            { id: '3-7', num: 7, x: 30, y: 40, type: 'normal', branchOf: null },
-            { id: '3-8', num: 8, x: 52, y: 32, type: 'normal', branchOf: null },
-            { id: '3-9', num: 9, x: 70, y: 22, type: 'normal', branchOf: null },
-            { id: '3-10', num: 10, x: 50, y: 12, type: 'boss', branchOf: null }
+            { id: '3-1', num: 1, x: 75, y: 92, type: 'start', branchOf: null },
+            { id: '3-2', num: 2, x: 48, y: 85, type: 'normal', branchOf: null },
+            { id: '3-3', num: 3, x: 25, y: 78, type: 'normal', branchOf: null },
+            { id: '3-bonus-1', num: 'B1', x: 12, y: 74, type: 'bonus', branchOf: '3-3' },
+            { id: '3-4', num: 4, x: 50, y: 71, type: 'normal', branchOf: null },
+            { id: '3-5', num: 5, x: 76, y: 64, type: 'normal', branchOf: null },
+            { id: '3-6', num: 6, x: 54, y: 57, type: 'normal', branchOf: null },
+            { id: '3-7', num: 7, x: 30, y: 50, type: 'normal', branchOf: null },
+            { id: '3-bonus-2', num: 'B2', x: 86, y: 46, type: 'bonus', branchOf: '3-7' },
+            { id: '3-8', num: 8, x: 50, y: 43, type: 'normal', branchOf: null },
+            { id: '3-9', num: 9, x: 72, y: 36, type: 'normal', branchOf: null },
+            { id: '3-10', num: 10, x: 48, y: 29, type: 'normal', branchOf: null },
+            { id: '3-11', num: 11, x: 26, y: 22, type: 'normal', branchOf: null },
+            { id: '3-12', num: 12, x: 74, y: 15, type: 'normal', branchOf: null },
+            { id: '3-13', num: 13, x: 50, y: 8, type: 'boss', branchOf: null }
         ]
     ];
 
@@ -100,9 +105,15 @@
     }
 
     // Level data lives in levels.js (fixed data, GDD §5.3)
-    const LEVEL_DATA = (typeof module === 'object' && module.exports)
+    // Generated levels (tools/levelgen.js) fill the slots; handcrafted levels.js entries win
+    const IS_NODE = typeof module === 'object' && module.exports;
+    const HANDCRAFTED = IS_NODE
         ? require('./levels.js').LEVELS
         : ((typeof NullfallLevels !== 'undefined' && NullfallLevels.LEVELS) || {});
+    const GENERATED = IS_NODE
+        ? require('./levelsGenerated.js').LEVELS
+        : ((typeof NullfallGeneratedLevels !== 'undefined' && NullfallGeneratedLevels.LEVELS) || {});
+    const LEVEL_DATA = { ...GENERATED, ...HANDCRAFTED };
 
     // Goals the game can play today; anything else needs a stand-in (see levels.js `temp`)
     const GOAL_TYPES = ['zero_out', 'collect', 'break_cores', 'catch_stars', 'risers', 'survive', 'null_core', 'big_orb'];
@@ -159,12 +170,13 @@
      * Builds the playable config for a node from its level data.
      * @param {number} sectorNum 1-based sector index (1, 2, 3...)
      * @param {string} nodeId Node identifier, e.g. '1-1' or '1-bonus-1'
+     * @param {object} [override] level data to use instead of the stored level (tools, editor play-test)
      */
-    function generateNodeConfig(sectorNum, nodeId) {
+    function generateNodeConfig(sectorNum, nodeId, override) {
         const sectorMeta = SECTOR_METADATA[sectorNum - 1] || SECTOR_METADATA[0];
         const layoutList = SECTOR_LAYOUTS[sectorNum - 1] || SECTOR_LAYOUTS[0];
         const nodeLayout = layoutList.find(n => n.id === nodeId) || layoutList[0];
-        const data = LEVEL_DATA[nodeLayout.id] || { title: `Node ${nodeLayout.id}`, goal: { type: 'zero_out', target: 10 }, drops: 14, temp: true, planned: 'missing level data' };
+        const data = override || LEVEL_DATA[nodeLayout.id] || { title: `Node ${nodeLayout.id}`, goal: { type: 'zero_out', target: 10 }, drops: 14, temp: true, planned: 'missing level data' };
 
         const isBoss = nodeLayout.type === 'boss';
         const isBonus = nodeLayout.type === 'bonus';
@@ -293,6 +305,9 @@
         SECTOR_LAYOUTS,
         NODE_ORDER,
         nodeOrder,
+        LEVEL_DATA,
+        HANDCRAFTED,
+        GENERATED,
         GOAL_TYPES,
         starThresholds,
         starsForDropsLeft,

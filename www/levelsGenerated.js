@@ -1,0 +1,36 @@
+// Nullfall - Generated Adventure levels
+// Written by tools/levelgen.js: do not edit by hand. To handcraft a level, copy it into levels.js
+// (handcrafted entries override these). Each level records its template, seed and bot result.
+(function (root, factory) {
+    if (typeof module === 'object' && module.exports) {
+        module.exports = factory();
+    } else {
+        root.NullfallGeneratedLevels = factory();
+    }
+}(typeof self !== 'undefined' ? self : this, function () {
+    const LEVELS = {
+        "1-8": {"title":"Vortex Gate","goal":{"type":"catch_stars","target":5},"rise":0,"pool":{"values":[1,2,3,4],"specials":0.12},"board":[". . * . * *",". . . +1 . .",". * +2 -3 . -3","* +2 +1 -2 -3 +2"],"drops":10,"template":"stars","seed":3980491162,"bot":{"winRate":0.65,"target":0.69,"games":200}},
+        "1-bonus-2": {"title":"Singularity Rift","goal":{"type":"big_orb","target":1,"size":8},"pool":{"values":[1,2],"specials":0.08,"favor":1},"board":["-2 . +2 . . .","-1 -2 -1 +2 -1 +2"],"drops":33,"template":"big_orb","seed":586168073,"bot":{"winRate":0.86,"target":0.8,"games":200}},
+        "2-bonus-1": {"title":"Charged Rift","goal":{"type":"big_orb","target":1,"size":16},"pool":{"values":[1,2],"specials":0.08,"favor":1},"board":["-1 . +1 . +1 -2","+2 -1 +2 +1 -2 -1"],"drops":32,"template":"big_orb","seed":1677009010,"bot":{"winRate":0.8,"target":0.8,"games":200}},
+        "2-5": {"title":"Solar Lattice","goal":{"type":"break_cores","target":6},"rise":6,"pool":{"values":[1,2,3,4],"specials":0.12},"board":["-1 . -4 . D .","D . +2 -3 -2 .","+2 -1 -3 -1 D -3"],"drops":17,"template":"cores","seed":3138824039,"bot":{"winRate":0.82,"target":0.79,"games":200}},
+        "2-bonus-2": {"title":"Plasma Rift","goal":{"type":"big_orb","target":1,"size":16},"pool":{"values":[1,2],"specials":0.08,"favor":1},"board":[". . +1 -2 . .",". -1 -2 +1 -2 +1"],"drops":27,"template":"big_orb","seed":1627618714,"bot":{"winRate":0.78,"target":0.8,"games":200}},
+        "2-7": {"title":"Storm Front","goal":{"type":"zero_out","target":24},"rise":0,"pool":{"values":[1,2,3,4],"specials":0.12},"board":[". . +4 . . -3",". +3 # -4 +2 #"],"drops":32,"template":"zero_out","seed":3172379277,"bot":{"winRate":0.78,"target":0.75,"games":200}},
+        "2-8": {"title":"Chromosphere","goal":{"type":"survive","target":15},"rise":4,"pool":{"values":[1,2,3,4],"specials":0.12},"board":[". . . . . +3","+4 -2 -4 +2 -3 +2","-2 -3 +1 +4 +1 +3","-3 +1 -4 -3 -4 -2","-4 +3 +2 -1 -2 +1"],"drops":15,"template":"survive","seed":2920714992,"bot":{"winRate":1,"target":0.73,"games":200}},
+        "2-9": {"title":"Fusion Conduit","goal":{"type":"catch_stars","target":6},"rise":5,"pool":{"values":[1,2,3,4],"specials":0.12},"board":[". . * . . .",". . . * . *",". * -4 . * .","* +3 -2 . . .","-2 +4 -3 +4 +1 +2"],"drops":10,"template":"stars","seed":2937492611,"bot":{"winRate":0.7,"target":0.7,"games":200}},
+        "2-10": {"title":"Aurora Veil","goal":{"type":"collect","target":12,"number":4},"rise":0,"risers":{"start":1},"pool":{"values":[1,2,3,4],"specials":0.12,"favor":2},"board":[". . -3 -1 . .",". +2 -4 -3 +2 +4","+2 +1 +3 -1 +4 +2"],"drops":41,"template":"collect","seed":1672144480,"bot":{"winRate":0.65,"target":0.68,"games":200}},
+        "2-11": {"title":"Corona Spark","goal":{"type":"break_cores","target":8},"rise":0,"risers":{"start":1},"pool":{"values":[1,2,3,4],"specials":0.12},"board":["+3 . . D . .","D D +4 D +4 D","D D D -3 +1 D"],"drops":8,"template":"cores","seed":1654947945,"bot":{"winRate":0.65,"target":0.66,"games":200}},
+        "3-2": {"title":"Dark Barrier","goal":{"type":"risers","target":5},"risers":{"every":5,"max":2},"pool":{"values":[1,2,3,4],"specials":0.12},"board":["+1R . +2 -3 +2 +4R","-2 +1 -4 -1 +3 -1"],"drops":19,"template":"risers","seed":3578509135,"bot":{"winRate":0.85,"target":0.84,"games":200}},
+        "3-3": {"title":"Event Perimeter","goal":{"type":"catch_stars","target":6},"rise":0,"risers":{"start":2},"pool":{"values":[1,2,3,4],"specials":0.12},"board":[". . . . * .",". . . . . .","* . . * . *","-2 * * +2 -3 +4","+3 +1 +2 +1 -4 -3"],"drops":13,"template":"stars","seed":3562674077,"bot":{"winRate":0.87,"target":0.82,"games":200}},
+        "3-bonus-1": {"title":"Horizon Rift","goal":{"type":"big_orb","target":1,"size":32},"pool":{"values":[1,2],"specials":0.08,"favor":1},"board":[". . . -2 +1 .","+1 . . -1 -2 -1"],"drops":24,"template":"big_orb","seed":793396774,"bot":{"winRate":0.78,"target":0.8,"games":200}},
+        "3-4": {"title":"Singularity Trench","goal":{"type":"zero_out","target":30},"rise":5,"pool":{"values":[1,2,3,4],"specials":0.12},"board":["+1 . . . +1 .","+4 . -2 +1 -4 .","-3 . -3 -4 +3 -1"],"drops":20,"template":"zero_out","seed":3477633963,"bot":{"winRate":0.8,"target":0.81,"games":200}},
+        "3-5": {"title":"Void Horizon","goal":{"type":"break_cores","target":10},"rise":0,"risers":{"start":2},"pool":{"values":[1,2,3,4],"specials":0.12},"board":[". . . D . D","D D . +2 D D","D D D D -3 D"],"drops":5,"template":"cores","seed":3461170531,"bot":{"winRate":0.89,"target":0.79,"games":200}},
+        "3-6": {"title":"Tidal Breach","goal":{"type":"survive","target":18},"rise":4,"risers":{"start":1},"pool":{"values":[1,2,3,4],"specials":0.12},"board":["-2 -3 +1 . -1 +2"],"drops":18,"template":"survive","seed":3511712846,"bot":{"winRate":1,"target":0.77,"games":200}},
+        "3-bonus-2": {"title":"Photon Rift","goal":{"type":"big_orb","target":1,"size":32},"pool":{"values":[1,2],"specials":0.08,"favor":1},"board":["-1 . . . . .","+2 -1 -2 +1 +2 +1"],"drops":28,"template":"big_orb","seed":776619155,"bot":{"winRate":0.82,"target":0.8,"games":200}},
+        "3-8": {"title":"Photon Ring","goal":{"type":"catch_stars","target":7},"rise":5,"pool":{"values":[1,2,3,4],"specials":0.12},"board":[". . * * . .",". * . . . .",". . . * . *","* . -1 +2 * -2","-4 -3 -2 -4 +3 +4","+2 -1 -4 +2 +4 -1"],"drops":30,"template":"stars","seed":3411884964,"bot":{"winRate":0.72,"target":0.73,"games":200}},
+        "3-9": {"title":"Accretion Wall","goal":{"type":"break_cores","target":10},"rise":5,"pool":{"values":[1,2,3,4],"specials":0.12},"board":[". . D +2 D .","-1 +2 D +1 -2 D","D D +1 -3 D -2"],"drops":11,"template":"cores","seed":3393745868,"bot":{"winRate":0.77,"target":0.71,"games":200}},
+        "3-10": {"title":"Gravity Lens","goal":{"type":"collect","target":12,"number":8},"rise":0,"pool":{"values":[1,2,3,4],"specials":0.12,"favor":2},"board":[". +1 . +3 +1 .","+2 -4 # # -3 .","+3 +2 +3 +4 +2 +4"],"drops":39,"template":"collect","seed":1547094657,"bot":{"winRate":0.7,"target":0.7,"games":200}},
+        "3-11": {"title":"Dark Tide","goal":{"type":"survive","target":20},"rise":4,"risers":{"start":1},"pool":{"values":[1,2,3,4],"specials":0.12},"board":[". +1 +4 -2 . .","+4 +2 +1 +3 -2 .","+1 +4 +3 -4 +1 +2","+4 +2 -1 -2 +3 +4","+1 -3 -2 +3 +1 +3"],"drops":20,"template":"survive","seed":1562510799,"bot":{"winRate":0.99,"target":0.68,"games":200}},
+        "3-12": {"title":"Zero Horizon","goal":{"type":"zero_out","target":34},"rise":5,"pool":{"values":[1,2,3,4],"specials":0.12},"board":["+4 . . . -4 #","+1 . -4 -1 # +2"],"drops":25,"template":"zero_out","seed":1579288418,"bot":{"winRate":0.69,"target":0.66,"games":200}}
+    };
+    return { LEVELS };
+}));

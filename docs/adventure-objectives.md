@@ -150,39 +150,46 @@ Each sector has 10 main nodes plus 2 bonus rifts. **New** marks where something 
 | 1-9 | Survive 12 (row every 5) | rising rows | **Rising rows** |
 | 1-10 | **Boss:** Null Core 12 | core attacks | **Null Core boss** |
 
-**Sector 2: Ion Nebula** (introduce Risers, mix in obstacles)
+**Sector 2: Ion Nebula** (Tide 1; introduce Risers and static blocks, mix in obstacles) · 14 levels
 
-| Node | Goal | Obstacle |
-|---|---|---|
-| 2-1 | Zero Out 20 | none |
-| 2-2 | Risers: clear 2 (**new**) | none |
-| 2-3 | Collect 12 (**new:** static blocks, 0 walls) | none |
-| 2-4 | Catch the Stars 5 | 1 Riser |
-| 2-5 | Break the Cores 6 | rising rows |
-| 2-6 | Risers: clear 4 (new one every 6 drops) | none |
-| 2-7 | Survive 15 (row every 4) | rising rows |
-| 2-8 | Catch the Stars 6 | rising rows |
-| 2-9 | Break the Cores 8 | 1 Riser |
-| 2-10 | **Boss:** Null Core 20 | attacks + Risers |
-| Bonus ×2 | Big Orb 16 | none |
+| Node | Goal | Obstacle | Made by |
+|---|---|---|---|
+| 2-1 | Zero Out 20 | none | hand |
+| 2-2 | Risers: clear 2 (**new**) | none | hand |
+| 2-3 | Collect 8 of 2 (**new:** static blocks) | none | hand |
+| Bonus 1 | Big Orb 16 | none | generated |
+| 2-4 | Catch the Stars 5 | 1 Riser | hand |
+| 2-5 | Break the Cores 6 | rising rows | generated |
+| 2-6 | Risers: clear 4 (new one every 6) | none | hand (showcase) |
+| Bonus 2 | Big Orb 16 | none | generated |
+| 2-7 | Zero Out 24 + static blocks | none | generated |
+| 2-8 | Survive 15 (row every 4) | rising rows | generated |
+| 2-9 | Catch the Stars 6 | rising rows | generated |
+| 2-10 | Collect 12 of 4 | 1 Riser | generated |
+| 2-11 | Break the Cores 8 | 1 Riser | generated |
+| 2-12 | **Boss:** Null Core 20 | attacks + Risers | hand |
 
-**Sector 3: Event Horizon** (everything mixed, several Risers)
+**Sector 3: Event Horizon** (Tide 2; everything mixed, several Risers) · 15 levels
 
-| Node | Goal | Obstacle |
-|---|---|---|
-| 3-1 | Collect 14 | 1 Riser |
-| 3-2 | Risers: clear 5 (2 at once) | none |
-| 3-3 | Catch the Stars 6 | 2 Risers |
-| 3-4 | Zero Out 30 | rising rows |
-| 3-5 | Break the Cores 10 | 2 Risers |
-| 3-6 | Survive 18 (row every 4) | 1 Riser |
-| 3-7 | Risers: clear 6 (3 at once) | none |
-| 3-8 | Catch the Stars 7 | rising rows |
-| 3-9 | Break the Cores 10 | rising rows |
-| 3-10 | **Boss:** Null Core 30 | attacks + Risers |
-| Bonus ×2 | Big Orb 32 | none |
+| Node | Goal | Obstacle | Made by |
+|---|---|---|---|
+| 3-1 | Collect 10 of 4 | 1 Riser | hand |
+| 3-2 | Risers: clear 5 (2 at once) | none | generated |
+| 3-3 | Catch the Stars 6 | 2 Risers | generated |
+| Bonus 1 | Big Orb 32 | none | generated |
+| 3-4 | Zero Out 30 | rising rows | generated |
+| 3-5 | Break the Cores 10 | 2 Risers | generated |
+| 3-6 | Survive 18 (row every 4) | 1 Riser | generated |
+| 3-7 | Risers: clear 6 (3 at once) | none | hand (showcase) |
+| Bonus 2 | Big Orb 32 | none | generated |
+| 3-8 | Catch the Stars 7 | rising rows | generated |
+| 3-9 | Break the Cores 10 | rising rows | generated |
+| 3-10 | Collect 12 of 8 + static blocks | none | generated |
+| 3-11 | Survive 20 (row every 4) | 1 Riser | generated |
+| 3-12 | Zero Out 34 + static blocks | rising rows | generated |
+| 3-13 | **Boss:** Null Core 30 | attacks (row every 5) + Risers | hand |
 
-All numbers are starting points for playtesting. These tables show the first three sectors at 12 levels each. Later sectors grow to 20 levels (GDD §5.1). Drop budgets are tuned per level by the playtest bot (GDD §5.3).
+All numbers are starting points for playtesting. Sectors are 12, 14 and 15 levels (GDD §5.1). Generated levels come from `tools/templates.js` slots; every drop budget (handcrafted too, except Survive and 1-1) is set by the playtest bot against the slot's target clear rate (GDD §5.3).
 
 ---
 

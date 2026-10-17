@@ -235,10 +235,12 @@ That's about 35% handcrafted overall.
 
 **Roles:** Claude drafts the templates and handcrafted boards, and Lekan tweaks them.
 
-**Tools to build:**
-- the generator
-- the playtest bot (runs in Node)
-- a level editor behind debug mode: place tiles, stars, cores and Risers, then export
+**Tools [LIVE]** (see `tools/README.md`):
+- **Rules engine** `tools/sim/engine.js`: a Node port of the board rules in game.js (no swaps; Hold as a free stash).
+- **Playtest bot** `tools/sim/bot.js` + `npm run playtest`: plays every level ~200 times with different seeds and reports win rate, star spread and why runs were lost. It looks one move ahead, so its win rate is a difficulty measure, not a human clear rate.
+- **Generator** `npm run levelgen`: per slot, ~20 seeded candidates from a template, bot-tested with an open budget; keeps the best fit, sets the drop budget so the bot clears the slot's target, confirms with 200 runs, and writes `www/levelsGenerated.js` (with template, seed and bot result). `--tune-hand --apply` sets handcrafted budgets the same way.
+- **Level editor** (Dev tools → Level editor, debug mode): paint orbs, Risers, cores, the Null Core, walls and stars; set goal and rules; play-test in the real game without saving; copy a levels.js entry.
+- **Targets** `tools/targets.js`: openers 95%, bonus rifts 80%, bosses 55%, main nodes falling from ~90% to 66% across a sector.
 
 ### 5.4 Orbs during a level [LIVE]
 - Each level sets its **orb pool**, using the sector's Number Tide plus any level-specific weighting.
@@ -387,8 +389,14 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 3. Classic tide speed. Should Classic also have Risers or Catch the Stars moments?
 4. What happens to Challenges: move them to the new goals, or fold them into Adventure?
 5. Whether Rescue opposites (§3.4) is needed, based on playtests.
-7. **TODO (during playtesting): reduce blast impact at high tides.** Tiers use the absolute number, so from Tide 2 (Sector 3) every blast is a Cross Laser or bigger, and lasers hit the Null Core for 3. Decided: the impact must come down; how (tiers relative to the tide, higher thresholds, weaker lasers…) is chosen once the playtest bot can measure it.
 6. Monetisation and meta-progression (cosmetics for orb records?). Not discussed yet.
+7. **TODO (during playtesting): reduce blast impact at high tides.** Tiers use the absolute number, so from Tide 2 (Sector 3) every blast is a Cross Laser or bigger, and lasers hit the Null Core for 3. Decided: the impact must come down; how (tiers relative to the tide, higher thresholds, weaker lasers…) is chosen once the playtest bot can measure it.
+8. **Bot findings to decide (first report, 2026-10-17):**
+   - Survive levels are near 100% for the bot with a row every 4 drops. Harder needs faster rows (every 3) or more Risers.
+   - Risers-goal levels rarely give ★★: new Risers arrive on a schedule, so drops can't be saved. Consider lower star thresholds for this goal.
+   - Collect at Tide 1–2 needs long budgets (29–41 drops), partly because lasers clear target numbers by accident.
+   - Big Orb budgets are generous (20–33): the bot plans merges poorly, so people will finish well under budget.
+   - Sector 3 core levels need very few drops (5–11) because every blast is a laser (see #7).
 
 ## 12. Decision log
 | Date | Decision |
@@ -414,6 +422,7 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 | 2026-10-17 | Static blocks are fixed and unbreakable |
 | 2026-10-17 | Blast impact at high tides must be reduced; method left as a TODO for playtesting (§11 #7) |
 | 2026-10-17 | Tier names: 256 Hypernova, 512 Blazar, 1024+ Singularity. Each doubling gets a glow ring in its tier colour; the orb keeps its sign colour |
+| 2026-10-17 | Sectors grow now: Sector 2 = 14 levels (boss 2-12), Sector 3 = 15 levels (boss 3-13) |
 | 2026-10-17 | Onboarding as built: Hold/Swap hints wait until 3 drops into a level; Hold and Swap appear in Discoveries once used or hinted; Classic shows Power-ups just in time on the first special orb or Overdrive charge, and Dark Matter + rising rows on the first rising row |
 | 2026-10-17 | Fairness as built: shuffled bag of ± each pool value; Collect number at least every 4 deals; 20% chance (45% on Big Orb) to deal a match for a column top; a Riser's opposite within 3 deals |
 | 2026-10-17 | Null Core: touching blast = 1 HP; laser through it, crater over it, Hyperspace and super-weapons = 3; can't be swapped; rises with rows |

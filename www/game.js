@@ -1148,7 +1148,7 @@
 
         // Concepts introduced here (GDD §6.4): a NEW card + one guided move for a mechanic,
         // a NEW GOAL badge for a goal. Introductions never repeat.
-        const fresh = CONCEPTS.filter((k) => k.unlock === config.id && !career.seenConcepts[k.id]);
+        const fresh = config.editorTest ? [] : CONCEPTS.filter((k) => k.unlock === config.id && !career.seenConcepts[k.id]);
         const freshMechanics = fresh.filter((k) => k.kind === 'mechanic');
         const freshGoal = fresh.some((k) => k.kind === 'goal' && !k.silent);
         fresh.forEach((k) => markConceptSeen(k.id));
@@ -2285,7 +2285,10 @@
         // Victory Modal Actions
         if (btnVicNext) btnVicNext.addEventListener('click', () => {
             if (modalVictory) modalVictory.classList.remove('visible');
-            if (activeAdventureLevel && activeAdventureLevel.isGraduation) {
+            if (activeAdventureLevel && activeAdventureLevel.editorTest && typeof NullfallLevelEditor !== 'undefined') {
+                showScreen('adventure-nodes');
+                NullfallLevelEditor.open();
+            } else if (activeAdventureLevel && activeAdventureLevel.isGraduation) {
                 const first = victoryNextNode;
                 victoryNextNode = null;
                 if (first) {
@@ -4357,7 +4360,7 @@
 
         const isAdventureRun = gameMode === 'adventure' && !!activeAdventureLevel;
         const outOfDrops = /drops/i.test(message);
-        if (isAdventureRun && activeAdventureLevel.sectorNum) {
+        if (isAdventureRun && activeAdventureLevel.sectorNum && !activeAdventureLevel.editorTest) {
             const f = career.levelFails[activeAdventureLevel.id] || { noHold: 0, noSwap: 0 };
             if (!runUsedHold) f.noHold++;
             if (!runUsedSwap) f.noSwap++;
@@ -4526,6 +4529,10 @@
             saveCareerData();
             victoryNextNode = (typeof NodeGenerator !== 'undefined') ? NodeGenerator.generateNodeConfig(1, '1-1') : null;
             setVictoryNextLabel('Start Adventure');
+        } else if (isNodeLevel && activeAdventureLevel.editorTest) {
+            // Level editor play-test: nothing is saved
+            victoryNextNode = null;
+            setVictoryNextLabel('Back to editor');
         } else if (isNodeLevel) {
             const nodeId = activeAdventureLevel.id;
             const existingNode = (career.adventureNodes && career.adventureNodes[nodeId]) || {};
@@ -6796,6 +6803,10 @@
     }
 
     const DEV_ACTIONS = {
+        'level-editor': () => {
+            closeDevTools();
+            if (typeof NullfallLevelEditor !== 'undefined') NullfallLevelEditor.open();
+        },
         'unlock-nodes': () => {
             const n = unlockAllNodes();
             devToast(n > 0 ? `Unlocked ${n} nodes across all sectors` : 'Every node is already unlocked');
@@ -6854,6 +6865,9 @@
                     <button type="button" role="radio" data-gameplay-mode="classic"><strong>Old play</strong><span>Classic drop</span></button>
                 </div>
                 <p class="dev-note">Your pick also opens on launch while debug mode is on.</p>
+
+                <h3 class="dev-section">Levels</h3>
+                ${devRowHTML('level-editor', 'Level editor', 'Paint a board, play-test it, export to levels.js')}
 
                 <h3 class="dev-section">Progress</h3>
                 ${devRowHTML('unlock-nodes', 'Unlock all Adventure nodes', 'Opens every node and sector, keeps stars')}
@@ -6943,6 +6957,20 @@
         devRoot.classList.remove('visible');
         setTimeout(() => { if (!devRoot.classList.contains('visible')) devRoot.hidden = true; }, 260);
         if (currentScreen === 'home') updateCareerDisplays();
+    }
+
+    // Level editor hook (debug mode only): play a draft level without saving progress
+    if (typeof window !== 'undefined') {
+        window.NullfallDev = {
+            enabled: () => isDebugMode(),
+            playLevel(sectorNum, nodeId, data) {
+                if (!isDebugMode() || typeof NodeGenerator === 'undefined') return;
+                const config = NodeGenerator.generateNodeConfig(sectorNum, nodeId, data);
+                config.editorTest = true;
+                config.title = `Editor: ${config.title}`;
+                startNodeLevel(config);
+            }
+        };
     }
 
     // Adds the "Dev tools" row to the Settings sheet (listed only in debug mode)
