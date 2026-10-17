@@ -386,7 +386,7 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 3. Classic tide speed. Should Classic also have Risers or Catch the Stars moments?
 4. What happens to Challenges: move them to the new goals, or fold them into Adventure?
 5. Whether Rescue opposites (§3.4) is needed, based on playtests.
-7. Blast tiers vs Number Tide. Tiers use the absolute number, so from Tide 2 (Sector 3) every blast is a Cross Laser or bigger. Keep that as the "build bigger" payoff, or make tiers relative to the tide?
+7. **TODO (during playtesting): reduce blast impact at high tides.** Tiers use the absolute number, so from Tide 2 (Sector 3) every blast is a Cross Laser or bigger, and lasers hit the Null Core for 3. Decided: the impact must come down; how (tiers relative to the tide, higher thresholds, weaker lasers…) is chosen once the playtest bot can measure it.
 6. Monetisation and meta-progression (cosmetics for orb records?). Not discussed yet.
 
 ## 12. Decision log
@@ -411,6 +411,7 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 | 2026-10-17 | Static blocks added to build phase 3 |
 | 2026-10-17 | Adventure tide: one step per sector (S1 = 0, S2 = 1, S3 = 2); pool at tide t = 1–4 × 2^t |
 | 2026-10-17 | Static blocks are fixed and unbreakable |
+| 2026-10-17 | Blast impact at high tides must be reduced; method left as a TODO for playtesting (§11 #7) |
 | 2026-10-17 | Fairness as built: shuffled bag of ± each pool value; Collect number at least every 4 deals; 20% chance (45% on Big Orb) to deal a match for a column top; a Riser's opposite within 3 deals |
 | 2026-10-17 | Null Core: touching blast = 1 HP; laser through it, crater over it, Hyperspace and super-weapons = 3; can't be swapped; rises with rows |
 | 2026-10-17 | Survive headroom = empty rows above the tallest column, red line excluded |
