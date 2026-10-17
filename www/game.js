@@ -4218,7 +4218,7 @@
         if (rules) {
             rules.innerHTML = '';
             rules.classList.toggle('has-multi', !!level.stars);
-            const row = (icon, kind, text) => {
+            const row = (icon, kind, text, parent = rules) => {
                 const r = document.createElement('div');
                 r.className = 'obj-intro-rule';
                 r.setAttribute('role', 'listitem');
@@ -4230,17 +4230,44 @@
                 t.className = 'obj-intro-rule-text';
                 t.textContent = text;
                 r.append(i, t);
-                rules.appendChild(r);
+                parent.appendChild(r);
             };
             if (!(level.goal && level.goal.type === 'survive')) row('↓', 'drops', `${level.maxDrops} drops available`);
             if (level.rules && level.rules.fluxRate) row('↑', 'drops', `A row rises every ${level.rules.fluxRate} drops`);
-            row('★', 'star', meta ? meta.short(obj) : (level.desc || 'Complete the objective'));
+
+            // Star goals start collapsed behind a "Star goals" bar; the arrow expands them
+            const stars = document.createElement('div');
+            stars.className = 'obj-intro-stars';
+            const toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.className = 'obj-intro-stars-toggle';
+            toggle.setAttribute('aria-expanded', 'false');
+            toggle.setAttribute('aria-controls', 'obj-intro-stars-list');
+            toggle.innerHTML = '<span class="obj-intro-stars-badge" aria-hidden="true">★★★</span>'
+                + '<span class="obj-intro-stars-label">Star goals</span>'
+                + '<svg class="obj-intro-stars-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+            const list = document.createElement('div');
+            list.className = 'obj-intro-stars-list';
+            list.id = 'obj-intro-stars-list';
+            list.hidden = true;
+            toggle.addEventListener('click', (e) => {
+                e.stopPropagation(); // the overlay's tap-to-start must not fire
+                const open = list.hidden;
+                list.hidden = !open;
+                stars.classList.toggle('open', open);
+                toggle.setAttribute('aria-expanded', String(open));
+                triggerHaptic('tick');
+            });
+            stars.append(toggle, list);
+            rules.appendChild(stars);
+
+            row('★', 'star', meta ? meta.short(obj) : (level.desc || 'Complete the objective'), list);
             if (level.stars) {
-                row('★★', 'star multi', starGoalText(level.stars, level.stars.two));
-                row('★★★', 'star multi', starGoalText(level.stars, level.stars.three));
+                row('★★', 'star multi', starGoalText(level.stars, level.stars.two), list);
+                row('★★★', 'star multi', starGoalText(level.stars, level.stars.three), list);
             } else {
-                row('★', 'star', `Finish within ${level.targetDropsForStar} drops`);
-                row('★', 'star', `Score ${level.targetScoreForStar.toLocaleString()}+ points`);
+                row('★', 'star', `Finish within ${level.targetDropsForStar} drops`, list);
+                row('★', 'star', `Score ${level.targetScoreForStar.toLocaleString()}+ points`, list);
             }
         }
 

@@ -5975,9 +5975,10 @@ input:checked + .toggle-slider:before {
 
 .obj-intro-hint {
     margin: 0;
-    font-size: 12px;
+    font-size: 16px;
+    font-weight: 600;
     line-height: 1.4;
-    color: #a3acc6;
+    color: #c3cadc;
 }
 
 
@@ -6494,13 +6495,12 @@ input:checked + .toggle-slider:before {
 
 /* Objective intro — rules as rows, hint orbs (design update) */
 .obj-intro-hint {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
+    display: block;
+    line-height: 1.6;
 }
 .obj-intro-orb {
+    vertical-align: middle;
+    margin: 0 4px;
     width: 30px;
     height: 30px;
     box-sizing: border-box;
@@ -6552,7 +6552,60 @@ input:checked + .toggle-slider:before {
 /* Adventure star rows (★★ / ★★★): every icon in the list becomes a pill of the same width */
 .obj-intro-rules.has-multi .obj-intro-rule-icon { width: 36px; border-radius: 11px; }
 .obj-intro-rule-icon.multi { font-size: 9px; letter-spacing: -0.5px; }
-.obj-intro-rule-text { flex: 1; font-size: 13px; font-weight: 800; color: #f0f4fc; }
+.obj-intro-rule-text { flex: 1; font-size: 15px; font-weight: 800; color: #f0f4fc; }
+
+/* Star goals: collapsed bar with a down arrow, expands to the star rows */
+.obj-intro-stars {
+    border-radius: 12px;
+    background: rgba(249, 212, 35, 0.06);
+    border: 1px solid rgba(249, 212, 35, 0.22);
+    overflow: hidden;
+}
+.obj-intro-stars-toggle {
+    width: 100%;
+    min-height: 48px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 0;
+    background: transparent;
+    color: #f0f4fc;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+.obj-intro-stars-badge {
+    height: 26px;
+    padding: 0 9px;
+    flex-shrink: 0;
+    border-radius: 13px;
+    display: flex;
+    align-items: center;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    background: rgba(249, 212, 35, 0.16);
+    color: #f9d423;
+}
+.obj-intro-stars-label { flex: 1; font-size: 15px; font-weight: 800; }
+.obj-intro-stars-chevron { flex-shrink: 0; color: #f9d423; transition: transform 0.2s ease; }
+.obj-intro-stars.open .obj-intro-stars-chevron { transform: rotate(180deg); }
+.obj-intro-stars-list { display: flex; flex-direction: column; padding: 0 8px 8px; }
+.obj-intro-stars-list[hidden] { display: none; }
+.obj-intro-stars-list .obj-intro-rule {
+    padding: 8px 6px;
+    border: 0;
+    border-top: 1px solid rgba(249, 212, 35, 0.12);
+    border-radius: 0;
+    background: none;
+}
+.obj-intro-stars-list .obj-intro-rule-text { font-size: 14px; font-weight: 700; color: #e3e8f4; }
+@media (prefers-reduced-motion: reduce) {
+    .obj-intro-stars-chevron { transition: none; }
+}
 
 /* ==========================================================
    Result screens — objectives (Success A checklist, Breach A why)
