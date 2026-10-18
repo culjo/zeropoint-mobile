@@ -5322,6 +5322,9 @@
 
     function renderQueueSlot(element, orb) {
         element.classList.remove('q-pos', 'q-neg', 'q-special');
+        const tier = orb && orb.type !== 'special' ? tierFor(Math.abs(orb.value)) : null;
+        const css = tier ? tierCss(tier, orb.value > 0) : { borderColor: '', background: '', boxShadow: '' };
+        Object.assign(element.style, css);
         if (!orb) {
             element.innerHTML = '';
             return;
@@ -5339,7 +5342,8 @@
         const isLarge = element.classList.contains('next-orb-lg');
         const longLabel = orb.label && orb.label.length > 2;
         const fontSize = isLarge ? (longLabel ? '0.95rem' : '1.12rem') : (longLabel ? '0.62rem' : '0.75rem');
-        element.innerHTML = `<span class="queue-orb-label" style="font-size: ${fontSize}; font-weight: ${fontWeight}; color: ${color};">${orb.label}</span>`;
+        const lift = tier ? ' text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);' : '';
+        element.innerHTML = `<span class="queue-orb-label" style="font-size: ${fontSize}; font-weight: ${fontWeight}; color: ${color};${lift}">${orb.label}</span>`;
     }
 
     // Input Handlers
@@ -6166,28 +6170,109 @@
         if (changed) saveCareerData();
     }
 
-    function tierRingColor(tier) {
-        if (!tier) return null;
-        if (tier.color !== 'rainbow') return tier.color;
-        return `hsl(${Math.round((performance.now() / 8) % 360)}, 100%, 65%)`;
+    // CSS version of drawTierBody for DOM orbs (tray, hold, Discoveries)
+    function tierCss(tier, positive) {
+        const rainbow = tier.color === 'rainbow';
+        const c = rainbow ? '#ffffff' : tier.color;
+        const rainbowGrad = 'linear-gradient(135deg,#ff4e50,#f9d423,#00f2fe,#b46cff,#ff4fd8)';
+        const idx = ORB_TIERS.indexOf(tier);
+        if (positive) {
+            return {
+                borderColor: c,
+                background: rainbow ? `linear-gradient(rgba(10,12,20,0.5),rgba(10,12,20,0.5)),${rainbowGrad}`
+                    : `linear-gradient(135deg,${tierRgba(c, 0.45)},${tierRgba(c, 0.16)}),#0d0f1a`,
+                boxShadow: rainbow ? '0 0 12px #f9d423,0 0 20px #b46cff' : `0 0 ${8 + idx * 4}px ${tierRgba(c, 0.75)}`
+            };
+        }
+        return {
+            borderColor: c,
+            background: rainbow ? 'radial-gradient(circle closest-side,rgba(42,14,21,0) 0,rgba(42,14,21,0.15) 35%,#2a0e15 85%),conic-gradient(#ff4e50,#f9d423,#00f2fe,#b46cff,#ff4fd8,#ff4e50)'
+                : `radial-gradient(circle closest-side,${tierRgba(c, 0.72)} 0,${tierRgba(c, 0.32)} 45%,${tierRgba(c, 0)} 85%),#2a0e15`,
+            boxShadow: rainbow ? '0 0 8px rgba(249,212,35,0.55),0 0 14px rgba(180,108,255,0.45)' : `0 0 ${5 + idx * 3}px ${tierRgba(c, 0.5)}`
+        };
     }
 
-    // Board orbs keep their sign colour; from 8 up a ring in the tier colour glows around them
-    function drawTierRing(x, y, w, h, magnitude) {
-        const tier = tierFor(magnitude);
-        if (!tier) return;
-        const color = tierRingColor(tier);
-        const strength = Math.min(1, 0.45 + ORB_TIERS.indexOf(tier) * 0.12);
-        ctx.save();
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2 + strength * 1.5;
-        ctx.shadowColor = color;
-        ctx.shadowBlur = 8 + strength * 14;
-        ctx.globalAlpha = 0.75 + 0.25 * Math.sin(performance.now() / 260);
-        ctx.beginPath();
-        ctx.roundRect(x - w / 2 - 3, y - h / 2 - 3, w + 6, h + 6, 15);
+    function discTierStyle(tier) {
+        const css = tierCss(tier, true);
+        return `border-color:${css.borderColor};background:${css.background};box-shadow:${css.boxShadow}`;
+    }
+
+    function tierRgba(hex, a) {
+        const n = parseInt(hex.slice(1), 16);
+        return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+    }
+
+    // Orbs from 8 up take their tier colour (GDD §3.3): border and glow in the tier colour.
+    // Positive: tier-tinted body. Negative: dark red body with a glowing tier-colour core
+    // and a softer glow. Expects the orb's rounded-rect path to be current, origin at its centre.
+    function drawTierBody(w, h, positive, tier) {
+        const idx = ORB_TIERS.indexOf(tier);
+        const rainbow = tier.color === 'rainbow';
+        const c = rainbow ? '#ffffff' : tier.color;
+        const rainbowStops = ['#ff4e50', '#f9d423', '#00f2fe', '#b46cff', '#ff4fd8'];
+
+        if (positive) {
+            ctx.fillStyle = '#0d0f1a';
+            ctx.fill();
+            const grad = ctx.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2);
+            if (rainbow) {
+                rainbowStops.forEach((s, i) => grad.addColorStop(i / (rainbowStops.length - 1), s));
+            } else {
+                grad.addColorStop(0, tierRgba(c, 0.45));
+                grad.addColorStop(1, tierRgba(c, 0.16));
+            }
+            ctx.fillStyle = grad;
+            ctx.fill();
+            if (rainbow) {
+                ctx.fillStyle = 'rgba(10, 12, 20, 0.5)';
+                ctx.fill();
+            }
+        } else {
+            // The core is sized to the orb's sides (not its corners) so the dark red rim
+            // closes evenly all the way round, just inside the border
+            const negBg = '#2a0e15';
+            const reach = Math.min(w, h) / 2;
+            ctx.fillStyle = negBg;
+            ctx.fill();
+            if (rainbow) {
+                if (typeof ctx.createConicGradient === 'function') {
+                    const conic = ctx.createConicGradient(0, 0, 0);
+                    [...rainbowStops, rainbowStops[0]].forEach((s, i) => conic.addColorStop(i / rainbowStops.length, s));
+                    ctx.fillStyle = conic;
+                    ctx.fill();
+                }
+                const vignette = ctx.createRadialGradient(0, 0, 0, 0, 0, reach);
+                vignette.addColorStop(0, 'rgba(42, 14, 21, 0)');
+                vignette.addColorStop(0.35, 'rgba(42, 14, 21, 0.15)');
+                vignette.addColorStop(0.85, negBg);
+                vignette.addColorStop(1, negBg);
+                ctx.fillStyle = vignette;
+                ctx.fill();
+            } else {
+                const core = ctx.createRadialGradient(0, 0, 0, 0, 0, reach);
+                core.addColorStop(0, tierRgba(c, 0.72));
+                core.addColorStop(0.45, tierRgba(c, 0.32));
+                core.addColorStop(0.85, tierRgba(c, 0));
+                core.addColorStop(1, tierRgba(c, 0));
+                ctx.fillStyle = core;
+                ctx.fill();
+            }
+        }
+
+        ctx.strokeStyle = c;
+        ctx.lineWidth = 2.5;
+        if (rainbow) {
+            ctx.shadowColor = positive ? '#f9d423' : 'rgba(249, 212, 35, 0.55)';
+            ctx.shadowBlur = positive ? 12 : 8;
+            ctx.stroke();
+            ctx.shadowColor = positive ? '#b46cff' : 'rgba(180, 108, 255, 0.45)';
+            ctx.shadowBlur = positive ? 20 : 14;
+        } else {
+            ctx.shadowColor = tierRgba(c, positive ? 0.75 : 0.5);
+            ctx.shadowBlur = positive ? 8 + idx * 4 : 5 + idx * 3;
+        }
         ctx.stroke();
-        ctx.restore();
+        ctx.fillStyle = '#ffffff';
     }
 
     function runOrbLine() {
@@ -6253,8 +6338,7 @@
             const made = !!career.orbTiersMade[t.size];
             const d = document.createElement('div');
             d.className = `disc-tier${made ? '' : ' locked'}${fresh[`tier:${t.size}`] ? ' is-new' : ''}`;
-            const ring = t.color === 'rainbow' ? 'conic-gradient(#ff4e50, #f9d423, #00f2fe, #b46cff, #ff4fd8, #ff4e50)' : t.color;
-            d.innerHTML = `<span class="disc-orb" style="--ring:${made ? ring : '#39405a'}">${t.size}</span><b>${made ? t.name : '???'}</b>`;
+            d.innerHTML = `<span class="disc-orb"${made ? ` style="${discTierStyle(t)}"` : ''}>${t.size}</span><b>${made ? t.name : '???'}</b>`;
             tiers.appendChild(d);
         });
 
@@ -7581,7 +7665,6 @@
                     const label = tile.value > 0 ? `+${tile.value}` : `${tile.value}`;
                     if (tile.riser) drawRiserTrail(x, y, tw, th, r, tile.climbAt);
                     drawTileGraphic(x, y, tw, th, label, flavor, tile.flash);
-                    drawTierRing(x, y, tw, th, Math.abs(tile.value));
                     if (tile.riser) drawRiserCap(x, y, tw, th, r);
                 }
             }
@@ -7929,6 +8012,7 @@
         const r = 12; // Corner radius
         ctx.beginPath();
         ctx.roundRect(-w / 2, -h / 2, w, h, r);
+        let numberShadow = false; // tier orbs lift the number off their brighter body
 
         if (isGhost) {
             // Blueprint / Holographic ghost preview aesthetic (distinct from solid board tiles)
@@ -7975,7 +8059,11 @@
             ctx.setLineDash([]);
         } else {
             // Standard tile rendering (solid, contrasty on board)
-            if (flavor === 'pos') {
+            const tier = (flavor === 'pos' || flavor === 'neg') ? tierFor(Math.abs(parseInt(label, 10)) || 0) : null;
+            if (tier) {
+                drawTierBody(w, h, flavor === 'pos', tier);
+                numberShadow = true;
+            } else if (flavor === 'pos') {
                 // Cyan Glow Matter
                 const grad = ctx.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2);
                 grad.addColorStop(0, 'rgba(0, 242, 254, 0.28)');
@@ -8100,6 +8188,11 @@
         }
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
+        if (numberShadow) {
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+            ctx.shadowBlur = 4;
+            ctx.shadowOffsetY = 1;
+        }
         ctx.fillText(label, 0, 1);
 
         ctx.restore();

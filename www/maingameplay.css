@@ -1129,14 +1129,15 @@
     height: 46px;
     border-radius: 13px;
     background: #0f2433;
-    border: 2px solid #00f2fe;
-    box-shadow: 0 0 0 3px #0b0e18, 0 0 0 5px var(--ring);
+    border: 2.5px solid #00f2fe;
+    box-sizing: border-box;
     display: flex;
     align-items: center;
     justify-content: center;
     font-family: 'Lato', sans-serif;
     font-size: 14px;
     font-weight: 900;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
 }
 .disc-tier.locked .disc-orb { background: #1a1f2e; border-color: #39405a; color: #4a5068; }
 

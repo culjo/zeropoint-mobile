@@ -119,21 +119,21 @@ The smallest orb in the pool climbs over time, so the board keeps getting bigger
 
 ### 3.3 Celebrate new highs
 - **Orbs never change physical size.** They stay one grid cell so the board stays readable. Size is shown through:
-  - a **tier ring** for each doubling from 8 up [LIVE]. The orb keeps its sign colour (+ cyan, − red), and a glowing ring in the tier colour goes around it.
+  - a **tier body** for each doubling from 8 up [LIVE]. The orb's border and glow switch to the tier colour. A positive orb's body is tinted in the tier colour. A negative orb keeps a dark red body with a glowing tier-colour core and a softer glow, so the sign still reads at a glance (the number also carries its + or −).
   - **glow strength** that grows with the tier [LIVE]
   - a heavier number font and a **deeper impact sound** as numbers grow [PLANNED]
 - **Tier names**, announced the first time you make each one ("NOVA!" + "First 8 ever!") [LIVE]:
 
-  | Size | Name | Ring colour |
+  | Size | Name | Tier colour |
   |---|---|---|
   | 8 | Nova | violet |
   | 16 | Star | gold |
   | 32 | Pulsar | orange |
   | 64 | Quasar | magenta |
   | 128 | Magnetar | white |
-  | 256 | Hypernova | shifting rainbow |
-  | 512 | Blazar | shifting rainbow |
-  | 1024+ | Singularity | shifting rainbow |
+  | 256 | Hypernova | rainbow |
+  | 512 | Blazar | rainbow |
+  | 1024+ | Singularity | rainbow |
 
 - **Records [LIVE]:**
   - **Best orb per run** (the biggest orb you merged), shown on the game-over and victory screens.
@@ -427,3 +427,4 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 | 2026-10-17 | Fairness as built: shuffled bag of ± each pool value; Collect number at least every 4 deals; 20% chance (45% on Big Orb) to deal a match for a column top; a Riser's opposite within 3 deals |
 | 2026-10-17 | Null Core: touching blast = 1 HP; laser through it, crater over it, Hyperspace and super-weapons = 3; can't be swapped; rises with rows |
 | 2026-10-17 | Survive headroom = empty rows above the tallest column, red line excluded |
+| 2026-10-18 | Tier orbs (8+) drop the glow ring: border and glow take the tier colour; positives get a tier-tinted body, negatives a dark red body with a tier-colour core and softer glow |
