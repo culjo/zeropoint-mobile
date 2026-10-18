@@ -1167,3 +1167,108 @@
     background: #ff4e50;
     box-shadow: 0 0 0 2px #0b0e18;
 }
+
+/* Home logo: the app icon, animated. +4 and -4 slide into the gold 0, cancel out
+   with a flash and a burst ring, then fade back to their corners (4s loop) */
+#screen-home .home-logo {
+    position: relative;
+    width: 176px;
+    height: 176px;
+    flex-shrink: 0;
+    margin-bottom: 4px;
+    font-family: var(--font-stack);
+    font-weight: 900;
+}
+.home-logo-zero,
+.home-logo-orb,
+.home-logo-burst {
+    position: absolute;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.home-logo-zero {
+    left: 36px;
+    top: 34px;
+    width: 104px;
+    height: 104px;
+    border-radius: 26px;
+    border: 4px solid #fff3a8;
+    background: linear-gradient(#ffe45c, var(--gold) 55%, #e8b80f);
+    box-shadow: 0 7px 0 #b8900c, 0 0 26px rgba(249, 212, 35, 0.35);
+    font-size: 68px;
+    color: #1a1302;
+    animation: homeLogoZero 4s ease-in-out infinite;
+}
+.home-logo-orb {
+    width: 58px;
+    height: 58px;
+    border-radius: 15px;
+    border: 4px solid;
+    font-size: 25px;
+    color: #eef4ff;
+    animation-duration: 4s;
+    animation-timing-function: cubic-bezier(0.55, 0, 0.45, 1);
+    animation-iteration-count: infinite;
+}
+.home-logo-orb.pos {
+    left: 6px;
+    top: 6px;
+    border-color: var(--cyan);
+    background: #10222e;
+    box-shadow: 0 0 18px rgba(0, 242, 254, 0.7);
+    transform: rotate(-10deg);
+    animation-name: homeLogoPos;
+}
+.home-logo-orb.neg {
+    right: 6px;
+    bottom: 8px;
+    border-color: #ff4e50;
+    background: #2a1018;
+    box-shadow: 0 0 18px rgba(255, 78, 80, 0.6);
+    transform: rotate(9deg);
+    animation-name: homeLogoNeg;
+}
+.home-logo-burst {
+    left: 28px;
+    top: 26px;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: 3px solid rgba(255, 243, 168, 0.9);
+    box-shadow: 0 0 24px rgba(249, 212, 35, 0.6);
+    opacity: 0;
+    animation: homeLogoBurst 4s ease-out infinite;
+}
+@keyframes homeLogoPos {
+    0%, 22% { transform: translate(0, 0) rotate(-10deg) scale(1); opacity: 1; }
+    40% { transform: translate(53px, 51px) rotate(0deg) scale(0.75); opacity: 1; }
+    46% { transform: translate(53px, 51px) scale(0.3); opacity: 0; }
+    70% { transform: translate(0, 0) rotate(-10deg) scale(0.6); opacity: 0; }
+    84%, 100% { transform: translate(0, 0) rotate(-10deg) scale(1); opacity: 1; }
+}
+@keyframes homeLogoNeg {
+    0%, 22% { transform: translate(0, 0) rotate(9deg) scale(1); opacity: 1; }
+    40% { transform: translate(-53px, -53px) rotate(0deg) scale(0.75); opacity: 1; }
+    46% { transform: translate(-53px, -53px) scale(0.3); opacity: 0; }
+    70% { transform: translate(0, 0) rotate(9deg) scale(0.6); opacity: 0; }
+    84%, 100% { transform: translate(0, 0) rotate(9deg) scale(1); opacity: 1; }
+}
+@keyframes homeLogoZero {
+    0%, 40% { transform: scale(1); box-shadow: 0 7px 0 #b8900c, 0 0 26px rgba(249, 212, 35, 0.35); }
+    47% { transform: scale(1.14); box-shadow: 0 7px 0 #b8900c, 0 0 60px rgba(249, 212, 35, 0.85); }
+    62%, 100% { transform: scale(1); box-shadow: 0 7px 0 #b8900c, 0 0 26px rgba(249, 212, 35, 0.35); }
+}
+@keyframes homeLogoBurst {
+    0%, 41% { transform: scale(0.4); opacity: 0; }
+    46% { transform: scale(0.85); opacity: 0.9; }
+    66%, 100% { transform: scale(1.9); opacity: 0; }
+}
+/* Short phones: scale the logo down so the play buttons stay on screen */
+@media (max-height: 700px) {
+    #screen-home .home-logo { transform: scale(0.8); margin: -18px 0 -14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .home-logo-zero, .home-logo-orb, .home-logo-burst { animation: none; }
+}
