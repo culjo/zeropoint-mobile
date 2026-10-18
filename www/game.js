@@ -158,11 +158,7 @@
 
     // Tactical Bounty Card (Classic) — hidden in the HUD, summarised on the pause screen
     const bountyCard = document.getElementById('bounty-card');
-    const bountyName = document.getElementById('bounty-name');
-    const bountyReward = document.getElementById('bounty-reward');
-    const bountyDesc = document.getElementById('bounty-desc');
-    const bountyProgressText = document.getElementById('bounty-progress-text');
-    const bountyProgressFill = document.getElementById('bounty-progress-fill');
+    const classicStrip = document.getElementById('classic-strip');
 
     // Overdrive & Swaps
     const overdriveContainer = document.getElementById('overdrive-container');
@@ -585,8 +581,14 @@
     let firstSwapTile = null; // { r, c }
     let dropsSinceSwapCharge = 0;
 
-    // Tactical Bounties
-    let currentBounty = null;
+    // Classic run systems (classicRun.js, GDD §4.1): Bounty Ladder, Surges, tide waiting on a Surge
+    let bountyLadder = null;
+    let classicSurge = null;     // the running Surge, or null
+    let surgeBag = null;
+    let surgeCount = 0;
+    let tidePending = false;
+    let ladderWeaponIndex = 0;
+    let ladderWasPaused = false;
 
     // Tactical Orbs
     let currentOrb = null;
@@ -2045,10 +2047,12 @@
         const best = career.highScore || 0;
         const isNewBest = score > best && best > 0;
         const goals = [];
-        if (currentBounty) {
-            const done = currentBounty.progress >= currentBounty.target;
-            const reward = String(currentBounty.rewardText || '').replace(/\s*PTS/i, '').replace(/\s*[•·]\s*/g, ' · ');
-            goals.push({ glyph: '◎', label: currentBounty.title, detail: `${currentBounty.progress}/${currentBounty.target} · ${reward}`, state: done ? 'done' : 'progress' });
+        if (classicSurge) {
+            goals.push({ glyph: classicSurge.glyph, label: `Surge: ${ClassicRun.describe(classicSurge, tideUnit())}`, detail: `${goalCount(classicSurge, classicSurge.progress)} · ${classicSurge.dropsLeft} drop${classicSurge.dropsLeft === 1 ? '' : 's'} left`, state: 'progress' });
+        }
+        if (bountyLadder) {
+            const rung = ClassicRun.currentRung(bountyLadder);
+            goals.push({ glyph: rung.glyph, label: `Bounty ${rung.index + 1}: ${ClassicRun.describe(rung, tideUnit())}`, detail: `${goalCount(rung, bountyLadder.progress)} · ${ClassicRun.describeReward(rung.reward)}`, state: 'progress' });
         }
         const swapIn = Math.max(1, 8 - dropsSinceSwapCharge);
         goals.push({ glyph: '⇄', label: 'Next swap token', detail: `in ${swapIn} drop${swapIn === 1 ? '' : 's'}`, state: 'track' });
@@ -2188,6 +2192,7 @@
         if (MAIN_GAMEPLAY && htpRoot) setupHowToPlay();
         if (MAIN_GAMEPLAY) setupFirstPlay();
         setupConceptCard();
+        setupLadder();
         setupDiscoveries();
         const hintX = document.getElementById('tool-hint-x');
         if (hintX) hintX.addEventListener('click', (e) => { e.stopPropagation(); hideToolHint(); });
@@ -2628,18 +2633,25 @@
         firstSwapTile = null;
         dropsSinceSwapCharge = 0;
 
+        bountyLadder = null;
+        classicSurge = null;
+        surgeBag = null;
+        surgeCount = 0;
+        tidePending = false;
+        ladderWeaponIndex = 0;
         if (isTutorial) {
-            currentBounty = null;
             adventureProgress = 0;
             adventureObjectiveMet = false;
             dropsUsed = 0;
             maxDrops = 99;
             canHold = false;
         } else if (gameMode === 'classic') {
-            currentBounty = generateBounty();
+            if (typeof ClassicRun !== 'undefined') {
+                bountyLadder = ClassicRun.createLadder();
+                surgeBag = ClassicRun.createSurgeBag();
+            }
             populateInitialBoard();
         } else if (gameMode === 'adventure') {
-            currentBounty = null;
             adventureProgress = 0;
             adventureObjectiveMet = false;
             dropsUsed = 0;
@@ -2757,9 +2769,12 @@
     }
 
     // Classic Number Tide: the pool doubles every CLASSIC_TIDE_EVERY drops
+    // A rise that lands during a Surge waits until the Surge ends (GDD §4.1)
     function tickClassicTide() {
         classicDrops++;
-        if (classicDrops % CLASSIC_TIDE_EVERY !== 0 || classicTide >= CLASSIC_TIDE_MAX) return;
+        if (classicDrops % CLASSIC_TIDE_EVERY === 0 && classicTide < CLASSIC_TIDE_MAX) tidePending = true;
+        if (!tidePending || classicSurge) return;
+        tidePending = false;
         classicTide++;
         const vals = OrbBag.tideValues(classicTide);
         addFloatingText(`NUMBER TIDE ↑ ±${vals[0]}–±${vals[vals.length - 1]}`, canvas.width / (2 * dpr), boardOffsetY + cellH * 2, '#00f2fe', 1.3);
@@ -3109,9 +3124,7 @@
                 combo++;
                 if (combo > maxCombo) maxCombo = combo;
                 if (isTutorial && tutTurn) tutTurn.chain = Math.max(tutTurn.chain, state.chainStep);
-                if (combo >= 2) {
-                    checkBountyProgress('cascade', 1);
-                }
+                if (combo >= 2) classicEvent('combo', combo);
                 updateHUD();
                 await delay(120);
                 continue; // Re-check gravity and subsequent cascades
@@ -3143,11 +3156,23 @@
                 await pushTutorialRiseRow();
             } else if (!isSwap && !firstPlay) {
                 if (gameMode === 'classic') {
-                    if (!isTutorial) tickClassicTide();
-                    movesUntilRise--;
-                    if (movesUntilRise <= 0) {
-                        movesUntilRise = MOVES_PER_RISE;
-                        await pushRisingRow();
+                    if (!isTutorial) {
+                        tickSurge();
+                        tickClassicTide();
+                    }
+                    let rose = false;
+                    if (!isTutorial && isBoardEmpty()) {
+                        await celebrateBoardClear(); // resets the rise countdown instead of a rise
+                    } else {
+                        movesUntilRise--;
+                        if (movesUntilRise <= 0) {
+                            movesUntilRise = MOVES_PER_RISE;
+                            await pushRisingRow();
+                            rose = true;
+                        }
+                    }
+                    if (!isTutorial && bountyLadder && classicDrops % ClassicRun.SURGE_EVERY === 0) {
+                        await startSurge(rose);
                     }
                 } else if (gameMode === 'adventure' && activeAdventureLevel) {
                     await runAdventureTurnEffects(state);
@@ -3281,7 +3306,7 @@
                         fusedVal > 0 ? 'var(--cyan)' : 'var(--orange)');
                     addScore(5 * (chainStep + 1), { x: xB, y: yB });
                     addOverdriveCharge(2);
-                    checkBountyProgress('synthesis', 1);
+                    classicEvent('merge', 1);
 
                     resolvePromise();
                 }
@@ -3335,6 +3360,7 @@
                     const tileB = grid[r][c + 1];
                     if (tileB && tileB.type === 'number' && tileA.value + tileB.value === 0) {
                         totalZeroPoints++;
+                        classicEvent('zero_blast', 1);
                         checkAdventureObjective('annihilations', 1, cellCenterBetween(r, c, r, c + 1));
                         noteTilesRemoved([tileA, tileB], cellCenterBetween(r, c, r, c + 1));
                         const magnitude = Math.abs(tileA.value);
@@ -3351,6 +3377,7 @@
                     const tileB = grid[r + 1][c];
                     if (tileB && tileB.type === 'number' && tileA.value + tileB.value === 0) {
                         totalZeroPoints++;
+                        classicEvent('zero_blast', 1);
                         checkAdventureObjective('annihilations', 1, cellCenterBetween(r, c, r + 1, c));
                         noteTilesRemoved([tileA, tileB], cellCenterBetween(r, c, r + 1, c));
                         const magnitude = Math.abs(tileA.value);
@@ -3534,11 +3561,11 @@
 
         // Tactical Bounty checks & Supernova Token Bonus
         if (tier >= 3) {
-            checkBountyProgress('laser', 1);
+            classicEvent('laser', 1);
             checkAdventureObjective('trigger_laser', magnitude, cellCenterBetween(r, c, r2, c2));
         }
         if (tier >= 4) {
-            checkBountyProgress('supernova', 1);
+            classicEvent('supernova', 1);
             if (swapTokens < maxSwapTokens) {
                 addSwapToken(1);
             }
@@ -3551,7 +3578,7 @@
         if (target && target.type === 'dark_matter') {
             target.hp -= dmg;
             sfx.playCrack();
-            checkBountyProgress('dark_matter', dmg);
+            classicEvent('dark_matter', dmg);
             const nx = boardOffsetX + c * cellW + cellW / 2;
             const ny = boardOffsetY + r * cellH + cellH / 2;
             createSparks(nx, ny, '#888', 8);
@@ -3561,8 +3588,9 @@
                 const val = (Math.random() < 0.5 ? 1 : -1) * randomBoardMagnitude(4);
                 grid[r][c] = createTile(val);
                 addFloatingText('SHATTERED!', nx, ny, '#fff');
-                addScore(15, { x: nx, y: ny });
+                addScore(classicSurge && classicSurge.id === 'dark_storm' ? 30 : 15, { x: nx, y: ny });
                 checkAdventureObjective('clear_dark_matter', 1, { x: nx, y: ny });
+                classicEvent('dm_shatter', 1);
                 noteTilesRemoved([target], { x: nx, y: ny });
             } else {
                 target.flash = 0.8;
@@ -3809,6 +3837,7 @@
     // Big Orb: any orb reaching the target size (merge or ×2) wins
     function noteOrbMade(magnitude, pos) {
         if (!isTutorial && !firstPlay) noteOrbRecord(magnitude, pos);
+        classicEvent('orb', magnitude);
         const goal = gameMode === 'adventure' && activeAdventureLevel && activeAdventureLevel.goal;
         if (goal && goal.type === 'big_orb' && magnitude >= goal.size) checkAdventureObjective('goal', 1, pos);
     }
@@ -4822,125 +4851,262 @@
         else currentOrb = { ...special };
 
         addFloatingText(`🔥 OVERDRIVE: ${special.label}! 🔥`, canvas.width / (2 * dpr), boardOffsetY + cellH * 3, '#ffd700', 1.5);
-        checkBountyProgress('frenzy', 1);
         checkAdventureObjective('activate_frenzy', 1);
         updateHUD();
         maybeShowOverdriveTip();
     }
 
-    // Tactical Bounties System
-    const BOUNTY_TEMPLATES = [
-        {
-            id: 'laser',
-            title: 'Cross Laser Blast',
-            desc: 'Detonate a ±4+ pair for a Tier 3+ Cross Laser',
-            target: 1,
-            rewardScore: 40,
-            rewardSwap: 1,
-            rewardOvd: 8,
-            rewardText: '+40 PTS • +1 SWAP'
-        },
-        {
-            id: 'supernova',
-            title: 'Supernova Crater',
-            desc: 'Trigger a Tier 4+ Supernova (±8 or higher)',
-            target: 1,
-            rewardScore: 60,
-            rewardSwap: 1,
-            rewardOvd: 12,
-            rewardText: '+60 PTS • +1 SWAP'
-        },
-        {
-            id: 'synthesis',
-            title: 'Double Merge',
-            desc: 'Merge identical numbers 2 times (e.g. +2 & +2)',
-            target: 2,
-            rewardScore: 30,
-            rewardSwap: 1,
-            rewardOvd: 6,
-            rewardText: '+30 PTS • +1 SWAP'
-        },
-        {
-            id: 'cascade',
-            title: 'Cascade Surge',
-            desc: 'Trigger a 2x or higher combo cascade chain',
-            target: 1,
-            rewardScore: 45,
-            rewardSwap: 1,
-            rewardOvd: 8,
-            rewardText: '+45 PTS • +1 SWAP'
-        },
-        {
-            id: 'dark_matter',
-            title: 'Dark Matter Breach',
-            desc: 'Damage or shatter 3 Dark Matter cores',
-            target: 3,
-            rewardScore: 40,
-            rewardSwap: 1,
-            rewardOvd: 8,
-            rewardText: '+40 PTS • +1 SWAP'
-        },
-        {
-            id: 'frenzy',
-            title: 'Singularity Overdrive',
-            desc: 'Activate Singularity Frenzy mode [F]',
-            target: 1,
-            rewardScore: 50,
-            rewardSwap: 1,
-            rewardOvd: 0,
-            rewardText: '+50 PTS • +1 SWAP'
-        }
-    ];
-
-    function generateBounty() {
-        const pool = currentBounty 
-            ? BOUNTY_TEMPLATES.filter(t => t.id !== currentBounty.id)
-            : BOUNTY_TEMPLATES;
-        const template = pool[Math.floor(Math.random() * pool.length)];
-        return {
-            ...template,
-            progress: 0
-        };
+    // ---------- Classic: Bounty Ladder and Surges (classicRun.js, GDD §4.1.2–4.1.3) ----------
+    function tideUnit() {
+        return OrbBag.tideScale(classicTide);
     }
 
-    function updateBountyUI() {
-        if (!currentBounty || !bountyCard) return;
-        bountyName.textContent = currentBounty.title;
-        bountyReward.textContent = currentBounty.rewardText;
-        bountyDesc.textContent = currentBounty.desc;
-        bountyProgressText.textContent = `${currentBounty.progress}/${currentBounty.target}`;
-        const pct = Math.min(100, Math.round((currentBounty.progress / currentBounty.target) * 100));
-        bountyProgressFill.style.width = `${pct}%`;
+    function goalCount(goal, progress) {
+        if (goal.kind === 'orb') return progress ? 'Done' : '0/1';
+        if (goal.kind === 'max') return `×${Math.max(1, progress)}/${goal.target}`;
+        return `${Math.min(progress, goal.target)}/${goal.target}`;
     }
 
-    function checkBountyProgress(type, amount = 1) {
-        if (!currentBounty || isGameOver) return;
-        if (currentBounty.id === type) {
-            currentBounty.progress = Math.min(currentBounty.target, currentBounty.progress + amount);
-            updateBountyUI();
-            if (currentBounty.progress >= currentBounty.target) {
-                completeBounty();
+    // Every scoring moment in Classic feeds the current bounty rung and the running Surge
+    function classicEvent(type, value = 1) {
+        if (gameMode !== 'classic' || isTutorial || firstPlay || isGameOver || !bountyLadder) return;
+        const unit = tideUnit();
+        if (classicSurge) {
+            const next = ClassicRun.goalProgress(classicSurge, classicSurge.progress, type, value, unit);
+            if (next !== classicSurge.progress) {
+                classicSurge.progress = next;
+                bumpClassicStrip();
+                if (ClassicRun.goalDone(classicSurge, next)) endSurge(true);
             }
         }
+        const before = bountyLadder.progress;
+        const done = ClassicRun.ladderEvent(bountyLadder, type, value, unit);
+        if (done) completeRung(done);
+        else if (bountyLadder.progress !== before && !classicSurge) bumpClassicStrip();
+        renderClassicStrip();
     }
 
-    function completeBounty() {
-        if (!currentBounty) return;
-        const b = currentBounty;
-        addScore(b.rewardScore);
-        if (b.rewardSwap) addSwapToken(b.rewardSwap);
-        if (b.rewardOvd) addOverdriveCharge(b.rewardOvd);
-
+    function completeRung(rung) {
         sfx.playBountyComplete();
-        if (bountyCard) {
-            bountyCard.classList.add('completed-flash');
-            setTimeout(() => bountyCard.classList.remove('completed-flash'), 650);
+        triggerHaptic('zero');
+        addFloatingText(`BOUNTY ${rung.index + 1} DONE`, canvas.width / (2 * dpr), boardOffsetY + cellH * 2.2, '#ffd700', 1.3);
+        grantReward(rung.reward);
+        if (classicStrip) retriggerClass(classicStrip, 'rung-done');
+        if (!ladderTipShown && career && !career.hints.ladderTip) {
+            ladderTipShown = true;
+            addFloatingText('Tap the bounty strip to see the ladder', canvas.width / (2 * dpr), boardOffsetY + cellH * 3, '#c3cadf', 0.95);
+            career.hints.ladderTip = true;
+            saveCareerData();
         }
+    }
+    let ladderTipShown = false;
 
-        addFloatingText(`🎯 BOUNTY: ${b.title}! ${b.rewardText}`, canvas.width / (2 * dpr), boardOffsetY + cellH * 2.2, '#ffd700', 1.35);
+    function grantReward(reward) {
+        if (reward.score) addScore(reward.score, { x: canvas.width / (2 * dpr), y: boardOffsetY + cellH * 2.6 });
+        if (reward.swap) addSwapToken(reward.swap);
+        if (reward.overdrive) addOverdriveCharge(reward.overdrive);
+        if (reward.weapon) {
+            const special = { ...FRENZY_SPECIALS[ladderWeaponIndex % FRENZY_SPECIALS.length] };
+            ladderWeaponIndex++;
+            if (MAIN_GAMEPLAY) dragTray[1] = special;
+            else nextQueue[0] = special;
+            addFloatingText(`SUPER-WEAPON: ${special.label}`, canvas.width / (2 * dpr), boardOffsetY + cellH * 3.2, '#ffd700', 1.3);
+        }
+        updateHUD();
+    }
 
-        currentBounty = generateBounty();
-        updateBountyUI();
+    // Starts on every SURGE_EVERY-th drop. Dark Storm raises a row straight away,
+    // unless one already rose this turn.
+    async function startSurge(roseThisTurn) {
+        classicSurge = surgeBag();
+        const s = classicSurge;
+        sfx.playWarning();
+        triggerHaptic('overdrive');
+        showRunBanner('SURGE', s.name, `${ClassicRun.describe(s, tideUnit())} in ${s.dropsLeft} drops`, 'surge');
+        renderClassicStrip();
+        if (s.id === 'dark_storm' && !roseThisTurn) {
+            await delay(500);
+            await pushRisingRow();
+        }
+    }
+
+    // Counts a drop off the running Surge (called after the drop's events)
+    function tickSurge() {
+        if (!classicSurge) return;
+        classicSurge.dropsLeft--;
+        if (classicSurge.dropsLeft <= 0) endSurge(false);
+        else renderClassicStrip();
+    }
+
+    function endSurge(won) {
+        const s = classicSurge;
+        classicSurge = null;
+        if (won) {
+            const reward = ClassicRun.surgeReward(classicTide, surgeCount++);
+            sfx.playBountyComplete();
+            triggerHaptic('zero');
+            showRunBanner('SURGE CLEARED', s.name, ClassicRun.describeReward(reward), 'win');
+            grantReward(reward);
+        } else {
+            addFloatingText('SURGE MISSED', canvas.width / (2 * dpr), boardOffsetY + cellH * 2.2, '#8892b0', 1.1);
+        }
+        renderClassicStrip();
+    }
+
+    function bumpClassicStrip() {
+        if (classicStrip) retriggerClass(classicStrip, 'bump');
+    }
+
+    // Strip: the current bounty, or the running Surge with the bounty as a small chip
+    function renderClassicStrip() {
+        if (!classicStrip) return;
+        const show = gameMode === 'classic' && !isTutorial && !firstPlay && !!bountyLadder;
+        if (classicStrip.hidden === show) {
+            classicStrip.hidden = !show;
+            if (missionStrip) missionStrip.style.display = show ? '' : missionStrip.style.display;
+        }
+        if (!show) return;
+        const unit = tideUnit();
+        const rung = ClassicRun.currentRung(bountyLadder);
+        const set = (sel, text) => { const el = classicStrip.querySelector(sel); if (el) el.textContent = text; };
+        const chip = classicStrip.querySelector('.cs-chip');
+        classicStrip.classList.toggle('surge', !!classicSurge);
+        if (classicSurge) {
+            set('.cs-glyph', classicSurge.glyph);
+            const n = classicSurge.dropsLeft;
+            set('.cs-kicker', `SURGE · ${n} DROP${n === 1 ? '' : 'S'} LEFT`);
+            set('.cs-desc', ClassicRun.describe(classicSurge, unit));
+            set('.cs-progress', goalCount(classicSurge, classicSurge.progress));
+            if (chip) { chip.hidden = false; chip.textContent = `${rung.glyph} ${goalCount(rung, bountyLadder.progress).replace('×', '')}`; }
+        } else {
+            set('.cs-glyph', rung.glyph);
+            set('.cs-kicker', `BOUNTY ${rung.index + 1}`);
+            set('.cs-desc', ClassicRun.describe(rung, unit));
+            set('.cs-progress', goalCount(rung, bountyLadder.progress));
+            if (chip) chip.hidden = true;
+        }
+        classicStrip.setAttribute('aria-label', `${classicSurge ? 'Surge' : 'Bounty'}: ${classicStrip.querySelector('.cs-desc').textContent}. Open the bounty ladder`);
+    }
+
+    // Bounty Ladder screen: done rungs ticked, current with progress, next 2 shown, then "?"
+    function openLadder() {
+        const root = document.getElementById('ladder');
+        if (!root || !bountyLadder || isGameOver) return;
+        ladderWasPaused = isPaused;
+        isPaused = true;
+        renderLadder();
+        root.hidden = false;
+        const card = document.getElementById('ladder-card');
+        if (card) retriggerClass(card, 'concept-in');
+    }
+
+    function closeLadder() {
+        const root = document.getElementById('ladder');
+        if (!root || root.hidden) return;
+        root.hidden = true;
+        isPaused = ladderWasPaused;
+        lastTime = performance.now();
+    }
+
+    function renderLadder() {
+        const list = document.getElementById('ladder-rungs');
+        if (!list) return;
+        const unit = tideUnit();
+        const cur = bountyLadder.index;
+        const esc = (t) => String(t).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+        const rows = [];
+        const bigAt = (i) => (i + 1) % ClassicRun.BIG_RUNG_EVERY === 0;
+        // Top of the ladder first: locked "?" rungs, the next 2, the current one, then the last 3 done
+        for (let i = cur + 4; i >= cur + 3; i--) {
+            rows.push(`<li class="rung locked${bigAt(i) ? ' big' : ''}"><span class="rung-no">${i + 1}</span><span class="rung-glyph">?</span><span class="rung-body"><span class="rung-task">${bigAt(i) ? 'Super-weapon rung' : 'Unlocks as you climb'}</span></span></li>`);
+        }
+        for (let i = cur + 2; i >= Math.max(0, cur - 3); i--) {
+            const r = bountyLadder.rungs[i];
+            const state = i < cur ? 'done' : (i === cur ? 'current' : 'next');
+            const pct = i === cur ? Math.min(100, Math.round((r.kind === 'orb' ? bountyLadder.progress : bountyLadder.progress / r.target) * 100)) : 0;
+            rows.push(`<li class="rung ${state}${r.reward.weapon ? ' big' : ''}">
+                <span class="rung-no">${i + 1}</span>
+                <span class="rung-glyph">${state === 'done' ? '✓' : esc(r.glyph)}</span>
+                <span class="rung-body">
+                    <span class="rung-task">${esc(ClassicRun.describe(r, unit))}</span>
+                    <span class="rung-reward">${esc(ClassicRun.describeReward(r.reward))}</span>
+                    ${state === 'current' ? `<span class="rung-track"><span class="rung-fill" style="width:${pct}%"></span></span>` : ''}
+                </span>
+                ${state === 'current' ? `<span class="rung-count">${esc(goalCount(r, bountyLadder.progress))}</span>` : ''}
+            </li>`);
+        }
+        list.innerHTML = rows.join('');
+        const count = document.getElementById('ladder-count');
+        if (count) count.textContent = cur === 0 ? 'Climb as you play' : `${cur} done this run`;
+        const surge = document.getElementById('ladder-surge');
+        if (surge) {
+            surge.hidden = !classicSurge;
+            if (classicSurge) surge.textContent = `Surge: ${ClassicRun.describe(classicSurge, unit)} · ${goalCount(classicSurge, classicSurge.progress)} · ${classicSurge.dropsLeft} drops left`;
+        }
+    }
+
+    // ---------- Classic: board clear (GDD §4.1.1) ----------
+    function isBoardEmpty() {
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) if (grid[r][c]) return false;
+        }
+        return true;
+    }
+
+    async function celebrateBoardClear() {
+        const cx = boardOffsetX + (COLS * cellW) / 2;
+        const cy = boardOffsetY + (ROWS * cellH) / 2;
+        screenFlash = 0.9;
+        screenFlashColor = '#ffffff';
+        triggerScreenShake(10);
+        triggerHaptic('zero');
+        sfx.playBountyComplete();
+        setTimeout(() => sfx.playSpecial(), 220);
+        const colors = ['#00f2fe', '#f9d423', '#ff4e50', '#c471ed', '#7ff8ff'];
+        for (let i = 0; i < 14; i++) {
+            createSparks(boardOffsetX + Math.random() * COLS * cellW, boardOffsetY + Math.random() * ROWS * cellH, colors[i % colors.length], 14);
+        }
+        shockwaves.push({ x: cx, y: cy, radius: 10, maxRadius: COLS * cellW, alpha: 1, color: '#ffffff' });
+        const bonus = 1000 * (classicTide + 1);
+        showRunBanner('PERFECT', 'BOARD CLEAR', `+${bonus.toLocaleString()} · +1 Swap · +15% Overdrive`, 'clear');
+        addScore(bonus, { x: cx, y: cy });
+        addSwapToken(1);
+        addOverdriveCharge(15);
+        await delay(1100);
+
+        // Refill the bottom two rows from the weighted tile mix, dropping in from above
+        const rows = ClassicRun.buildRefill({ cols: COLS, values: OrbBag.tideValues(classicTide) });
+        rows.forEach((row, i) => {
+            const r = ROWS - rows.length + i;
+            row.forEach((spec, c) => {
+                if (!spec) return;
+                const tile = spec.type === 'number' ? createTile(spec.value) : createTile(0, spec.type);
+                tile.animY = -(r + 1) * cellH;
+                tile.flash = 1;
+                grid[r][c] = tile;
+            });
+        });
+        sfx.playDrop();
+        movesUntilRise = MOVES_PER_RISE;
+        await delay(400);
+    }
+
+    // Big centred callout over the board for Surges and board clears
+    let runBannerTimer = null;
+    function showRunBanner(kicker, title, sub, tone) {
+        const el = document.getElementById('run-banner');
+        if (!el) {
+            addFloatingText(`${title}!`, canvas.width / (2 * dpr), boardOffsetY + cellH * 2.5, '#ffd700', 1.5);
+            return;
+        }
+        el.querySelector('.rb-kicker').textContent = kicker;
+        el.querySelector('.rb-title').textContent = title;
+        el.querySelector('.rb-sub').textContent = sub;
+        el.dataset.tone = tone;
+        el.hidden = false;
+        retriggerClass(el, 'rb-in');
+        clearTimeout(runBannerTimer);
+        runBannerTimer = setTimeout(() => { el.hidden = true; }, 1900);
     }
 
     // Quantum Swap Mechanics
@@ -5202,7 +5368,8 @@
 
         if (missionStrip) {
             const cardShown = (el) => el && el.style.display !== 'none' && el.style.display !== '';
-            missionStrip.style.display = (cardShown(adventureObjectiveCard) || cardShown(tutorialCard)) ? '' : 'none';
+            const classicShown = classicStrip && !classicStrip.hidden;
+            missionStrip.style.display = (cardShown(adventureObjectiveCard) || cardShown(tutorialCard) || classicShown) ? '' : 'none';
         }
 
         if (gameMode === 'adventure') {
@@ -5283,8 +5450,7 @@
             }
         }
 
-        // Update Tactical Bounty UI
-        updateBountyUI();
+        renderClassicStrip();
 
         // Update Hold Slot UI
         if (heldOrb) {
@@ -5995,6 +6161,14 @@
             }
         });
         if (skip) skip.addEventListener('click', () => closeConceptCards());
+    }
+
+    function setupLadder() {
+        if (classicStrip) classicStrip.addEventListener('click', () => { sfx.init(); sfx.playMove(); openLadder(); });
+        const close = document.getElementById('ladder-close');
+        if (close) close.addEventListener('click', () => { sfx.playMove(); closeLadder(); });
+        const root = document.getElementById('ladder');
+        if (root) root.addEventListener('click', (e) => { if (e.target === root) closeLadder(); });
     }
 
     // ---------- One guided move (GDD §6.4) ----------
@@ -7067,6 +7241,20 @@
                 config.editorTest = true;
                 config.title = `Editor: ${config.title}`;
                 startNodeLevel(config);
+            },
+            // Classic: fire a board clear or start a Surge on the current run
+            async boardClear() {
+                if (!isDebugMode() || currentScreen !== 'game' || gameMode !== 'classic' || isProcessing) return;
+                isProcessing = true;
+                grid = Array(ROWS).fill(null).map(() => Array(COLS).fill(null));
+                await celebrateBoardClear();
+                isProcessing = false;
+                updateHUD();
+            },
+            async surge() {
+                if (!isDebugMode() || currentScreen !== 'game' || gameMode !== 'classic' || !surgeBag || classicSurge) return;
+                await startSurge(false);
+                updateHUD();
             }
         };
     }

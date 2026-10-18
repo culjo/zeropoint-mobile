@@ -277,7 +277,7 @@
                     </div>
                 </header>
 
-                <!-- Zone 1C: Contextual Objective / Tutorial Strip (hidden in Classic; bounty lives on the pause screen) -->
+                <!-- Zone 1C: Contextual Objective / Tutorial / Classic bounty strip -->
                 <div class="mission-status-strip" id="mission-status-strip">
                     <!-- Tutorial Step Card (Shown in Tutorial Mode) -->
                     <div class="tutorial-card coach-card" id="tutorial-card" style="display: none;" role="status" aria-live="polite">
@@ -294,21 +294,17 @@
                         <span class="adv-obj-progress" id="adv-obj-progress">0/3</span>
                     </div>
 
-                    <!-- In-Run Tactical Bounty Card (Shown in Classic Mode) -->
-                    <div class="bounty-card" id="bounty-card">
-                        <div class="bounty-header">
-                            <span class="bounty-badge">🎯 BOUNTY</span>
-                            <span class="bounty-name" id="bounty-name">Supernova Forge</span>
-                            <span class="bounty-reward" id="bounty-reward">+50 pts • ⚡+1</span>
-                            <span class="bounty-progress-text" id="bounty-progress-text">0 / 1</span>
-                        </div>
-                        <div class="bounty-desc-row" style="display: none;">
-                            <span class="bounty-desc" id="bounty-desc">Detonate a ±4 or higher Cross Laser</span>
-                        </div>
-                        <div class="bounty-progress-track">
-                            <div class="bounty-progress-fill" id="bounty-progress-fill" style="width: 0%;"></div>
-                        </div>
-                    </div>
+                    <!-- Classic: current bounty, or the running Surge with the bounty as a chip. Tap opens the Bounty Ladder -->
+                    <button type="button" class="classic-strip" id="classic-strip" hidden>
+                        <span class="cs-glyph" aria-hidden="true">◎</span>
+                        <span class="cs-text">
+                            <span class="cs-kicker">BOUNTY 1</span>
+                            <span class="cs-desc">Make 3 Zero Blasts</span>
+                        </span>
+                        <span class="cs-chip" hidden></span>
+                        <span class="cs-progress">0/3</span>
+                        <svg class="cs-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+                    </button>
                 </div>
 
                 <!-- Zone 2: Canvas Game Arena with Floating Status Badges -->
@@ -328,6 +324,13 @@
                         <span>⚡ QUANTUM SWAP: Tap 2 adjacent tiles &bull; [Esc] cancel</span>
                     </div>
                     <canvas id="game-canvas"></canvas>
+
+                    <!-- Surge and board-clear callout -->
+                    <div class="run-banner" id="run-banner" role="status" aria-live="polite" hidden>
+                        <span class="rb-kicker"></span>
+                        <span class="rb-title"></span>
+                        <span class="rb-sub"></span>
+                    </div>
 
                     <!-- First-time play: coach card for the scripted steps before node 1-1 -->
                     <div class="fp-coach" id="fp-coach" role="status" aria-live="polite" hidden>
@@ -429,6 +432,21 @@
                 <p class="concept-rule" id="concept-rule"></p>
                 <div class="concept-pips" id="concept-pips" aria-hidden="true"></div>
                 <button type="button" class="concept-go" id="concept-go">Got it</button>
+            </div>
+        </div>
+
+        <!-- Classic Bounty Ladder (GDD §4.1.2) -->
+        <div id="ladder" class="ladder" role="dialog" aria-modal="true" aria-labelledby="ladder-title" hidden>
+            <div class="ladder-card" id="ladder-card">
+                <div class="ladder-top">
+                    <span class="concept-kicker">BOUNTY LADDER</span>
+                    <span class="ladder-count" id="ladder-count"></span>
+                </div>
+                <h2 class="ladder-title" id="ladder-title">Climb for rewards</h2>
+                <p class="ladder-surge" id="ladder-surge" hidden></p>
+                <ol class="ladder-rungs" id="ladder-rungs"></ol>
+                <p class="ladder-note">Every 5th rung gives a super-weapon. The ladder restarts each run.</p>
+                <button type="button" class="concept-go" id="ladder-close">Back to game</button>
             </div>
         </div>
 
@@ -902,6 +920,7 @@
     <!-- Scripts -->
     <script src="audio.js"></script>
     <script src="orbBag.js"></script>
+    <script src="classicRun.js"></script>
     <script src="concepts.js"></script>
     <script src="levelsGenerated.js"></script>
     <script src="levels.js"></script>

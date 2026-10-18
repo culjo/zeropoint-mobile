@@ -154,12 +154,32 @@ If a big orb sits on the board for a while, the tray deals its exact opposite wi
 | **How to Play / First Play** | LIVE, changing | A 6-slide How to Play, plus a coached first run on node 1-1. It's being cut to 3 concepts (§6.2) |
 | **Academy lessons** | LIVE, classic controls only | Interactive lessons, kept as a backup on `index.html` |
 
-### 4.1 Classic [LIVE + PLANNED]
-- **[LIVE]**
-  - A row (about 60% Dark Matter) rises every 5 drops.
-  - Bounties are short side tasks for bonus score, Overdrive charge and Swap tokens.
-  - You lose on breach.
-- **[PLANNED]** Number Tide (§3.1), best orb records (§3.3) and the merge-friendly tray (§3.2).
+### 4.1 Classic [LIVE]
+- A row (about 60% Dark Matter) rises every 5 drops. You lose on breach.
+- **Number Tide** (§3.1) rises every 25 drops, up to Tide 4 (±16 – ±64). A tide rise that lands during a Surge waits until the Surge ends.
+- **Blast tiers follow the tide** (§2.3), so ±64 at Tide 4 hits like ±4 at Tide 0 (a Cross Laser).
+- **Best orb** records (§3.3) and the merge-friendly tray (§3.2) apply.
+
+#### 4.1.1 Board clear
+- Triggers when the board settles with **no tiles at all** (Dark Matter and cores count). Near-clears give nothing.
+- **Fanfare:** white board flash, "BOARD CLEAR" banner, confetti and a rising chord.
+- **Reward:** 1,000 × (tide + 1) score, +1 Swap token and +15% Overdrive.
+- **Refill:** the bottom two rows refill with a mix of tiles at the current tide. The mix comes from a weighted list (numbers and Dark Matter today; new tiles such as stars are added to the list later). No number is placed touching its opposite or its match, so the refill never sets off a free cascade.
+- **Breather:** the rising-row countdown resets to 5.
+
+#### 4.1.2 Bounty Ladder
+- The **bounty strip** under the HUD shows the current bounty: icon, task and progress. Tapping it pauses the game and opens the **Bounty Ladder**.
+- The ladder is **per run**. Finished rungs are ticked, the current rung shows progress and its reward, the next 2 rungs are visible and the rest show "?".
+- Each rung is a little harder and pays a little more. Rewards are a **mix**: score on every rung plus a Swap token or Overdrive charge in turn. **Every 5th rung** is a big one: a free super-weapon in the tray.
+- **No reroll or skip.** A bounty stays until it's done, and there's no fail state.
+- Tasks: Zero Blasts, merges, Cross Lasers, Supernovas, a combo of ×N, Dark Matter hits and building an orb of a set size. Overdrive is never a task (§2.6). Sizes follow the tide.
+
+#### 4.1.3 Surges
+- **Every 20 drops** a Surge starts: one short goal, **6 drops** to do it. Finishing it gives a reward (score plus a Swap token or Overdrive). Missing it costs nothing.
+- Rising rows **don't pause** during a Surge.
+- While a Surge runs it takes over the strip, and the bounty shrinks to a small chip.
+- Surges: **Zero Rush** (3 Zero Blasts), **Chain Reaction** (a ×3 combo), **Build It** (make an orb of 8 × the tide's smallest orb), **Dark Storm** (a Dark Matter row rises now; shatter 3 Dark Matter, each shatter pays double).
+- **Later:** Riser waves and Null Core drops.
 
 ### 4.2 Challenges [OPEN]
 They currently use the old objective types. They need moving to the new goal set, or folding into Adventure. To be decided after the Adventure rebuild.
@@ -386,7 +406,7 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 ## 11. Open questions
 1. Names and themes for Sector 4 onwards, plus the new board element for each sector.
 2. ~~Tier names from 256 up, and the colour for each doubling.~~ Decided 2026-10-17 (§3.3).
-3. Classic tide speed. Should Classic also have Risers or Catch the Stars moments?
+3. Classic tide speed (25 drops, to be tuned). ~~Risers or Catch the Stars moments~~ answered by Surges (§4.1.3).
 4. What happens to Challenges: move them to the new goals, or fold them into Adventure?
 5. Whether Rescue opposites (§3.4) is needed, based on playtests.
 6. Monetisation and meta-progression (cosmetics for orb records?). Not discussed yet.
@@ -430,3 +450,6 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 | 2026-10-18 | Tier orbs (8+) drop the glow ring: border and glow take the tier colour; positives get a tier-tinted body, negatives a dark red body with a tier-colour core and softer glow |
 | 2026-10-18 | Blast tiers follow the tide in every mode (option A); blast score is multiplied by the tide |
 | 2026-10-18 | Re-tune for tide tiers: boss HP 2-12 20→12 and 3-13 30→16; 2-9 6→5 stars; 3-1 collect 10→8; all budgets re-set by the bot |
+| 2026-10-18 | Classic board clear: full clears only, refill bottom two rows from a weighted tile mix, rise countdown resets |
+| 2026-10-18 | Classic Bounty Ladder: per run, no reroll, mixed rewards, big reward every 5th rung |
+| 2026-10-18 | Classic Surges every 20 drops, 6 drops long; rising rows keep going; tide rises wait for the Surge to end |
