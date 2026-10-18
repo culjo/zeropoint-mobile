@@ -1503,3 +1503,39 @@
     .run-banner.rb-in { animation: none; }
     #screen-game .mission-status-strip .classic-strip.surge { animation: none; }
 }
+
+/* Frenzy power-ups (Vortex, Nova, Nuke) in the tray, HOLD and drag ghost:
+   round glowing orb, icon, blast-area badge. Colours are set inline by renderPowerUpSlot() */
+/* The drag ghost is a .next-orb too but must stay position: fixed */
+.next-orb.q-power:not(.drag-ghost) {
+    position: relative;
+}
+.next-orb.q-power,
+.drag-ghost.q-power {
+    border-radius: 50% !important;
+    border-width: 2.5px;
+    border-style: solid;
+}
+.q-power .pu-icon {
+    width: 50%;
+    height: 50%;
+}
+.q-power .pu-area {
+    position: absolute;
+    right: 1px;
+    bottom: 1px;
+    padding: 3px;
+    border-radius: 6px;
+    background: #0b0f1a;
+    border: 1.5px solid var(--pu-rim);
+    display: grid;
+    grid-template-columns: repeat(var(--pu-cols), 4px);
+    gap: 1px;
+}
+.q-power .pu-area i {
+    display: block;
+    width: 4px;
+    height: 4px;
+    border-radius: 1px;
+    background: var(--pu-rim);
+}

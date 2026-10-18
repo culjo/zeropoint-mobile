@@ -574,6 +574,31 @@
         { type: 'special', subType: 'antimatter_nuke', label: '💥 NUKE' }
     ];
 
+    // Frenzy power-ups (Vortex, Nova, Nuke): round glowing orbs with an icon and a badge
+    // showing the blast area. No text label: the name is announced when it detonates.
+    const POWER_UP_LOOK = {
+        blackhole: {
+            rim: '#ffd700', glow: 'rgba(188, 19, 254, 0.75)', ink: '#ffd700',
+            body: [[0, '#020005'], [0.55, '#0a0118'], [1, '#2a0750']],
+            icon: 'vortex', area: 'column'
+        },
+        supernova_core: {
+            rim: '#ffe45c', glow: 'rgba(249, 212, 35, 0.7)', ink: '#fff6c2',
+            body: [[0, '#8a6a0a'], [0.5, '#3a2a05'], [1, '#1a1202']],
+            icon: 'nova', area: 'crater'
+        },
+        antimatter_nuke: {
+            rim: '#ff4e50', glow: 'rgba(255, 60, 80, 0.7)', ink: '#ffd0c8',
+            body: [[0, '#7a1420'], [0.52, '#3a0a12'], [1, '#1c0509']],
+            icon: 'nuke', area: 'square'
+        }
+    };
+    // Icon paths in a 24×24 box (the nuke blade is drawn three times, 120° apart)
+    const POWER_UP_PATHS = {
+        vortex: 'M12.6 12.4a1 1 0 1 1-1.2-1.3 2.6 2.6 0 0 1 3.1 2.3 4 4 0 0 1-4 4.1 5.4 5.4 0 0 1-5.4-5.4A6.8 6.8 0 0 1 12 5.2a8.2 8.2 0 0 1 8.2 8.2',
+        nova: 'M12 2.5c.7 5 2.3 7.3 7.5 9.5-5.2 2.2-6.8 4.5-7.5 9.5-.7-5-2.3-7.3-7.5-9.5 5.2-2.2 6.8-4.5 7.5-9.5z',
+        nukeBlade: 'M14 8.54L16.5 4.21A9 9 0 0 0 7.5 4.21L10 8.54A4 4 0 0 1 14 8.54Z'
+    };
     // Quantum Swap State
     let swapTokens = 1;
     const maxSwapTokens = 3;
@@ -5493,13 +5518,41 @@
         }
     }
 
+    // DOM version of drawPowerUpOrb for the tray, HOLD and the drag ghost
+    function renderPowerUpSlot(element, look) {
+        element.classList.add('q-special', 'q-power');
+        Object.assign(element.style, {
+            borderColor: look.rim,
+            background: `radial-gradient(circle, ${look.body.map(([at, c]) => `${c} ${Math.round(at * 100)}%`).join(', ')})`,
+            boxShadow: `0 0 16px ${look.glow}, inset 0 0 10px rgba(255, 255, 255, 0.12)`
+        });
+        let icon;
+        if (look.icon === 'vortex') {
+            icon = `<path d="${POWER_UP_PATHS.vortex}" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>`;
+        } else if (look.icon === 'nova') {
+            icon = `<path d="${POWER_UP_PATHS.nova}"/><circle cx="19" cy="5" r="1.4"/><circle cx="5" cy="19" r="1.1"/>`;
+        } else {
+            icon = [0, 120, 240].map((a) => `<path d="${POWER_UP_PATHS.nukeBlade}" transform="rotate(${a} 12 12)"/>`).join('') + '<circle cx="12" cy="12" r="2.2"/>';
+        }
+        const { cols, cells } = powerUpAreaCells(look.area);
+        const area = cells.map((o) => `<i style="opacity:${o}"></i>`).join('');
+        element.innerHTML = `<svg class="pu-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="color:${look.ink};filter:drop-shadow(0 0 4px ${look.glow})">${icon}</svg>`
+            + `<span class="pu-area" aria-hidden="true" style="--pu-cols:${cols};--pu-rim:${look.rim}">${area}</span>`;
+    }
+
     function renderQueueSlot(element, orb) {
         element.classList.remove('q-pos', 'q-neg', 'q-special');
+        element.classList.remove('q-power');
         const tier = orb && orb.type !== 'special' ? tierFor(Math.abs(orb.value)) : null;
         const css = tier ? tierCss(tier, orb.value > 0) : { borderColor: '', background: '', boxShadow: '' };
         Object.assign(element.style, css);
         if (!orb) {
             element.innerHTML = '';
+            return;
+        }
+        const power = orb.type === 'special' ? POWER_UP_LOOK[orb.subType] : null;
+        if (power) {
+            renderPowerUpSlot(element, power);
             return;
         }
         // Numbers render like board tiles (white label, signed border); specials keep their accent colour
@@ -7255,6 +7308,11 @@
                 if (!isDebugMode() || currentScreen !== 'game' || gameMode !== 'classic' || !surgeBag || classicSurge) return;
                 await startSurge(false);
                 updateHUD();
+            },
+            // Fire the next Overdrive power-up now (Vortex → Nova → Nuke) to check how it looks
+            frenzy() {
+                if (!isDebugMode() || currentScreen !== 'game') return;
+                activateOverdrive();
             }
         };
     }
@@ -8200,9 +8258,109 @@
         }
     }
 
+    let powerUpPath2D = null;
+
+    function powerUpAreaCells(area) {
+        // 1 = blast cell, 0.7 = outer crater cell (Nova's centre burns brightest)
+        if (area === 'column') return { cols: 1, cells: [1, 1, 1] };
+        return { cols: 3, cells: [0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => (area === 'crater' && i !== 4 ? 0.7 : 1)) };
+    }
+
+    // Canvas power-up orb, centred on the current origin
+    function drawPowerUpOrb(w, h, look, flash, isGhost) {
+        if (!powerUpPath2D) {
+            powerUpPath2D = {
+                vortex: new Path2D(POWER_UP_PATHS.vortex),
+                nova: new Path2D(POWER_UP_PATHS.nova),
+                nukeBlade: new Path2D(POWER_UP_PATHS.nukeBlade)
+            };
+        }
+        const size = Math.min(w, h);
+        const k = size / 58;
+        const radius = size / 2 - 1;
+        if (isGhost) ctx.globalAlpha *= 0.6;
+
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        const body = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
+        look.body.forEach(([at, c]) => body.addColorStop(at, c));
+        ctx.fillStyle = body;
+        ctx.fill();
+        if (flash > 0) {
+            ctx.fillStyle = `rgba(255, 255, 255, ${flash})`;
+            ctx.fill();
+        }
+        ctx.strokeStyle = look.rim;
+        ctx.lineWidth = Math.max(2, 2.5 * k);
+        if (isGhost) ctx.setLineDash([4, 4]);
+        ctx.shadowColor = look.glow;
+        ctx.shadowBlur = 16 * k;
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Icon
+        const iconPx = size * 0.5;
+        ctx.save();
+        ctx.translate(-iconPx / 2, -iconPx / 2);
+        ctx.scale(iconPx / 24, iconPx / 24);
+        ctx.shadowColor = look.glow;
+        ctx.shadowBlur = 4 * k;
+        ctx.fillStyle = look.ink;
+        ctx.strokeStyle = look.ink;
+        if (look.icon === 'vortex') {
+            ctx.lineWidth = 2.4;
+            ctx.lineCap = 'round';
+            ctx.stroke(powerUpPath2D.vortex);
+        } else if (look.icon === 'nova') {
+            ctx.fill(powerUpPath2D.nova);
+            ctx.beginPath(); ctx.arc(19, 5, 1.4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(5, 19, 1.1, 0, Math.PI * 2); ctx.fill();
+        } else {
+            for (let i = 0; i < 3; i++) {
+                ctx.save();
+                ctx.translate(12, 12);
+                ctx.rotate((i * 2 * Math.PI) / 3);
+                ctx.translate(-12, -12);
+                ctx.fill(powerUpPath2D.nukeBlade);
+                ctx.restore();
+            }
+            ctx.beginPath(); ctx.arc(12, 12, 2.2, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+
+        // Blast-area badge, bottom right
+        const { cols, cells } = powerUpAreaCells(look.area);
+        const rows = cells.length / cols;
+        const cell = Math.max(3, 3.6 * k);
+        const pad = 3 * k;
+        const bw = pad * 2 + cols * cell + (cols - 1);
+        const bh = pad * 2 + rows * cell + (rows - 1);
+        const bx = size / 2 - size * 0.02 - bw;
+        const by = size / 2 - size * 0.02 - bh;
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.roundRect(bx, by, bw, bh, 6 * k);
+        ctx.fillStyle = '#0b0f1a';
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = look.rim;
+        ctx.stroke();
+        ctx.fillStyle = look.rim;
+        cells.forEach((o, i) => {
+            ctx.globalAlpha = (isGhost ? 0.6 : 1) * o;
+            ctx.fillRect(bx + pad + (i % cols) * (cell + 1), by + pad + Math.floor(i / cols) * (cell + 1), cell, cell);
+        });
+    }
+
     function drawTileGraphic(x, y, w, h, label, flavor, flash = 0, isGhost = false) {
         ctx.save();
         ctx.translate(x, y);
+
+        if (POWER_UP_LOOK[flavor]) {
+            drawPowerUpOrb(w, h, POWER_UP_LOOK[flavor], flash, isGhost);
+            ctx.restore();
+            return;
+        }
 
         const r = 12; // Corner radius
         ctx.beginPath();
