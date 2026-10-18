@@ -56,7 +56,7 @@ pick an orb from the tray → drag it onto a column → it lands
 - **Merge:** two touching orbs with the same value and sign fuse into double (`+2 +2 → +4`).
 - **Cascade:** after a clear, gravity pulls tiles down and new neighbours are checked again. Each step in the chain raises the combo multiplier.
 
-**Blast tiers:** bigger numbers make bigger blasts.
+**Blast tiers:** bigger numbers make bigger blasts. Tiers **follow the tide** in every mode: the size below is the blast number ÷ the tide's smallest orb, so ±64 at Tide 4 counts as ±4 (a Cross Laser). Blast score is multiplied back up by the tide, so bigger numbers still pay more.
 
 | Size | Tier | Effect |
 |---|---|---|
@@ -390,13 +390,13 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 4. What happens to Challenges: move them to the new goals, or fold them into Adventure?
 5. Whether Rescue opposites (§3.4) is needed, based on playtests.
 6. Monetisation and meta-progression (cosmetics for orb records?). Not discussed yet.
-7. **TODO (during playtesting): reduce blast impact at high tides.** Tiers use the absolute number, so from Tide 2 (Sector 3) every blast is a Cross Laser or bigger, and lasers hit the Null Core for 3. Decided: the impact must come down; how (tiers relative to the tide, higher thresholds, weaker lasers…) is chosen once the playtest bot can measure it.
+7. ~~Reduce blast impact at high tides.~~ Decided 2026-10-18: tiers follow the tide in every mode (§2.3). Sector 2–3 levels were re-tuned with the bot.
 8. **Bot findings to decide (first report, 2026-10-17):**
    - Survive levels are near 100% for the bot with a row every 4 drops. Harder needs faster rows (every 3) or more Risers.
    - Risers-goal levels rarely give ★★: new Risers arrive on a schedule, so drops can't be saved. Consider lower star thresholds for this goal.
    - Collect at Tide 1–2 needs long budgets (29–41 drops), partly because lasers clear target numbers by accident.
    - Big Orb budgets are generous (20–33): the bot plans merges poorly, so people will finish well under budget.
-   - Sector 3 core levels need very few drops (5–11) because every blast is a laser (see #7).
+   - ~~Sector 3 core levels need very few drops (5–11) because every blast is a laser.~~ Fixed by #7: core levels now need 17–21 drops.
 
 ## 12. Decision log
 | Date | Decision |
@@ -428,3 +428,5 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 | 2026-10-17 | Null Core: touching blast = 1 HP; laser through it, crater over it, Hyperspace and super-weapons = 3; can't be swapped; rises with rows |
 | 2026-10-17 | Survive headroom = empty rows above the tallest column, red line excluded |
 | 2026-10-18 | Tier orbs (8+) drop the glow ring: border and glow take the tier colour; positives get a tier-tinted body, negatives a dark red body with a tier-colour core and softer glow |
+| 2026-10-18 | Blast tiers follow the tide in every mode (option A); blast score is multiplied by the tide |
+| 2026-10-18 | Re-tune for tide tiers: boss HP 2-12 20→12 and 3-13 30→16; 2-9 6→5 stars; 3-1 collect 10→8; all budgets re-set by the bot |

@@ -188,7 +188,7 @@ const SLOTS = {
     '2-bonus-2': { template: 'big_orb', title: 'Plasma Rift', goal: bigOrb(16) },
     '2-7': { template: 'zero_out', title: 'Storm Front', goal: zeroOut(24), statics: 2 },
     '2-8': { template: 'survive', title: 'Chromosphere', goal: survive(15), rise: 4 },
-    '2-9': { template: 'stars', title: 'Fusion Conduit', goal: catchStars(6), rise: 5 },
+    '2-9': { template: 'stars', title: 'Fusion Conduit', goal: catchStars(5), rise: 5 },
     '2-10': { template: 'collect', title: 'Aurora Veil', goal: collect(12, 4), favor: 2, risers: { start: 1 } },
     '2-11': { template: 'cores', title: 'Corona Spark', goal: breakCores(8), risers: { start: 1 } },
     // Sector 3 (Tide 2)

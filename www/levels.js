@@ -174,23 +174,23 @@
         '1-10': { title: 'Singularity Breach', goal: nullCore(12), drops: 25, board: B.nullCore, pool: POOL_STD, rise: 5 },
 
         // ===== Sector 2: Ion Nebula =====
-        '2-1': { title: 'Plasma Surge', goal: zeroOut(20), drops: 24, board: B.threeRows, pool: POOL_STD },
+        '2-1': { title: 'Plasma Surge', goal: zeroOut(20), drops: 23, board: B.threeRows, pool: POOL_STD },
         '2-2': {
             title: 'Nebula Drift', goal: clearRisers(2), drops: 10, board: B.risers1, pool: POOL_STD, risers: { every: 6, max: 1 },
             guide: { orb: -1, col: 4, line: 'Drop the opposite onto the Riser.', why: 'Risers climb a row after every drop. Cancel them before the red line.' }
         },
         '2-3': {
-            title: 'Ion Cascade', goal: collect(8, 2), drops: 29, board: B.walls, pool: { ...POOL_STD, favor: 1 },
+            title: 'Ion Cascade', goal: collect(8, 2), drops: 27, board: B.walls, pool: { ...POOL_STD, favor: 1 },
             guide: { orb: -2, col: 2, line: 'Drop −4 on the +4 next to the wall.', why: '0 walls never move or break. Build around them.' }
         },
         '2-4': { title: 'Charged Helix', goal: catchStars(5), drops: 10, board: B.stars5, pool: POOL_STD, risers: { start: 1 } },
         '2-6': { title: 'Magnetar Pulse', goal: clearRisers(4), drops: 22, board: B.risers1, pool: POOL_STD, risers: { every: 6, max: 2 } },
-        '2-12': { title: 'Nebula Heart', goal: nullCore(20), drops: 15, board: B.nullCore, pool: POOL_STD, rise: 4, risers: { every: 8, max: 2 } },
+        '2-12': { title: 'Nebula Heart', goal: nullCore(12), drops: 21, board: B.nullCore, pool: POOL_STD, rise: 4, risers: { every: 8, max: 2 } },
 
         // ===== Sector 3: Event Horizon =====
-        '3-1': { title: 'Graviton Well', goal: collect(10, 4), drops: 37, board: B.threeRows, pool: { ...POOL_STD, favor: 1 }, risers: { start: 1 } },
-        '3-7': { title: 'Relativistic Shear', goal: clearRisers(6), drops: 17, board: B.risers3, pool: POOL_STD, risers: { every: 5, max: 3 } },
-        '3-13': { title: 'The Zero Point Core', goal: nullCore(30), drops: 28, board: B.nullCore, pool: POOL_STD, rise: 5, risers: { every: 6, max: 2 } }
+        '3-1': { title: 'Graviton Well', goal: collect(8, 4), drops: 35, board: B.threeRows, pool: { ...POOL_STD, favor: 1 }, risers: { start: 1 } },
+        '3-7': { title: 'Relativistic Shear', goal: clearRisers(6), drops: 19, board: B.risers3, pool: POOL_STD, risers: { every: 5, max: 3 } },
+        '3-13': { title: 'The Zero Point Core', goal: nullCore(16), drops: 28, board: B.nullCore, pool: POOL_STD, rise: 5, risers: { every: 6, max: 2 } }
     };
 
     return { LEVELS };

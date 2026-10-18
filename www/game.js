@@ -2747,10 +2747,13 @@
 
     // Number magnitudes for Dark Matter shatters and rising rows: follow the level's tide
     // (Adventure) or Classic's tide; small numbers elsewhere
-    function randomBoardMagnitude(maxBase) {
+    function currentTide() {
         const pool = gameMode === 'adventure' && activeAdventureLevel && activeAdventureLevel.rules && activeAdventureLevel.rules.pool;
-        const tide = pool ? (pool.tide || 0) : (gameMode === 'classic' && !isTutorial ? classicTide : 0);
-        return (Math.floor(Math.random() * maxBase) + 1) * OrbBag.tideScale(tide);
+        return pool ? (pool.tide || 0) : (gameMode === 'classic' && !isTutorial ? classicTide : 0);
+    }
+
+    function randomBoardMagnitude(maxBase) {
+        return (Math.floor(Math.random() * maxBase) + 1) * OrbBag.tideScale(currentTide());
     }
 
     // Classic Number Tide: the pool doubles every CLASSIC_TIDE_EVERY drops
@@ -3402,7 +3405,10 @@
         return false;
     }
 
+    // Blast tiers follow the tide: the magnitude is measured in units of the tide's smallest
+    // orb, so a ±64 blast at Tide 4 hits like a ±4 at Tide 0 (GDD §2.3)
     function getTier(magnitude) {
+        magnitude /= OrbBag.tideScale(currentTide());
         if (magnitude <= 1) return 1;
         if (magnitude <= 3) return 2;
         if (magnitude <= 7) return 3;
@@ -3516,7 +3522,8 @@
         }
 
         // Tier-scaled score bonus (Base 10 for Tier 1)
-        const baseScore = 10 * Math.pow(2, tier - 1);
+        // Tiers follow the tide, so score is scaled back up: bigger numbers, bigger points
+        const baseScore = 10 * Math.pow(2, tier - 1) * OrbBag.tideScale(currentTide());
         addScore(baseScore * combo * (chainStep + 1), { x, y });
 
         // Balanced Overdrive charge: Tier 1 (+2%), Tier 2 (+4%), Tier 3 (+7%), Tier 4 (+12%), Tier 5 (+18%)

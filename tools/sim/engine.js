@@ -256,7 +256,7 @@ class Game {
         this.grid[r2][c2] = null;
         this.removed([a, b]);
         const m = Math.abs(a.value);
-        const tier = getTier(m);
+        const tier = getTier(m / this.tideScale); // tiers follow the tide (GDD §2.3)
         if (tier <= 2) {
             [[r, c], [r2, c2]].forEach(([br, bc]) => [[br - 1, bc], [br + 1, bc], [br, bc - 1], [br, bc + 1]].forEach(([nr, nc]) => this.damageDM(nr, nc, 1)));
         } else if (tier === 3) {
