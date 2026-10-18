@@ -3790,8 +3790,11 @@ input:checked + .toggle-slider:before {
     --sheet: rgba(0, 242, 254, 0.3);
     --kicker: var(--cyan);
     position: relative;
+    /* Full width of the screen (minus margins) whatever the content: the screen column centres its children */
+    align-self: stretch;
     margin: 0 12px;
     padding: 16px;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -3820,6 +3823,7 @@ input:checked + .toggle-slider:before {
 }
 
 #screen-adventure-nodes .node-sheet-text {
+    flex: 1;
     display: flex;
     flex-direction: column;
     gap: 4px;
