@@ -1129,7 +1129,7 @@
         // First Adventure node on the main gameplay: run the coached first play before it
         // (new players only; debug mode can force it for testing)
         const hasAdventureProgress = Object.values(career.adventureNodes || {}).some((n) => n && n.cleared);
-        if (MAIN_GAMEPLAY && config.id === '1-1' && !career.firstPlayDone && !firstPlay && fpCoach
+        if (MAIN_GAMEPLAY && config.id === '1-1' && !config.devJump && !career.firstPlayDone && !firstPlay && fpCoach
             && (!hasAdventureProgress || isDebugMode())) {
             startFirstPlay(config);
             return;
@@ -7193,6 +7193,11 @@
 
                 <h3 class="dev-section">Levels</h3>
                 ${devRowHTML('level-editor', 'Level editor', 'Paint a board, play-test it, export to levels.js')}
+                <div class="dev-jump">
+                    <div class="dev-jump-head"><strong>Jump to node</strong><span>Starts it now, locked or not</span></div>
+                    <div class="dev-jump-sectors" id="dev-jump-sectors" role="tablist" aria-label="Sector"></div>
+                    <div class="dev-jump-grid" id="dev-jump-grid"></div>
+                </div>
 
                 <h3 class="dev-section">Progress</h3>
                 ${devRowHTML('unlock-nodes', 'Unlock all Adventure nodes', 'Opens every node and sector, keeps stars')}
@@ -7218,6 +7223,15 @@
             if (e.target === devRoot) { closeDevTools(); return; }
             const seg = e.target.closest('[data-gameplay-mode]');
             if (seg) { switchGameplay(seg.dataset.gameplayMode); return; }
+            const sectorPill = e.target.closest('[data-jump-sector]');
+            if (sectorPill) {
+                devJumpSector = Number(sectorPill.dataset.jumpSector);
+                if (sfx) sfx.playMove();
+                renderDevJump();
+                return;
+            }
+            const nodeChip = e.target.closest('[data-jump-node]');
+            if (nodeChip) { jumpToNode(devJumpSector, nodeChip.dataset.jumpNode); return; }
             const btn = e.target.closest('[data-dev]');
             if (!btn) return;
             const action = btn.dataset.dev;
@@ -7267,6 +7281,49 @@
         ];
         const info = devRoot.querySelector('#dev-info');
         if (info) info.innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+        renderDevJump();
+    }
+
+    // Jump to node: sector tabs + a chip per node (main path, bonus rifts and the boss)
+    let devJumpSector = null;
+
+    function renderDevJump() {
+        if (!devRoot || typeof NodeGenerator === 'undefined') return;
+        const sectors = NodeGenerator.SECTOR_METADATA;
+        if (!devJumpSector || devJumpSector > sectors.length) devJumpSector = career.currentSector || 1;
+        const tabs = devRoot.querySelector('#dev-jump-sectors');
+        if (tabs) tabs.innerHTML = sectors.map((meta, i) => {
+            const num = i + 1;
+            const on = num === devJumpSector;
+            return `<button type="button" role="tab" aria-selected="${on}" class="${on ? 'is-on' : ''}" style="--c:${meta.color}" data-jump-sector="${num}">`
+                + `<strong>${num}</strong><span>${meta.name}</span></button>`;
+        }).join('');
+        const grid = devRoot.querySelector('#dev-jump-grid');
+        if (!grid) return;
+        const unlocked = new Set(career.unlockedNodes || ['1-1']);
+        const layout = NodeGenerator.SECTOR_LAYOUTS[devJumpSector - 1] || [];
+        grid.style.setProperty('--c', sectors[devJumpSector - 1].color);
+        grid.innerHTML = layout.map((n) => {
+            const rec = career.adventureNodes ? career.adventureNodes[n.id] : null;
+            const stars = rec && rec.cleared ? rec.stars || 0 : -1;
+            const open = n.id === '1-1' || unlocked.has(n.id) || stars >= 0;
+            const label = n.type === 'boss' ? 'BOSS' : n.num;
+            const state = stars >= 0 ? `${'★'.repeat(stars)}${'☆'.repeat(Math.max(0, 3 - stars))}` : (open ? 'open' : 'locked');
+            return `<button type="button" class="dev-node dev-node-${n.type}${open ? '' : ' is-locked'}${stars >= 0 ? ' is-cleared' : ''}" data-jump-node="${n.id}" aria-label="Start node ${n.id} (${state})">`
+                + `<strong>${label}</strong><span>${state}</span></button>`;
+        }).join('');
+    }
+
+    function jumpToNode(sectorNum, nodeId) {
+        if (typeof NodeGenerator === 'undefined') return;
+        const config = NodeGenerator.generateNodeConfig(sectorNum, nodeId);
+        if (!config) return;
+        config.devJump = true; // skips the coached first play on 1-1
+        if (sfx) sfx.playMove();
+        triggerHaptic('tick');
+        closeDevTools();
+        if (modalSettings) modalSettings.classList.remove('visible');
+        startNodeLevel(config);
     }
 
     function openDevTools() {
