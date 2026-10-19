@@ -2292,6 +2292,8 @@
         });
         if (btnPauseCodex) btnPauseCodex.addEventListener('click', () => {
             codexPreviousScreen = 'game';
+            // Hide the pause card while Academy is open; it comes back on return
+            if (modalPause) modalPause.classList.remove('visible');
             showScreen('codex');
         });
         if (btnPauseSettings) btnPauseSettings.addEventListener('click', () => {
@@ -2459,8 +2461,16 @@
         }
 
         // Codex Tabs & Buttons
-        if (btnCodexToHome) btnCodexToHome.addEventListener('click', () => showScreen(codexPreviousScreen));
-        if (btnCodexClose) btnCodexClose.addEventListener('click', () => showScreen(codexPreviousScreen));
+        const leaveCodex = () => {
+            showScreen(codexPreviousScreen);
+            // Back into a paused game: show the pause card again
+            if (codexPreviousScreen === 'game' && isPaused && modalPause) {
+                renderPauseScreen();
+                modalPause.classList.add('visible');
+            }
+        };
+        if (btnCodexToHome) btnCodexToHome.addEventListener('click', leaveCodex);
+        if (btnCodexClose) btnCodexClose.addEventListener('click', leaveCodex);
 
         const btnCodexNext = document.getElementById('btn-codex-next');
         if (btnCodexNext) btnCodexNext.addEventListener('click', () => {
