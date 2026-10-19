@@ -6632,12 +6632,16 @@
         return !!(career && career.discoveriesNew && Object.keys(career.discoveriesNew).length);
     }
 
+    // Home Discoveries button: a red badge counts finds not yet viewed
     function updateDiscoveryDots() {
-        const dot = hasUnseenDiscoveries();
-        ['btn-home-tutorial', 'htp-disc'].forEach((id) => {
-            const el = document.getElementById(id);
-            if (el) el.classList.toggle('has-dot', dot);
-        });
+        const n = career && career.discoveriesNew ? Object.keys(career.discoveriesNew).length : 0;
+        const badge = document.getElementById('home-disc-count');
+        if (badge) {
+            badge.textContent = n > 9 ? '9+' : String(n);
+            badge.hidden = n === 0;
+        }
+        const btn = document.getElementById('btn-home-disc');
+        if (btn) btn.setAttribute('aria-label', n ? `Discoveries, ${n} new` : 'Discoveries');
     }
 
     function openDiscoveries() {
@@ -6688,8 +6692,8 @@
     function setupDiscoveries() {
         const close = document.getElementById('disc-close');
         if (close) close.addEventListener('click', () => { document.getElementById('disc').hidden = true; });
-        const fromHtp = document.getElementById('htp-disc');
-        if (fromHtp) fromHtp.addEventListener('click', () => { sfx.init(); openDiscoveries(); });
+        const fromHome = document.getElementById('btn-home-disc');
+        if (fromHome) fromHome.addEventListener('click', () => { sfx.init(); sfx.playMove(); openDiscoveries(); });
         updateDiscoveryDots();
     }
 

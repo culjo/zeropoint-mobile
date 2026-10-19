@@ -1159,32 +1159,31 @@
 }
 .disc-tier.locked .disc-orb { background: #1a1f2e; border-color: #39405a; color: #4a5068; }
 
-/* How to play → Discoveries button, and the unseen-discovery dot */
-.htp-disc {
-    height: 32px;
-    padding: 0 12px;
-    border-radius: 16px;
-    border: 1px solid rgba(249, 212, 35, 0.5);
-    background: rgba(249, 212, 35, 0.1);
-    color: #f9d423;
-    font: inherit;
-    font-size: 12px;
-    font-weight: 900;
-    cursor: pointer;
+/* Home → Discoveries button (top right) and its count of unseen finds */
+#screen-home .home-top-controls .home-disc-btn {
     position: relative;
+    color: var(--gold);
+    border-color: rgba(249, 212, 35, 0.3);
 }
-.has-dot { position: relative; }
-.has-dot::after {
-    content: '';
+.home-disc-count {
     position: absolute;
-    top: 6px;
-    right: -2px;
-    width: 8px;
-    height: 8px;
-    border-radius: 4px;
+    top: -7px;
+    right: -7px;
+    min-width: 20px;
+    height: 20px;
+    box-sizing: border-box;
+    padding: 0 5px;
+    border-radius: 10px;
     background: #ff4e50;
-    box-shadow: 0 0 0 2px #0b0e18;
+    box-shadow: 0 0 0 2px var(--bg-main, #080a11);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 900;
+    line-height: 20px;
+    text-align: center;
+    pointer-events: none;
 }
+.home-disc-count[hidden] { display: none; }
 
 /* Home logo: the app icon, animated. +4 and -4 slide into the gold 0, cancel out
    with a flash and a burst ring, then fade back to their corners (4s loop) */
