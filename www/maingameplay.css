@@ -1539,3 +1539,193 @@
     border-radius: 1px;
     background: var(--pu-rim);
 }
+
+/* ==========================================================
+   Objective strip, ring style (Adventure goals)
+   Pill with a progress ring showing what's left. After the
+   first hit it collapses to just the dial ("4/6" + glyph
+   badge); it expands again when the goal is met. Dev tools
+   can switch back to the bar (.ring-mode off).
+   ========================================================== */
+@property --ring-p {
+    syntax: '<percentage>';
+    inherits: true;
+    initial-value: 0%;
+}
+
+#adventure-objective-card .ring-dial,
+#adventure-objective-card .ring-text { display: none; }
+
+#screen-game .mission-status-strip #adventure-objective-card.obj-strip.ring-mode {
+    --ring-c: #00f2fe;
+    --ring-glow: rgba(0, 242, 254, 0.45);
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    height: 72px;
+    margin: 0 auto;
+    padding: 0 22px 0 4px;
+    gap: 12px;
+    border-radius: 999px;
+    border: 1.5px solid rgba(0, 242, 254, 0.45);
+    background: radial-gradient(circle at 36px 50%, rgba(0, 242, 254, 0.2), rgba(10, 14, 24, 0.95) 70%);
+    box-shadow: none;
+    animation: none;
+    transition: max-width 0.45s cubic-bezier(0.16, 1, 0.3, 1), padding 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+        border-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease, --ring-p 0.5s ease;
+}
+
+#adventure-objective-card.ring-mode > .obj-glyph,
+#adventure-objective-card.ring-mode > .adv-obj-desc,
+#adventure-objective-card.ring-mode > .obj-togo,
+#adventure-objective-card.ring-mode > .adv-obj-progress { display: none !important; }
+
+#adventure-objective-card.ring-mode .ring-dial {
+    display: block;
+    position: relative;
+    width: 64px;
+    height: 64px;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    padding: 6px;
+    border-radius: 50%;
+    background: conic-gradient(var(--ring-c) var(--ring-p), rgba(255, 255, 255, 0.09) 0);
+    box-shadow: 0 0 18px var(--ring-glow);
+}
+
+#adventure-objective-card.ring-mode .ring-inner {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: #0d1220;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#adventure-objective-card.ring-mode .ring-count {
+    display: inline-block;
+    font-family: 'Lato', sans-serif;
+    font-size: 26px;
+    font-weight: 900;
+    line-height: 1;
+    color: #f0f4fc;
+    font-variant-numeric: tabular-nums;
+}
+
+#adventure-objective-card.ring-mode .ring-badge {
+    position: absolute;
+    right: -6px;
+    bottom: -4px;
+    width: 24px;
+    height: 24px;
+    box-sizing: border-box;
+    border-radius: 8px;
+    border: 1.5px solid var(--ring-c);
+    background: #10141f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Lato', sans-serif;
+    font-size: 13px;
+    font-weight: 900;
+    color: var(--ring-c);
+    box-shadow: 0 0 8px var(--ring-glow);
+    opacity: 0;
+    transform: scale(0.4);
+    transition: opacity 0.25s ease, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+#adventure-objective-card.ring-mode .ring-text {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    transition: opacity 0.25s ease;
+}
+
+#adventure-objective-card.ring-mode .ring-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 17px;
+    font-weight: 900;
+    line-height: 1.15;
+    color: #f0f4fc;
+    white-space: nowrap;
+}
+
+#adventure-objective-card.ring-mode .ring-glyph {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    border-radius: 7px;
+    border: 1.5px solid var(--ring-c);
+    background: repeating-linear-gradient(135deg, #1f2537 0 4px, #171c2b 4px 8px);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Lato', sans-serif;
+    font-size: 12px;
+    font-weight: 900;
+    color: var(--ring-c);
+}
+
+#adventure-objective-card.ring-mode .ring-sub {
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1.2px;
+    color: var(--ring-c);
+    white-space: nowrap;
+}
+
+/* Collapsed: just the dial, centred */
+#screen-game .mission-status-strip #adventure-objective-card.obj-strip.ring-mode.collapsed {
+    max-width: 72px;
+    padding: 0 4px;
+    border-color: transparent;
+    background: radial-gradient(circle, rgba(0, 242, 254, 0.18), rgba(11, 15, 26, 0) 70%);
+}
+#adventure-objective-card.ring-mode.collapsed .ring-text { opacity: 0; flex: 0 0 0; }
+#adventure-objective-card.ring-mode.collapsed .ring-count { font-size: 18px; }
+#adventure-objective-card.ring-mode.collapsed .ring-badge { opacity: 1; transform: scale(1); }
+
+/* One to go: gold, the dial pulses */
+#screen-game .mission-status-strip #adventure-objective-card.obj-strip.ring-mode.one-to-go {
+    --ring-c: #f9d423;
+    --ring-glow: rgba(249, 212, 35, 0.5);
+    border-color: rgba(249, 212, 35, 0.7);
+    background: radial-gradient(circle at 36px 50%, rgba(249, 212, 35, 0.22), rgba(10, 14, 24, 0.95) 70%);
+    animation: none;
+}
+#screen-game .mission-status-strip #adventure-objective-card.obj-strip.ring-mode.one-to-go.collapsed {
+    border-color: transparent;
+    background: radial-gradient(circle, rgba(249, 212, 35, 0.22), rgba(11, 15, 26, 0) 70%);
+}
+@keyframes ringDialPulse {
+    0%, 100% { box-shadow: 0 0 12px rgba(249, 212, 35, 0.3); }
+    50% { box-shadow: 0 0 28px rgba(249, 212, 35, 0.65); }
+}
+#adventure-objective-card.ring-mode.one-to-go .ring-dial { animation: ringDialPulse 1.2s ease-in-out infinite; }
+
+/* Done: expands again with a solid DONE dial */
+#screen-game .mission-status-strip #adventure-objective-card.obj-strip.ring-mode.complete {
+    border-color: #00f2fe;
+    background: radial-gradient(circle at 36px 50%, rgba(0, 242, 254, 0.2), rgba(10, 14, 24, 0.95) 70%);
+    box-shadow: 0 0 24px rgba(0, 242, 254, 0.4);
+}
+#adventure-objective-card.ring-mode.complete .ring-inner { background: #00f2fe; }
+#adventure-objective-card.ring-mode.complete .ring-count { font-size: 14px; letter-spacing: 1px; color: #032a30; }
+
+#adventure-objective-card.ring-mode.bump .ring-count { animation: objNumHit 0.45s cubic-bezier(0.16, 1, 0.3, 1); }
+
+@media (prefers-reduced-motion: reduce) {
+    #screen-game .mission-status-strip #adventure-objective-card.obj-strip.ring-mode,
+    #adventure-objective-card.ring-mode .ring-badge,
+    #adventure-objective-card.ring-mode .ring-text { transition: none; }
+    #adventure-objective-card.ring-mode.one-to-go .ring-dial,
+    #adventure-objective-card.ring-mode.bump .ring-count { animation: none; }
+}

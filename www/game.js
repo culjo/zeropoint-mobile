@@ -3776,6 +3776,28 @@
         big_orb: (o) => String(o.size)
     };
 
+    // Ring strip title and unit per goal: "Break 6 ◈" over "6 CORES LEFT"
+    const GOAL_RING = {
+        zero_out: (o) => [`Clear ${o.target}`, 'ORBS'],
+        collect: (o) => [`Pop ${o.target}`, 'ORBS'],
+        break_cores: (o) => [`Break ${o.target}`, 'CORES'],
+        catch_stars: (o) => [`Catch ${o.target}`, 'STARS'],
+        risers: (o) => [`Clear ${o.target}`, 'RISERS'],
+        survive: (o) => [`Survive ${o.target}`, 'DROPS'],
+        null_core: (o) => [`Drain ${o.target}`, 'HP'],
+        big_orb: () => ['Make', '']
+    };
+
+    // Objective strip look for Adventure goals: 'ring' (default) or the older 'bar'. Dev tools switch it
+    const OBJ_STRIP_KEY = 'nullfall_objective_strip';
+    function getObjStripStyle() {
+        try { return localStorage.getItem(OBJ_STRIP_KEY) === 'bar' ? 'bar' : 'ring'; } catch (e) { return 'ring'; }
+    }
+    function setObjStripStyle(style) {
+        try { localStorage.setItem(OBJ_STRIP_KEY, style); } catch (e) { /* storage blocked */ }
+        updateAdventureObjectiveUI();
+    }
+
     // The active level's goal (Adventure nodes) or objective (Challenges)
     function getLevelGoal(lvl) {
         return lvl ? (lvl.goal || lvl.objective || null) : null;
@@ -4176,6 +4198,7 @@
         if (advObjDesc) advObjDesc.textContent = meta ? (goalLevel && meta.strip ? meta.strip(obj) : meta.short(obj)) : activeAdventureLevel.desc;
         if (advObjProgress) advObjProgress.textContent = text;
         if (togoEl) togoEl.hidden = !oneToGo;
+        renderObjectiveRing(obj, cur, tgt, met, oneToGo);
         if (adventureObjectiveCard) {
             adventureObjectiveCard.classList.toggle('one-to-go', oneToGo);
             adventureObjectiveCard.classList.toggle('complete', met);
@@ -4190,12 +4213,41 @@
             && !adventureObjectiveMet && countRemainingDarkMatter() === 1;
     }
 
+    // Ring style: dial with what's left, collapses to "cur/tgt" after the first hit
+    function renderObjectiveRing(obj, cur, tgt, met, oneToGo) {
+        const card = adventureObjectiveCard;
+        const dial = document.getElementById('adv-ring-dial');
+        const ringOn = !!(card && dial && isGoalLevel(activeAdventureLevel) && getObjStripStyle() === 'ring');
+        if (!card) return;
+        card.classList.toggle('ring-mode', ringOn);
+        if (!ringOn) {
+            card.classList.remove('collapsed');
+            card.removeAttribute('aria-label');
+            return;
+        }
+        const left = Math.max(0, tgt - cur);
+        const collapsed = !met && cur > 0;
+        const [title, unit] = (GOAL_RING[obj.type] || (() => [OBJECTIVE_META[obj.type] ? OBJECTIVE_META[obj.type].short(obj) : '', '']))(obj);
+        const glyph = getObjectiveGlyph(obj);
+        card.classList.toggle('collapsed', collapsed);
+        card.style.setProperty('--ring-p', `${met ? 100 : Math.round((cur / Math.max(1, tgt)) * 100)}%`);
+        const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+        set('adv-ring-count', met ? 'DONE' : collapsed ? `${cur}/${tgt}` : String(left));
+        set('adv-ring-badge', glyph);
+        set('adv-ring-title', title);
+        set('adv-ring-glyph', glyph);
+        set('adv-ring-sub', met ? 'OBJECTIVE COMPLETE' : oneToGo ? '1 TO GO' : obj.type === 'big_orb' ? 'BONUS GOAL' : `${left} ${unit} LEFT`);
+        card.setAttribute('aria-label', met ? 'Objective complete' : `${title} ${unit.toLowerCase()}, ${left} left`.replace(' ,', ','));
+    }
+
     // Badge pops where the objective progressed ("◈ 3/4"), then flies into the
     // objective strip, which updates and bumps when it lands. Returns false when
     // it couldn't fly (strip hidden, reduced motion) so the caller updates at once.
     function showObjectiveCallout(obj, pos, onArrive) {
         const host = document.getElementById('canvas-container');
-        const target = advObjProgress && advObjProgress.getBoundingClientRect();
+        const ringOn = adventureObjectiveCard && adventureObjectiveCard.classList.contains('ring-mode');
+        const targetEl = ringOn ? document.getElementById('adv-ring-dial') : advObjProgress;
+        const target = targetEl && targetEl.getBoundingClientRect();
         const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         if (!host || !target || !target.width || reduce || typeof document.body.animate !== 'function') return false;
 
@@ -6487,7 +6539,8 @@
             // The core is sized to the orb's sides (not its corners) so the dark red rim
             // closes evenly all the way round, just inside the border
             const negBg = '#2a0e15';
-            const reach = Math.min(w, h) / 2;
+            // Clamped: tiles can be drawn at a negative size mid-animation
+            const reach = Math.max(0, Math.min(w, h) / 2);
             ctx.fillStyle = negBg;
             ctx.fill();
             if (rainbow) {
@@ -7213,6 +7266,13 @@
                 </div>
                 <p class="dev-note">Your pick also opens on launch while debug mode is on.</p>
 
+                <h3 class="dev-section">Objective strip</h3>
+                <div class="dev-seg" role="radiogroup" aria-label="Objective strip">
+                    <button type="button" role="radio" data-obj-strip="ring"><strong>Ring</strong><span>Dial, collapses</span></button>
+                    <button type="button" role="radio" data-obj-strip="bar"><strong>Bar</strong><span>Previous strip</span></button>
+                </div>
+                <p class="dev-note">Adventure goals only. Challenges keep the bar.</p>
+
                 <h3 class="dev-section">Levels</h3>
                 ${devRowHTML('level-editor', 'Level editor', 'Paint a board, play-test it, export to levels.js')}
                 <div class="dev-jump">
@@ -7245,6 +7305,13 @@
             if (e.target === devRoot) { closeDevTools(); return; }
             const seg = e.target.closest('[data-gameplay-mode]');
             if (seg) { switchGameplay(seg.dataset.gameplayMode); return; }
+            const stripSeg = e.target.closest('[data-obj-strip]');
+            if (stripSeg) {
+                if (sfx) sfx.playMove();
+                setObjStripStyle(stripSeg.dataset.objStrip);
+                renderDevTools();
+                return;
+            }
             const sectorPill = e.target.closest('[data-jump-sector]');
             if (sectorPill) {
                 devJumpSector = Number(sectorPill.dataset.jumpSector);
@@ -7288,6 +7355,12 @@
         const current = MAIN_GAMEPLAY ? 'main' : 'classic';
         devRoot.querySelectorAll('[data-gameplay-mode]').forEach((b) => {
             const on = b.dataset.gameplayMode === current;
+            b.classList.toggle('is-on', on);
+            b.setAttribute('aria-checked', on ? 'true' : 'false');
+        });
+        const stripStyle = getObjStripStyle();
+        devRoot.querySelectorAll('[data-obj-strip]').forEach((b) => {
+            const on = b.dataset.objStrip === stripStyle;
             b.classList.toggle('is-on', on);
             b.setAttribute('aria-checked', on ? 'true' : 'false');
         });
@@ -7393,6 +7466,11 @@
             frenzy() {
                 if (!isDebugMode() || currentScreen !== 'game') return;
                 activateOverdrive();
+            },
+            // Advance the Adventure goal by n to check the objective strip states
+            goal(n = 1) {
+                if (!isDebugMode() || currentScreen !== 'game') return;
+                checkAdventureObjective('goal', n, false);
             }
         };
     }
