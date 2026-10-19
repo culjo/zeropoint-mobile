@@ -223,6 +223,7 @@
     const settingSfxToggle = document.getElementById('setting-sfx-toggle');
     const settingBgmToggle = document.getElementById('setting-bgm-toggle');
     const settingVibrationToggle = document.getElementById('setting-vibration-toggle');
+    const settingFullscreenToggle = document.getElementById('setting-fullscreen-toggle');
     const settingShakePills = document.querySelectorAll('#setting-shake-pills .qs-pill');
     const btnResetData = document.getElementById('btn-reset-data');
 
@@ -398,6 +399,7 @@
                 bgm: false, // ambient music off by default until the new soundtrack lands
                 bgmOffMigrated: true,
                 vibration: true,
+                fullscreen: true,
                 shake: 'high'
             }
         };
@@ -511,6 +513,7 @@
         if (settingSfxToggle && career.settings) settingSfxToggle.checked = !!career.settings.sfx;
         if (settingBgmToggle && career.settings) settingBgmToggle.checked = !!career.settings.bgm;
         if (settingVibrationToggle && career.settings) settingVibrationToggle.checked = career.settings.vibration !== false;
+        if (settingFullscreenToggle && career.settings) settingFullscreenToggle.checked = career.settings.fullscreen !== false;
         syncShakePills();
     }
 
@@ -2165,6 +2168,40 @@
 
     function syncShakePills() {
         const level = (career.settings && career.settings.shake) || 'high';
+        if (settingFullscreenToggle) {
+            const nativeBars = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()
+                && window.Capacitor.Plugins && window.Capacitor.Plugins.SystemBars;
+            const docEl = document.documentElement;
+            if (!nativeBars && !(docEl.requestFullscreen || docEl.webkitRequestFullscreen)) {
+                settingFullscreenToggle.closest('.qs-row').hidden = true;
+            }
+            const applyFullscreen = () => {
+                const on = career.settings.fullscreen !== false;
+                if (nativeBars) {
+                    (on ? nativeBars.hide() : nativeBars.show()).catch(() => {});
+                } else if (on && !(document.fullscreenElement || document.webkitFullscreenElement)) {
+                    const req = docEl.requestFullscreen || docEl.webkitRequestFullscreen;
+                    if (req) Promise.resolve(req.call(docEl)).then(() => {
+                        if (screen.orientation && screen.orientation.lock) screen.orientation.lock('portrait').catch(() => {});
+                    }).catch(() => {});
+                } else if (!on && (document.fullscreenElement || document.webkitFullscreenElement)) {
+                    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+                    if (exit) Promise.resolve(exit.call(document)).catch(() => {});
+                }
+                setTimeout(resizeCanvas, 150);
+            };
+            settingFullscreenToggle.addEventListener('change', (e) => {
+                career.settings.fullscreen = e.target.checked;
+                saveCareerData();
+                applyFullscreen();
+            });
+            // Native: re-apply on launch and when returning to the app (Android can restore bars)
+            if (nativeBars) {
+                applyFullscreen();
+                document.addEventListener('visibilitychange', () => { if (!document.hidden) applyFullscreen(); });
+            }
+        }
+
         settingShakePills.forEach((pill) => {
             const on = pill.dataset.shake === level;
             pill.classList.toggle('on', on);

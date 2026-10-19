@@ -13,6 +13,11 @@
     },
     "ScreenOrientation": {
       "orientation": "portrait"
+    },
+    "SystemBars": {
+      "insetsHandling": "css",
+      "style": "DARK",
+      "hidden": true
     }
   }
 }
