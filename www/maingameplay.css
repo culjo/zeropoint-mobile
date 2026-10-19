@@ -802,6 +802,19 @@
     box-shadow: inset 0 0 0 2px #ff6b8a, 0 0 22px rgba(255, 42, 95, 0.5);
 }
 
+/* First play spotlight: dark scrim with cut-outs (built by game.js), under the hand */
+.fp-scrim {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 940;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.fp-scrim[hidden] { display: none; }
+.fp-scrim.show { opacity: 1; }
+
 /* Ghost hand: positioned and animated by game.js (Web Animations) */
 .fp-hand {
     position: fixed;
@@ -819,7 +832,7 @@
     position: absolute;
     left: -22px;
     top: -2px;
-    filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.6));
+    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.55)) drop-shadow(0 6px 10px rgba(0, 0, 0, 0.6));
 }
 
 .fp-hand-orb {
@@ -834,7 +847,7 @@
     justify-content: center;
     border: 2px solid var(--cyan);
     background: #0f2433;
-    opacity: 0.9;
+    opacity: 1;
 }
 
 .fp-hand-orb.q-neg { border-color: var(--orange); background: #33141d; }

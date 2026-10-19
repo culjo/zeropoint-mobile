@@ -6933,6 +6933,7 @@
             fpHandOrb.hidden = true;
         }
         fpHand.hidden = false;
+        if (f === firstPlay) fpShowScrim(f);
         const at = (p) => `translate(${p.x}px, ${p.y}px)`;
         if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
             fpHand.style.transform = at(start);
@@ -6954,6 +6955,79 @@
             f.anim = null;
         }
         if (fpHand) fpHand.hidden = true;
+        fpHideScrim();
+    }
+
+    // Spotlight scrim: darkens the whole screen except the coach card, the orb to move and
+    // its target, so the hand and the guide stand out. Taps pass through it.
+    let fpScrim = null;
+
+    function fpScrimHoles(f) {
+        const pad = 6;
+        const box = (b, p = pad) => b && b.width > 0 ? { x: b.left - p, y: b.top - p, w: b.width + p * 2, h: b.height + p * 2 } : null;
+        const elBox = (el, p) => el ? box(el.getBoundingClientRect(), p) : null;
+        const cr = canvas.getBoundingClientRect();
+        // Bounding box of board cells, in screen px
+        const cellsBox = (cells) => {
+            if (!cells.length) return null;
+            const xs = cells.map(([, c]) => c);
+            const ys = cells.map(([r]) => r);
+            const minC = Math.min(...xs), maxC = Math.max(...xs), minR = Math.min(...ys), maxR = Math.max(...ys);
+            return box({ left: cr.left + boardOffsetX + minC * cellW, top: cr.top + boardOffsetY + minR * cellH,
+                width: (maxC - minC + 1) * cellW, height: (maxR - minR + 1) * cellH }, 2);
+        };
+        const keep = [...(f.keep || [])].map((k) => k.split('-').map(Number));
+        const slotBtn = dragTraySlots[f.slot] && dragTraySlots[f.slot].closest('button');
+        const holes = [{ ...elBox(fpCoach, 0), plain: true }];
+        if (f.kind === 'place') {
+            holes.push(elBox(slotBtn));
+            holes.push({ ...cellsBox([[fpLandingRow(f.col), f.col], ...keep.filter(([, c]) => c === f.col)]), target: true });
+        } else if (f.kind === 'hold') {
+            holes.push(elBox(slotBtn));
+            holes.push({ ...elBox(btnTouchHold), target: true });
+        } else if (f.kind === 'swap') {
+            holes.push({ ...cellsBox([[f.from.r, f.from.c], [f.to.r, f.to.c]]), target: true });
+        }
+        return holes.filter((h) => h && h.w > 0);
+    }
+
+    function fpShowScrim(f) {
+        if (!fpScrim) {
+            fpScrim = document.createElement('canvas');
+            fpScrim.className = 'fp-scrim';
+            fpScrim.setAttribute('aria-hidden', 'true');
+            document.body.appendChild(fpScrim);
+        }
+        const holes = fpScrimHoles(f);
+        const W = window.innerWidth;
+        const H = window.innerHeight;
+        const dpr = window.devicePixelRatio || 1;
+        fpScrim.width = Math.round(W * dpr);
+        fpScrim.height = Math.round(H * dpr);
+        fpScrim.style.width = `${W}px`;
+        fpScrim.style.height = `${H}px`;
+        const g = fpScrim.getContext('2d');
+        g.setTransform(dpr, 0, 0, dpr, 0, 0);
+        g.clearRect(0, 0, W, H);
+        g.fillStyle = 'rgba(2, 3, 8, 0.8)';
+        g.fillRect(0, 0, W, H);
+        // Cut the holes out of the shade
+        g.globalCompositeOperation = 'destination-out';
+        holes.forEach((h) => { g.beginPath(); g.roundRect(h.x, h.y, h.w, h.h, 16); g.fill(); });
+        g.globalCompositeOperation = 'source-over';
+        // Dashed ring around the target
+        g.strokeStyle = 'rgba(255, 255, 255, 0.75)';
+        g.lineWidth = 2;
+        g.setLineDash([6, 5]);
+        holes.filter((h) => h.target).forEach((h) => { g.beginPath(); g.roundRect(h.x, h.y, h.w, h.h, 16); g.stroke(); });
+        fpScrim.hidden = false;
+        requestAnimationFrame(() => fpScrim && fpScrim.classList.add('show'));
+    }
+
+    function fpHideScrim() {
+        if (!fpScrim) return;
+        fpScrim.classList.remove('show');
+        fpScrim.hidden = true;
     }
 
     function fpAllowsDrag(source, slot) {
