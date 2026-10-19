@@ -491,11 +491,19 @@ class Game {
         }
         const state = { step: 0 };
         this.settle(state);
-        this.turnEffects(state);
+        // Board clear (GDD §5.6): +2 drops (not Survive), +15% Overdrive, rise countdown resets to 5
+        const cleared = this.grid.every((row) => row.every((t) => !t));
+        if (cleared) {
+            if (this.goal.type !== 'survive') this.maxDrops += 2;
+            this.charge(15);
+            if (this.rules.fluxRate > 0) this.movesUntilRise = 5;
+            this.boardClears = (this.boardClears || 0) + 1;
+        }
+        this.turnEffects(state, { skipRiseTick: cleared });
         this.checkEnd();
     }
 
-    turnEffects(state) {
+    turnEffects(state, opts = {}) {
         if (this.countRisers() > 0 && this.climbRisers()) {
             this.settle(state);
             for (let c = 0; c < COLS; c++) if (this.grid[0][c] && this.grid[0][c].riser) return;
@@ -509,7 +517,7 @@ class Game {
                 if (this.countRisers() < (rr.max || 1) && this.spawnRiser()) this.settle(state);
             }
         }
-        if (this.rules.fluxRate > 0) {
+        if (this.rules.fluxRate > 0 && !opts.skipRiseTick) {
             this.movesUntilRise--;
             if (this.movesUntilRise <= 0) {
                 this.movesUntilRise = this.rules.fluxRate;

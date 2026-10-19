@@ -276,6 +276,17 @@ That's about 35% handcrafted overall.
 
 ---
 
+### 5.6 Board clear in Adventure [LIVE]
+- **Trigger:** the same as Classic (§4.1.1). The board settles with **no tiles at all**; Dark Matter, cores, walls and the Null Core count as tiles. Near-clears give nothing. Not in first play or the tutorial.
+- **Fanfare:** the same flash, "BOARD CLEAR" banner, confetti and sound as Classic. Banner subtitle: "+2 Drops · +15% Overdrive". No score.
+- **Reward:** **+2 drops left**, which feeds the drops-left stars (§7), plus **+15% Overdrive**. No Swap token.
+  - Survive levels get no extra drops (their stars come from headroom, and the counter is the drops to survive), only the Overdrive charge.
+  - Before Overdrive unlocks (1-5) the clear gives the drops only, and the banner says just "+2 Drops".
+- **No refill.** Handcrafted and generated levels never get random tiles; the tray keeps feeding orbs.
+- **Rising rows:** in levels that have them, the rise countdown resets to 5 instead of ticking down that turn.
+- **Goals:** a board clear never wins a level by itself, and goal counters behave exactly as before.
+- **Bot:** the rules engine (`tools/sim/engine.js`) applies the same bonus, so bot runs and drop budgets account for it.
+
 ## 6. Onboarding and discovery [LIVE]
 
 New concepts unlock gradually as the player moves through the early levels. Each one is introduced once, at a fixed level, and players who aren't using a tool get gentle hints.
@@ -453,3 +464,4 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 | 2026-10-18 | Classic board clear: full clears only, refill bottom two rows from a weighted tile mix, rise countdown resets |
 | 2026-10-18 | Classic Bounty Ladder: per run, no reroll, mixed rewards, big reward every 5th rung |
 | 2026-10-18 | Classic Surges every 20 drops, 6 drops long; rising rows keep going; tide rises wait for the Surge to end |
+| 2026-10-19 | Adventure board clear: same trigger and fanfare as Classic, +2 drops left and +15% Overdrive, no score, no Swap, no refill; rise countdown resets to 5; never wins a level by itself (§5.6) |

@@ -3200,7 +3200,10 @@
                         await startSurge(rose);
                     }
                 } else if (gameMode === 'adventure' && activeAdventureLevel) {
-                    await runAdventureTurnEffects(state);
+                    // Board clear on an Adventure node (not Challenges): the rise countdown resets instead of ticking
+                    const cleared = !!activeAdventureLevel.sectorNum && isBoardEmpty();
+                    if (cleared) await celebrateBoardClear();
+                    await runAdventureTurnEffects(state, { skipRiseTick: cleared });
                 }
             }
 
@@ -3983,7 +3986,7 @@
 
     // Turn effects for Adventure nodes, after the board settles (not on swaps):
     // Risers climb, new Risers spawn, rows rise, Survive counts the drop
-    async function runAdventureTurnEffects(state) {
+    async function runAdventureTurnEffects(state, opts = {}) {
         const lvl = activeAdventureLevel;
         const rules = lvl.rules || {};
         if (countRisers() > 0 && climbRisers()) {
@@ -4004,7 +4007,7 @@
                 }
             }
         }
-        if (rules.fluxRate > 0) {
+        if (rules.fluxRate > 0 && !opts.skipRiseTick) {
             movesUntilRise--;
             if (movesUntilRise <= 0) {
                 movesUntilRise = rules.fluxRate;
@@ -5070,7 +5073,7 @@
         }
     }
 
-    // ---------- Classic: board clear (GDD §4.1.1) ----------
+    // ---------- Board clear: Classic (GDD §4.1.1) and Adventure (GDD §5.6) ----------
     function isBoardEmpty() {
         for (let r = 0; r < ROWS; r++) {
             for (let c = 0; c < COLS; c++) if (grid[r][c]) return false;
@@ -5092,6 +5095,25 @@
             createSparks(boardOffsetX + Math.random() * COLS * cellW, boardOffsetY + Math.random() * ROWS * cellH, colors[i % colors.length], 14);
         }
         shockwaves.push({ x: cx, y: cy, radius: 10, maxRadius: COLS * cellW, alpha: 1, color: '#ffffff' });
+
+        // Adventure: +2 drops left and +15% Overdrive; no score, no Swap, no refill (levels stay fixed data)
+        if (gameMode === 'adventure') {
+            const survive = activeAdventureLevel && activeAdventureLevel.goal && activeAdventureLevel.goal.type === 'survive';
+            const od = conceptActive('power_ups');
+            const parts = [];
+            if (!survive) {
+                maxDrops += 2; // drops left feed the stars; Survive counts drops to survive instead
+                parts.push('+2 Drops');
+            }
+            if (od) parts.push('+15% Overdrive');
+            showRunBanner('PERFECT', 'BOARD CLEAR', parts.join(' · '), 'clear');
+            if (od) addOverdriveCharge(15);
+            if (activeAdventureLevel && activeAdventureLevel.rules && activeAdventureLevel.rules.fluxRate > 0) movesUntilRise = 5;
+            updateHUD();
+            await delay(1100);
+            return;
+        }
+
         const bonus = 1000 * (classicTide + 1);
         showRunBanner('PERFECT', 'BOARD CLEAR', `+${bonus.toLocaleString()} · +1 Swap · +15% Overdrive`, 'clear');
         addScore(bonus, { x: cx, y: cy });
@@ -7352,9 +7374,10 @@
                 config.title = `Editor: ${config.title}`;
                 startNodeLevel(config);
             },
-            // Classic: fire a board clear or start a Surge on the current run
+            // Fire a board clear on the current Classic run or Adventure node, or start a Surge (Classic)
             async boardClear() {
-                if (!isDebugMode() || currentScreen !== 'game' || gameMode !== 'classic' || isProcessing) return;
+                const adventureNode = gameMode === 'adventure' && activeAdventureLevel && activeAdventureLevel.sectorNum;
+                if (!isDebugMode() || currentScreen !== 'game' || !(gameMode === 'classic' || adventureNode) || isProcessing || firstPlay || isTutorial) return;
                 isProcessing = true;
                 grid = Array(ROWS).fill(null).map(() => Array(COLS).fill(null));
                 await celebrateBoardClear();
