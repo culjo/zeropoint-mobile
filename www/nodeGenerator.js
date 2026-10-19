@@ -135,13 +135,13 @@
     function describeGoal(goal) {
         if (!goal) return 'Complete the goal';
         if (goal.type === 'zero_out') return `Clear ${goal.target} orbs`;
-        if (goal.type === 'collect') return `Pop ${goal.target} orbs showing ${goal.number}`;
+        if (goal.type === 'collect') return `Clear ${goal.target} orbs showing ${goal.number}`;
         if (goal.type === 'break_cores') return `Break ${goal.target} Dark Matter cores`;
         if (goal.type === 'catch_stars') return `Catch ${goal.target} stars`;
         if (goal.type === 'risers') return `Clear ${goal.target} Risers`;
-        if (goal.type === 'survive') return `Survive ${goal.target} drops`;
-        if (goal.type === 'null_core') return `Drain the Null Core (${goal.target} HP)`;
-        if (goal.type === 'big_orb') return `Merge an orb up to ${goal.size}`;
+        if (goal.type === 'survive') return `Survive ${goal.target} moves`;
+        if (goal.type === 'null_core') return `Break the big core (${goal.target} HP)`;
+        if (goal.type === 'big_orb') return `Merge up to ${goal.size}`;
         return 'Complete the goal';
     }
 
@@ -189,9 +189,9 @@
 
         const modifiers = [];
         const fluxRate = data.rise || 0;
-        if (fluxRate) modifiers.push({ icon: '⏳', label: `Rising rows (every ${fluxRate} drops)` });
+        if (fluxRate) modifiers.push({ icon: '⏳', label: `Rising rows (every ${fluxRate} moves)` });
         const risers = data.risers || null; // { start, every, max }
-        if (risers && risers.every) modifiers.push({ icon: '▲', label: `New Riser every ${risers.every} drops` });
+        if (risers && risers.every) modifiers.push({ icon: '▲', label: `New Riser every ${risers.every} moves` });
         else if (risers && risers.start) modifiers.push({ icon: '▲', label: `${risers.start} Riser${risers.start > 1 ? 's' : ''}` });
 
         // Number Tide (GDD §3.1): each sector starts one tide higher. Pool values, favor and

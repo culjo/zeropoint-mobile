@@ -1047,7 +1047,7 @@
 
         if (nodeSheetChips) {
             const chips = [];
-            if (config.maxDrops) chips.push(`<span class="node-chip">↓ ${config.maxDrops} drops</span>`);
+            if (config.maxDrops) chips.push(`<span class="node-chip">↓ ${config.maxDrops} moves</span>`);
             (config.rules?.modifiers || []).forEach(m => chips.push(`<span class="node-chip">${m.icon} ${m.label}</span>`));
             if (config.stars) chips.push(config.stars.kind === 'headroom'
                 ? `<span class="node-chip">★★ ${config.stars.two} free rows · ★★★ ${config.stars.three}</span>`
@@ -1119,7 +1119,7 @@
 
         // Records
         if (nodeBestScore) nodeBestScore.textContent = nodeData && nodeData.bestScore ? `${nodeData.bestScore.toLocaleString()} pts` : '-';
-        if (nodeBestDrops) nodeBestDrops.textContent = nodeData && nodeData.bestDrops ? `${nodeData.bestDrops} drops` : '-';
+        if (nodeBestDrops) nodeBestDrops.textContent = nodeData && nodeData.bestDrops ? `${nodeData.bestDrops} moves` : '-';
 
         modalNodePreview.classList.add('visible');
     }
@@ -1159,7 +1159,7 @@
         const nodeRecord = career.adventureNodes ? career.adventureNodes[config.id] : null;
         const nodeBest = nodeRecord && nodeRecord.bestScore ? nodeRecord.bestScore : 0;
         if (bestVal) bestVal.textContent = nodeBest.toLocaleString();
-        if (turnCounterLabel) turnCounterLabel.textContent = config.rules?.fluxRate ? 'Dark Matter Rises In' : 'Drops Left';
+        if (turnCounterLabel) turnCounterLabel.textContent = config.rules?.fluxRate ? 'Dark Matter Rises In' : 'Moves Left';
 
         showScreen('game');
         startNewGame();
@@ -1314,7 +1314,7 @@
         if (chalSheetChips) {
             chalSheetChips.innerHTML = isTrain
                 ? '<span class="chal-chip">4 guided steps</span>'
-                : `<span class="chal-chip">↓ ${lvl.maxDrops} drops</span><span class="chal-chip">★ within ${lvl.targetDropsForStar} drops</span><span class="chal-chip">★ ${lvl.targetScoreForStar}+ pts</span>`;
+                : `<span class="chal-chip">↓ ${lvl.maxDrops} moves</span><span class="chal-chip">★ within ${lvl.targetDropsForStar} moves</span><span class="chal-chip">★ ${lvl.targetScoreForStar}+ pts</span>`;
         }
         if (btnChalLaunch) btnChalLaunch.hidden = !st.unlocked;
         if (chalSheetCta) chalSheetCta.textContent = st.stars > 0 ? 'REPLAY' : 'LAUNCH';
@@ -1386,7 +1386,7 @@
         if (bestLabel) bestLabel.textContent = 'Sector Best';
         const lvlBest = career.levelHighScores[lvl.id] || 0;
         if (bestVal) bestVal.textContent = lvlBest.toLocaleString();
-        if (turnCounterLabel) turnCounterLabel.textContent = 'Drops Left';
+        if (turnCounterLabel) turnCounterLabel.textContent = 'Moves Left';
 
         showScreen('game');
         startNewGame();
@@ -1438,12 +1438,12 @@
             kicker: 'LESSON 3 · CHAIN', color: '#00f2fe',
             board: { '7,2': -2, '7,3': 1, '6,3': 2 }, orbs: [-1],
             phases: [{
-                line: 'One drop, two blasts. Find the drop that sets off a chain.',
+                line: 'One move, two blasts. Find the move that sets off a chain.',
                 chips: [['2x', 'gold'], '→', ['3x', 'gold'], '→', ['4x', 'gold'], '· chains multiply your score'],
                 hint: { col: 4 },
                 check: (t) => t.chain >= 2 ? 'pass' : (t.dropped ? 'fail' : null),
                 fail: (t) => t.blasts === 1
-                    ? { title: 'Only one blast', body: 'Close! Find the drop where a falling tile lands next to its opposite.' }
+                    ? { title: 'Only one blast', body: 'Close! Find the move where a falling tile lands next to its opposite.' }
                     : { title: 'No blast', body: 'Drop <b class="c-neg">−1</b> beside the <b class="c-pos">+1</b>, then watch the <b class="c-pos">+2</b> fall onto the <b class="c-neg">−2</b>.' }
             }]
         },
@@ -1452,7 +1452,7 @@
             board: { '1,4': 3, '2,4': 1, '3,4': 3, '4,4': 1, '5,4': 3, '6,4': 1, '7,4': 3 }, orbs: [-3],
             rise: true,
             phases: [{
-                line: 'Dark Matter pushes the board up after this drop. Clear the tall stack before it crosses the red line.',
+                line: 'Dark Matter pushes the board up after this move. Clear the tall stack before it crosses the red line.',
                 chips: [],
                 hint: { col: 4 },
                 check: (t) => t.breach ? 'fail' : (t.dropped ? (t.blasts > 0 ? 'pass' : 'fail') : null),
@@ -2049,7 +2049,7 @@
             const scoreOk = score >= lvl.targetScoreForStar;
             const goals = [
                 { glyph: '★', label: 'Complete the objective', detail: met ? 'Done' : value, state: met ? 'done' : 'progress' },
-                { glyph: '★', label: `Finish within ${lvl.targetDropsForStar} drops`, detail: dropsOk ? `${dropsUsed} used · on track` : `${dropsUsed} used · missed`, state: dropsOk ? 'track' : 'todo' },
+                { glyph: '★', label: `Finish within ${lvl.targetDropsForStar} moves`, detail: dropsOk ? `${dropsUsed} used · on track` : `${dropsUsed} used · missed`, state: dropsOk ? 'track' : 'todo' },
                 { glyph: '★', label: `Score ${lvl.targetScoreForStar.toLocaleString()}+ points`, detail: scoreOk ? `${score.toLocaleString()} ✓` : `${score.toLocaleString()} / ${lvl.targetScoreForStar.toLocaleString()}`, state: scoreOk ? 'done' : 'progress' }
             ];
             let accent = '#c471ed';
@@ -2073,15 +2073,15 @@
         const isNewBest = score > best && best > 0;
         const goals = [];
         if (classicSurge) {
-            goals.push({ glyph: classicSurge.glyph, label: `Surge: ${ClassicRun.describe(classicSurge, tideUnit())}`, detail: `${goalCount(classicSurge, classicSurge.progress)} · ${classicSurge.dropsLeft} drop${classicSurge.dropsLeft === 1 ? '' : 's'} left`, state: 'progress' });
+            goals.push({ glyph: classicSurge.glyph, label: `Surge: ${ClassicRun.describe(classicSurge, tideUnit())}`, detail: `${goalCount(classicSurge, classicSurge.progress)} · ${classicSurge.dropsLeft} move${classicSurge.dropsLeft === 1 ? '' : 's'} left`, state: 'progress' });
         }
         if (bountyLadder) {
             const rung = ClassicRun.currentRung(bountyLadder);
             goals.push({ glyph: rung.glyph, label: `Bounty ${rung.index + 1}: ${ClassicRun.describe(rung, tideUnit())}`, detail: `${goalCount(rung, bountyLadder.progress)} · ${ClassicRun.describeReward(rung.reward)}`, state: 'progress' });
         }
         const swapIn = Math.max(1, 8 - dropsSinceSwapCharge);
-        goals.push({ glyph: '⇄', label: 'Next swap token', detail: `in ${swapIn} drop${swapIn === 1 ? '' : 's'}`, state: 'track' });
-        goals.push({ glyph: '↑', label: 'Dark matter rises', detail: `in ${movesUntilRise} drop${movesUntilRise === 1 ? '' : 's'}`, state: movesUntilRise <= 1 ? 'todo' : 'progress' });
+        goals.push({ glyph: '⇄', label: 'Next swap token', detail: `in ${swapIn} move${swapIn === 1 ? '' : 's'}`, state: 'track' });
+        goals.push({ glyph: '↑', label: 'Dark matter rises', detail: `in ${movesUntilRise} move${movesUntilRise === 1 ? '' : 's'}`, state: movesUntilRise <= 1 ? 'todo' : 'progress' });
         return {
             accent: '#00f2fe', chip: 'CLASSIC SURVIVAL', title: `Score ${score.toLocaleString()}`,
             ringLabel: best > 0 ? `BEST ${best.toLocaleString()}` : 'FIRST RUN',
@@ -3766,20 +3766,20 @@
 
     // Short label, intro hint and on-board callout text per objective type
     const OBJECTIVE_META = {
-        annihilations: { short: (o) => `Trigger ${o.target} Zero Blasts`, hint: 'Touch opposites like [pos:+3] [neg:−3] to cancel them', event: 'ZERO BLAST' },
-        synthesis_tier: { short: (o) => `Build a +${o.target} orb`, hint: 'Merge matching numbers like [pos:+2] [pos:+2] to double them', event: 'MERGED' },
-        clear_dark_matter: { short: () => 'Shatter Dark Matter cores', hint: 'Blast beside a [dm:◈] core twice to shatter it', event: 'CORE SHATTERED' },
+        annihilations: { short: (o) => `Make ${o.target} Zero Blasts`, hint: 'Touch opposites like [pos:+3] [neg:−3] to cancel them', event: 'ZERO BLAST' },
+        synthesis_tier: { short: (o) => `Merge up to +${o.target}`, hint: 'Merge matching numbers like [pos:+2] [pos:+2] to double them', event: 'MERGED' },
+        clear_dark_matter: { short: () => 'Break Dark Matter cores', hint: 'Blast next to a [dm:◈] core twice to break it', event: 'CORE BROKEN' },
         trigger_laser: { short: () => 'Fire a Cross Laser', hint: 'Cancel a [pos:+4] [neg:−4] pair to fire across the row and column', event: 'CROSS LASER!' },
-        activate_frenzy: { short: () => 'Unleash Frenzy', hint: 'Blast to fill the [od:ϟ] Overdrive bar to 100%', event: 'FRENZY!' },
+        activate_frenzy: { short: () => 'Fill Overdrive', hint: 'Blast to fill the [od:ϟ] Overdrive bar to 100%', event: 'FRENZY!' },
         // Adventure goals (one per level; the counter only counts down)
         zero_out: { short: (o) => `Clear ${o.target} orbs`, strip: () => 'Clear orbs', hint: 'Cancel opposites like [pos:+3] [neg:−3] to clear them', event: 'CLEARED' },
-        collect: { short: (o) => `Pop ${o.target} orbs showing ${o.number}`, strip: (o) => `Pop ${o.number}s`, hint: (o) => `[pos:+${o.number}] and [neg:−${o.number}] both count`, event: 'POPPED' },
-        break_cores: { short: (o) => `Break ${o.target} Dark Matter cores`, strip: () => 'Break cores', hint: 'Blast beside a [dm:◈] core twice to break it', event: 'CORE BROKEN' },
+        collect: { short: (o) => `Clear ${o.target} orbs showing ${o.number}`, strip: (o) => `Clear ${o.number}s`, hint: (o) => `[pos:+${o.number}] and [neg:−${o.number}] both count`, event: 'CLEARED' },
+        break_cores: { short: (o) => `Break ${o.target} Dark Matter cores`, strip: () => 'Break cores', hint: 'Blast next to a [dm:◈] core twice to break it', event: 'CORE BROKEN' },
         catch_stars: { short: (o) => `Catch ${o.target} stars`, strip: () => 'Catch stars', hint: 'Land an orb on a ★ cell to catch it. Stars stay put', event: 'STAR CAUGHT' },
-        risers: { short: (o) => `Clear ${o.target} Risers`, strip: () => 'Clear Risers', hint: 'Risers climb every drop. Cancel one with its opposite, like [pos:+3] [neg:−3]', event: 'RISER CLEARED' },
-        survive: { short: (o) => `Survive ${o.target} drops`, strip: () => 'Survive', hint: 'Rows keep rising. Keep the stack below the red line', event: 'SURVIVED' },
-        null_core: { short: (o) => `Drain the Null Core (${o.target} HP)`, strip: () => 'Null Core HP', hint: 'Blast beside the core. Cross Lasers and big blasts hit it for 3', event: 'CORE HIT' },
-        big_orb: { short: (o) => `Merge an orb up to ${o.size}`, strip: (o) => `Make ${o.size}`, hint: () => 'Merge pairs like [pos:+2] [pos:+2] to double them', event: 'BIG ORB!' }
+        risers: { short: (o) => `Clear ${o.target} Risers`, strip: () => 'Clear Risers', hint: 'Risers climb every move. Cancel one with its opposite, like [pos:+3] [neg:−3]', event: 'RISER CLEARED' },
+        survive: { short: (o) => `Survive ${o.target} moves`, strip: () => 'Survive', hint: 'Rows keep rising. Keep the stack below the red line', event: 'SURVIVED' },
+        null_core: { short: (o) => `Break the big core (${o.target} HP)`, strip: () => 'Break the big core', hint: 'Blast next to the core. Cross Lasers and big blasts hit it for 3', event: 'CORE HIT' },
+        big_orb: { short: (o) => `Merge up to ${o.size}`, strip: (o) => `Merge up to ${o.size}`, hint: () => 'Merge pairs like [pos:+2] [pos:+2] to double them', event: 'BIG ORB!' }
     };
 
     const GOAL_GLYPHS = {
@@ -3793,16 +3793,17 @@
         big_orb: (o) => String(o.size)
     };
 
-    // Ring strip title and unit per goal: "Break 6 ◈" over "6 CORES LEFT"
+    // Ring strip title and unit per goal: "Break 6 ◈" over "6 CORES LEFT".
+    // A third `false` leaves the glyph out of the title when the title already says it
     const GOAL_RING = {
         zero_out: (o) => [`Clear ${o.target}`, 'ORBS'],
-        collect: (o) => [`Pop ${o.target}`, 'ORBS'],
+        collect: (o) => [`Clear ${o.number}s`, 'ORBS', false],
         break_cores: (o) => [`Break ${o.target}`, 'CORES'],
         catch_stars: (o) => [`Catch ${o.target}`, 'STARS'],
         risers: (o) => [`Clear ${o.target}`, 'RISERS'],
-        survive: (o) => [`Survive ${o.target}`, 'DROPS'],
-        null_core: (o) => [`Drain ${o.target}`, 'HP'],
-        big_orb: () => ['Make', '']
+        survive: (o) => [`Survive ${o.target}`, 'MOVES'],
+        null_core: () => ['Break the big core', 'HP'],
+        big_orb: () => ['Merge up to', '']
     };
 
     // Objective strip look for Adventure goals: 'ring' (default) or the older 'bar'. Dev tools switch it
@@ -3894,7 +3895,7 @@
     function starGoalText(stars, need) {
         return stars && stars.kind === 'headroom'
             ? `End with ${need}+ empty rows in every column`
-            : `Finish with ${need}+ drops left`;
+            : `Finish with ${need}+ moves left`;
     }
 
     function starUnit(stars, n) {
@@ -4244,7 +4245,7 @@
         }
         const left = Math.max(0, tgt - cur);
         const collapsed = !met && cur > 0;
-        const [title, unit] = (GOAL_RING[obj.type] || (() => [OBJECTIVE_META[obj.type] ? OBJECTIVE_META[obj.type].short(obj) : '', '']))(obj);
+        const [title, unit, titleGlyph = true] = (GOAL_RING[obj.type] || (() => [OBJECTIVE_META[obj.type] ? OBJECTIVE_META[obj.type].short(obj) : '', '']))(obj);
         const glyph = getObjectiveGlyph(obj);
         card.classList.toggle('collapsed', collapsed);
         card.style.setProperty('--ring-p', `${met ? 100 : Math.round((cur / Math.max(1, tgt)) * 100)}%`);
@@ -4252,9 +4253,9 @@
         set('adv-ring-count', met ? 'DONE' : collapsed ? `${cur}/${tgt}` : String(left));
         set('adv-ring-badge', glyph);
         set('adv-ring-title', title);
-        set('adv-ring-glyph', glyph);
-        set('adv-ring-sub', met ? 'OBJECTIVE COMPLETE' : oneToGo ? '1 TO GO' : obj.type === 'big_orb' ? 'BONUS GOAL' : `${left} ${unit} LEFT`);
-        card.setAttribute('aria-label', met ? 'Objective complete' : `${title} ${unit.toLowerCase()}, ${left} left`.replace(' ,', ','));
+        set('adv-ring-glyph', titleGlyph ? glyph : '');
+        set('adv-ring-sub', met ? 'GOAL DONE!' : oneToGo ? '1 LEFT!' : obj.type === 'big_orb' ? 'BONUS GOAL' : `${left} ${unit} LEFT`);
+        card.setAttribute('aria-label', met ? 'Goal done' : `${title} ${unit.toLowerCase()}, ${left} left`.replace(' ,', ','));
     }
 
     // Badge pops where the objective progressed ("◈ 3/4"), then flies into the
@@ -4355,9 +4356,9 @@
                     adventureObjectiveMet ? 'Objective complete' : `${cur} of ${tgt} done · ${left} to go`);
             }
             if (opts.review) {
-                if (!(level.goal && level.goal.type === 'survive')) row('↓', 'drops', `${getDropsLeft()} of ${level.maxDrops} drops left`);
-            } else if (!(level.goal && level.goal.type === 'survive')) row('↓', 'drops', `${level.maxDrops} drops available`);
-            if (level.rules && level.rules.fluxRate) row('↑', 'drops', `A row rises every ${level.rules.fluxRate} drops`);
+                if (!(level.goal && level.goal.type === 'survive')) row('↓', 'drops', `${getDropsLeft()} of ${level.maxDrops} moves left`);
+            } else if (!(level.goal && level.goal.type === 'survive')) row('↓', 'drops', `${level.maxDrops} moves available`);
+            if (level.rules && level.rules.fluxRate) row('↑', 'drops', `A row rises every ${level.rules.fluxRate} moves`);
 
             // Star goals start collapsed behind a "Star goals" bar; the arrow expands them
             const stars = document.createElement('div');
@@ -4390,7 +4391,7 @@
                 row('★★', 'star multi', starGoalText(level.stars, level.stars.two), list);
                 row('★★★', 'star multi', starGoalText(level.stars, level.stars.three), list);
             } else {
-                row('★', 'star', `Finish within ${level.targetDropsForStar} drops`, list);
+                row('★', 'star', `Finish within ${level.targetDropsForStar} moves`, list);
                 row('★', 'star', `Score ${level.targetScoreForStar.toLocaleString()}+ points`, list);
             }
         }
@@ -4480,7 +4481,7 @@
                 return;
             }
             if (dropsUsed >= maxDrops) {
-                triggerGameOver("Out of Quantum Drops! The sector could not be stabilized in time.");
+                triggerGameOver("Out of moves! The sector could not be stabilized in time.");
                 return;
             }
         }
@@ -4530,7 +4531,7 @@
         const goZeroes = document.getElementById('go-zeroes');
         const btnGoMap = document.getElementById('btn-go-map');
 
-        if (goKicker) goKicker.textContent = outOfDrops ? 'OUT OF QUANTUM DROPS' : 'REACTOR OVERLOAD';
+        if (goKicker) goKicker.textContent = outOfDrops ? 'OUT OF MOVES' : 'REACTOR OVERLOAD';
         if (goReason) {
             goReason.textContent = isAdventureRun
                 ? `${getLevelCode(activeAdventureLevel)} · ${activeAdventureLevel.title}`
@@ -4569,10 +4570,10 @@
     const OBJECTIVE_FAIL_TIPS = {
         annihilations: 'Look for opposite numbers that touch, like +3 and −3.',
         synthesis_tier: 'Merge matching numbers to grow them before they run out.',
-        clear_dark_matter: 'Blast beside a core twice to shatter it.',
+        clear_dark_matter: 'Blast next to a core twice to break it.',
         trigger_laser: 'Build a ±4 pair first, then cancel it.',
         activate_frenzy: 'Chain blasts together to charge Overdrive faster.',
-        zero_out: 'Every blast clears two orbs. Set up chains so one drop clears more.',
+        zero_out: 'Every blast clears two orbs. Set up chains so one move clears more.',
         collect: 'Pair the target number with its opposite: both orbs count.',
         break_cores: 'Blast right beside a core. Big blasts hit several cores at once.',
         catch_stars: 'Catch the low stars first, then build up carefully toward the high ones.',
@@ -4630,7 +4631,7 @@
                 isGoalLevel(lvl) ? `${remaining} left` : text);
         }
         if (outOfDrops) {
-            row('↓', 'drops', 'Drops ran out', 100, `${dropsUsed}/${maxDrops}`);
+            row('↓', 'drops', 'Moves ran out', 100, `${dropsUsed}/${maxDrops}`);
         } else {
             row(riserBreach ? '▲' : '⚠', 'drops', riserBreach ? 'A Riser reached the red line' : 'A tile crossed the red line', 100, 'BREACH');
         }
@@ -4743,7 +4744,7 @@
             title: starGoalText(activeAdventureLevel.stars, need),
             sub: headroomStars
                 ? (got ? `Tallest column has ${starUnit(activeAdventureLevel.stars, starDropsLeft)} free` : `Tallest column has ${starUnit(activeAdventureLevel.stars, starDropsLeft)} free · replay for this star`)
-                : (got ? `${starDropsLeft} drops left` : `${starDropsLeft} left · ${need - starDropsLeft} short · replay for this star`),
+                : (got ? `${starDropsLeft} moves left` : `${starDropsLeft} left · ${need - starDropsLeft} short · replay for this star`),
             val: String(starDropsLeft)
         });
         const goals = goalLevel ? [
@@ -4764,8 +4765,8 @@
             },
             {
                 got: !!star2,
-                title: `Finish within ${dropTarget} drops`,
-                sub: star2 ? `Done in ${dropsUsed} drops` : `Used ${dropsUsed} · ${dropsUsed - dropTarget} over · replay for this star`,
+                title: `Finish within ${dropTarget} moves`,
+                sub: star2 ? `Done in ${dropsUsed} moves` : `Used ${dropsUsed} · ${dropsUsed - dropTarget} over · replay for this star`,
                 val: String(dropsUsed)
             },
             {
@@ -4784,9 +4785,9 @@
             title: activeAdventureLevel.title,
             stars: totalStars,
             score: finalScore,
-            bonus: `+${dropBonus.toLocaleString()} DROPS BONUS`,
+            bonus: `+${dropBonus.toLocaleString()} MOVES BONUS`,
             drops: `${dropsUsed} / ${maxDrops}`,
-            dropsLabel: 'DROPS USED',
+            dropsLabel: 'MOVES USED',
             best: finalScore > prevBest ? 'NEW' : prevBest.toLocaleString(),
             showMap: !activeAdventureLevel.isGraduation
         });
@@ -5030,7 +5031,7 @@
         const s = classicSurge;
         sfx.playWarning();
         triggerHaptic('overdrive');
-        showRunBanner('SURGE', s.name, `${ClassicRun.describe(s, tideUnit())} in ${s.dropsLeft} drops`, 'surge');
+        showRunBanner('SURGE', s.name, `${ClassicRun.describe(s, tideUnit())} in ${s.dropsLeft} moves`, 'surge');
         renderClassicStrip();
         if (s.id === 'dark_storm' && !roseThisTurn) {
             await delay(500);
@@ -5082,7 +5083,7 @@
         if (classicSurge) {
             set('.cs-glyph', classicSurge.glyph);
             const n = classicSurge.dropsLeft;
-            set('.cs-kicker', `SURGE · ${n} DROP${n === 1 ? '' : 'S'} LEFT`);
+            set('.cs-kicker', `SURGE · ${n} MOVE${n === 1 ? '' : 'S'} LEFT`);
             set('.cs-desc', ClassicRun.describe(classicSurge, unit));
             set('.cs-progress', goalCount(classicSurge, classicSurge.progress));
             if (chip) { chip.hidden = false; chip.textContent = `${rung.glyph} ${goalCount(rung, bountyLadder.progress).replace('×', '')}`; }
@@ -5149,7 +5150,7 @@
         const surge = document.getElementById('ladder-surge');
         if (surge) {
             surge.hidden = !classicSurge;
-            if (classicSurge) surge.textContent = `Surge: ${ClassicRun.describe(classicSurge, unit)} · ${goalCount(classicSurge, classicSurge.progress)} · ${classicSurge.dropsLeft} drops left`;
+            if (classicSurge) surge.textContent = `Surge: ${ClassicRun.describe(classicSurge, unit)} · ${goalCount(classicSurge, classicSurge.progress)} · ${classicSurge.dropsLeft} moves left`;
         }
     }
 
@@ -5183,7 +5184,7 @@
             const parts = [];
             if (!survive) {
                 maxDrops += 2; // drops left feed the stars; Survive counts drops to survive instead
-                parts.push('+2 Drops');
+                parts.push('+2 Moves');
             }
             if (od) parts.push('+15% Overdrive');
             showRunBanner('PERFECT', 'BOARD CLEAR', parts.join(' · '), 'clear');
@@ -5250,7 +5251,7 @@
         if (!isSwapModeActive && swapTokens <= 0) {
             triggerScreenShake(6);
             sfx.playWarning();
-            addFloatingText('NO SWAP TOKENS! Earn via 8 drops or Bounties', canvas.width / (2 * dpr), boardOffsetY + cellH * 3, '#ff4e50', 1.1);
+            addFloatingText('NO SWAP TOKENS! Earn via 8 moves or Bounties', canvas.width / (2 * dpr), boardOffsetY + cellH * 3, '#ff4e50', 1.1);
             return;
         }
 
@@ -5502,7 +5503,7 @@
         if (gameMode === 'adventure') {
             const dropsRemaining = Math.max(0, maxDrops - dropsUsed);
             riseCounter.textContent = isTutorial ? (tutRisePending ? '1' : '') : `${dropsRemaining}`;
-            if (turnCounterLabel) turnCounterLabel.textContent = isTutorial ? (tutRisePending ? 'Dark Matter Rises In' : '') : 'Drops Left';
+            if (turnCounterLabel) turnCounterLabel.textContent = isTutorial ? (tutRisePending ? 'Dark Matter Rises In' : '') : 'Moves Left';
             if (riseFill) riseFill.style.height = isTutorial ? '0%' : `${Math.round((1 - dropsRemaining / Math.max(1, maxDrops)) * 100)}%`;
             if (riseStatusBar) {
                 if (dropsRemaining <= 3) {
@@ -6091,7 +6092,7 @@
                     s.warned = true;
                     triggerScreenShake(6);
                     sfx.playWarning();
-                    addFloatingText('NO SWAPS LEFT · EARN ONE EVERY 8 DROPS', canvas.width / (2 * dpr), boardOffsetY + cellH * 3, '#ff4e50', 1.05);
+                    addFloatingText('NO SWAPS LEFT · EARN ONE EVERY 8 MOVES', canvas.width / (2 * dpr), boardOffsetY + cellH * 3, '#ff4e50', 1.05);
                 }
                 target = null;
             }

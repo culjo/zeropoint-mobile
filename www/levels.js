@@ -169,7 +169,7 @@
         '1-7': { title: 'Supernova Cradle', goal: catchStars(3), drops: 10, board: B.stars3, pool: POOL_STD },
         '1-9': {
             title: 'Event Spark', goal: survive(12), board: B.twoRows, pool: POOL_STD, rise: 5,
-            guide: { orb: 1, col: 0, line: 'Drop +1 on the −1, then watch the bottom.', why: 'Every 5 drops a new row pushes the whole board up.', riseAfter: true }
+            guide: { orb: 1, col: 0, line: 'Drop +1 on the −1, then watch the bottom.', why: 'Every 5 moves a new row pushes the whole board up.', riseAfter: true }
         },
         '1-10': { title: 'Singularity Breach', goal: nullCore(12), drops: 25, board: B.nullCore, pool: POOL_STD, rise: 5 },
 
@@ -177,7 +177,7 @@
         '2-1': { title: 'Plasma Surge', goal: zeroOut(20), drops: 23, board: B.threeRows, pool: POOL_STD },
         '2-2': {
             title: 'Nebula Drift', goal: clearRisers(2), drops: 10, board: B.risers1, pool: POOL_STD, risers: { every: 6, max: 1 },
-            guide: { orb: -1, col: 4, line: 'Drop the opposite onto the Riser.', why: 'Risers climb a row after every drop. Cancel them before the red line.' }
+            guide: { orb: -1, col: 4, line: 'Drop the opposite onto the Riser.', why: 'Risers climb a row after every move. Cancel them before the red line.' }
         },
         '2-3': {
             title: 'Ion Cascade', goal: collect(8, 2), drops: 27, board: B.walls, pool: { ...POOL_STD, favor: 1 },
