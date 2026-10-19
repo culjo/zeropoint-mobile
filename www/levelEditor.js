@@ -18,7 +18,10 @@
     ];
 
     let el = null;
-    let state = null; // { id, cells[r][c] (r = 0 is the top row), brush, value, form }
+    let state = null; // { id, cells[r][c] (r = 0 is the top row), brush, value, form, extra, showAll }
+
+    // Fields the form doesn't edit but the level keeps (guide, placeholder notes, tide override)
+    const KEPT = ['guide', 'temp', 'planned', 'tide'];
 
     function blank() {
         return Array.from({ length: ROWS }, () => Array(COLS).fill('.'));
@@ -38,7 +41,9 @@
         state.id = id;
         state.cells = blank();
         state.form = defaultForm();
+        state.extra = {};
         if (!data) return;
+        KEPT.forEach((k) => { if (data[k] !== undefined) state.extra[k] = data[k]; });
         const rows = data.board || [];
         rows.forEach((line, i) => {
             const r = ROWS - rows.length + i;
@@ -73,6 +78,7 @@
         if (f.pairBias !== '' && f.pairBias !== undefined) pool.pairBias = Number(f.pairBias);
         const data = { title: f.title, goal, drops: Number(f.drops) || 16, board: boardRows(), pool };
         if (Number(f.rise)) data.rise = Number(f.rise);
+        Object.assign(data, state.extra);
         if (Number(f.risersStart) || Number(f.risersEvery)) {
             data.risers = {};
             if (Number(f.risersStart)) data.risers.start = Number(f.risersStart);
@@ -87,6 +93,93 @@
             .replace(/\[\s+([-\d.,\s]+?)\s+\]/g, (m, inner) => `[${inner.split(/,\s+/).join(', ')}]`) // numbers on one line
             .replace(/\n/g, '\n        ');
         return `        '${state.id}': ${body},`;
+    }
+
+    // ---------- objectives ----------
+    const esc = (t) => String(t).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+    const sectorOf = (id) => parseInt(id, 10) || 1;
+
+    // What the game will show for this level: goal at the sector's tide, star goals and rules
+    function objective(id, data) {
+        if (typeof NodeGenerator === 'undefined' || !data) return null;
+        const cfg = NodeGenerator.generateNodeConfig(sectorOf(id), id, data);
+        const s = cfg.stars;
+        const unit = s.kind === 'headroom' ? 'empty rows in every column' : 'drops left';
+        const stars = [`${s.two}+ ${unit}`, `${s.three}+ ${unit}`];
+        return { cfg, stars };
+    }
+
+    function sourceOf(id) {
+        if (typeof NodeGenerator === 'undefined') return '';
+        if (NodeGenerator.HANDCRAFTED[id]) return 'handcrafted';
+        if (NodeGenerator.GENERATED[id]) return 'generated';
+        return 'missing';
+    }
+
+    function botText(id) {
+        const g = typeof NodeGenerator !== 'undefined' && !NodeGenerator.HANDCRAFTED[id] && NodeGenerator.GENERATED[id];
+        if (!g || !g.bot) return '';
+        return `Bot win ${Math.round(g.bot.winRate * 100)}% (aim ${Math.round(g.bot.target * 100)}%, ${g.bot.games} games)`;
+    }
+
+    // Objectives card for the draft being edited
+    function objectiveHtml() {
+        const o = objective(state.id, levelData());
+        if (!o) return '';
+        const { cfg } = o;
+        const rules = [`${cfg.maxDrops} drops`, `Tide ${cfg.rules.pool.tide} · pool ${cfg.rules.pool.values.join(', ')}`]
+            .concat(cfg.rules.modifiers.map((m) => `${m.icon} ${m.label}`));
+        const tags = [sourceOf(state.id)];
+        if (cfg.isBoss) tags.push('boss');
+        if (cfg.isBonus) tags.push('bonus');
+        const bot = botText(state.id);
+        return `
+            <div class="le-obj-head"><span class="le-obj-kicker">${esc(state.id)} · OBJECTIVE</span>${tags.map((t) => `<span class="le-tag">${esc(t)}</span>`).join('')}</div>
+            <p class="le-obj-goal">${esc(cfg.desc)}</p>
+            <ul class="le-obj-list">
+                <li><b>★</b> Complete the objective</li>
+                <li><b>★★</b> ${esc(o.stars[0])}</li>
+                <li><b>★★★</b> ${esc(o.stars[1])}</li>
+                ${rules.map((r) => `<li>${esc(r)}</li>`).join('')}
+                ${cfg.guide ? `<li><b>Guide</b> ${esc(cfg.guide.line)} <i>${esc(cfg.guide.why)}</i></li>` : ''}
+                ${cfg.temp ? `<li class="le-warn"><b>Stand-in</b> planned: ${esc(cfg.planned || 'not set')}</li>` : ''}
+                ${bot ? `<li>${esc(bot)}</li>` : ''}
+            </ul>`;
+    }
+
+    // Every node's objective in progression order; tap a row to load it
+    function allHtml() {
+        return NodeGenerator.NODE_ORDER.map((id) => {
+            const data = NodeGenerator.LEVEL_DATA[id];
+            const o = objective(id, data);
+            if (!o) return `<button type="button" class="le-all-row" data-load="${id}"><span class="le-all-id">${id}</span><span class="le-warn">No level data</span></button>`;
+            const { cfg } = o;
+            const flags = [`${cfg.maxDrops} drops`].concat(cfg.rules.modifiers.map((m) => m.icon));
+            if (cfg.guide) flags.push('guide');
+            if (cfg.temp) flags.push('stand-in');
+            if (!NodeGenerator.HANDCRAFTED[id]) flags.push('gen');
+            return `<button type="button" class="le-all-row${id === state.id ? ' on' : ''}" data-load="${id}">
+                <span class="le-all-id">${id}</span>
+                <span class="le-all-main"><b>${esc(data.title || '')}</b><span>${esc(cfg.desc)}</span></span>
+                <span class="le-all-flags">${esc(flags.join(' · '))}</span>
+            </button>`;
+        }).join('');
+    }
+
+    function nodeLabel(id) {
+        const data = NodeGenerator.LEVEL_DATA[id];
+        if (!data) return `${id} · no data`;
+        const o = objective(id, data);
+        return `${id} · ${o ? o.cfg.desc : data.goal.type}${NodeGenerator.HANDCRAFTED[id] ? '' : ' (gen)'}${data.temp ? ' ⚠' : ''}`;
+    }
+
+    function renderObjective() {
+        el.querySelector('[data-obj]').innerHTML = objectiveHtml();
+        const all = el.querySelector('[data-all]');
+        all.hidden = !state.showAll;
+        el.querySelector('[data-a="all"]').textContent = state.showAll ? 'Hide all objectives' : 'All objectives';
+        el.querySelector('[data-a="all"]').setAttribute('aria-expanded', String(!!state.showAll));
+        if (state.showAll) all.innerHTML = allHtml();
     }
 
     // ---------- UI ----------
@@ -143,9 +236,12 @@
                 </div>
                 <div class="le-row">
                     <label class="le-field le-grow"><span>Node</span><select data-a="node"></select></label>
-                    <button type="button" class="le-btn" data-a="load">Load</button>
+                    <button type="button" class="le-btn" data-a="load" title="Discard edits and reload this node">Reload</button>
                     <button type="button" class="le-btn" data-a="clear">Clear</button>
                 </div>
+                <div class="le-obj" data-obj aria-live="polite"></div>
+                <button type="button" class="le-btn le-all-toggle" data-a="all" aria-expanded="false">All objectives</button>
+                <div class="le-all" data-all hidden></div>
                 <div class="le-brushes" data-brushes></div>
                 <div class="le-row">
                     <label class="le-field"><span>Orb value (Tide 0)</span><input data-value type="number" step="1"></label>
@@ -179,12 +275,14 @@
 
         const sel = el.querySelector('[data-a="node"]');
         const ids = (typeof NodeGenerator !== 'undefined' ? NodeGenerator.NODE_ORDER : []);
-        sel.innerHTML = ids.map((id) => `<option value="${id}">${id}${NodeGenerator.HANDCRAFTED[id] ? '' : ' (generated)'}</option>`).join('');
+        sel.innerHTML = ids.map((id) => `<option value="${id}">${esc(nodeLabel(id))}</option>`).join('');
         el.querySelector('[data-brushes]').innerHTML = BRUSHES.map((b) => `<button type="button" class="le-brush" data-brush="${b.id}">${b.label}</button>`).join('');
 
         el.addEventListener('click', (e) => {
             const brush = e.target.closest('[data-brush]');
             if (brush) { state.brush = brush.dataset.brush; render(); return; }
+            const row = e.target.closest('[data-load]');
+            if (row) { loadLevel(row.dataset.load); render(); el.querySelector('[data-obj]').scrollIntoView({ block: 'nearest' }); return; }
             const cell = e.target.closest('[data-cell]');
             if (cell) { const [r, c] = cell.dataset.cell.split(',').map(Number); paint(r, c); return; }
             const a = e.target.closest('[data-a]');
@@ -193,6 +291,7 @@
             if (act === 'close') close();
             else if (act === 'load') { loadLevel(sel.value); render(); }
             else if (act === 'clear') { state.cells = blank(); render(); }
+            else if (act === 'all') { state.showAll = !state.showAll; renderObjective(); }
             else if (act === 'play') {
                 const sector = parseInt(state.id, 10) || 1;
                 close();
@@ -205,12 +304,13 @@
         });
         el.addEventListener('input', (e) => {
             const f = e.target.dataset.f;
-            if (f) state.form[f] = e.target.value;
+            if (f) { state.form[f] = e.target.value; renderObjective(); }
             if (e.target.hasAttribute('data-value')) state.value = e.target.value;
         });
         el.addEventListener('change', (e) => {
-            if (e.target.dataset.f === 'goal') state.form.goal = e.target.value;
-            if (e.target.dataset.a === 'node') state.id = e.target.value;
+            if (e.target.dataset.f === 'goal') { state.form.goal = e.target.value; renderObjective(); }
+            // Picking a node loads it so its objective shows straight away
+            if (e.target.dataset.a === 'node') { loadLevel(e.target.value); render(); }
         });
     }
 
@@ -222,12 +322,13 @@
         el.querySelector('[data-value]').value = state.value;
         el.querySelector('[data-a="node"]').value = state.id;
         el.querySelectorAll('[data-f]').forEach((i) => { i.value = state.form[i.dataset.f]; });
+        renderObjective();
     }
 
     function open() {
         if (!el) build();
         if (!state) {
-            state = { id: '1-1', cells: blank(), brush: 'num', value: 1, form: defaultForm() };
+            state = { id: '1-1', cells: blank(), brush: 'num', value: 1, form: defaultForm(), extra: {}, showAll: false };
             loadLevel('1-1');
         }
         render();
