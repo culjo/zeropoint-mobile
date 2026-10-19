@@ -6509,6 +6509,7 @@ input:checked + .toggle-slider:before {
 }
 .obj-intro-rule-icon.drops { background: rgba(255, 107, 138, 0.14); color: #ff6b8a; }
 .obj-intro-rule-icon.star { background: rgba(249, 212, 35, 0.14); color: #f9d423; }
+.obj-intro-rule-icon.progress { background: rgba(0, 242, 254, 0.14); color: #00f2fe; }
 /* Adventure star rows (★★ / ★★★): every icon in the list becomes a pill of the same width */
 .obj-intro-rules.has-multi .obj-intro-rule-icon { width: 36px; border-radius: 11px; }
 .obj-intro-rule-icon.multi { font-size: 9px; letter-spacing: -0.5px; }

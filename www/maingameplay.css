@@ -1747,3 +1747,11 @@
     #adventure-objective-card.ring-mode.one-to-go .ring-dial,
     #adventure-objective-card.ring-mode.bump .ring-count { animation: none; }
 }
+
+/* Tapping the objective strip reopens the objective card */
+#screen-game .mission-status-strip #adventure-objective-card { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+#screen-game .mission-status-strip #adventure-objective-card:active { transform: scale(0.98); }
+#screen-game .mission-status-strip #adventure-objective-card:focus-visible { outline: 2px solid #7ff8ff; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) {
+    #screen-game .mission-status-strip #adventure-objective-card:active { transform: none; }
+}

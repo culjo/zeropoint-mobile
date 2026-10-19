@@ -2491,6 +2491,23 @@
         const objIntroOverlay = document.getElementById('obj-intro');
         if (objIntroOverlay) objIntroOverlay.addEventListener('click', dismissObjectiveIntro);
 
+        // Tapping the objective strip (expanded or collapsed) reopens the objective card
+        if (adventureObjectiveCard) {
+            const openReview = () => {
+                if (gameMode !== 'adventure' || !activeAdventureLevel || isGameOver || isPaused) return;
+                if (objIntroOverlay && !objIntroOverlay.hidden) return;
+                if (sfx) sfx.playMove();
+                triggerHaptic('tick');
+                showObjectiveIntro(activeAdventureLevel, { review: true });
+            };
+            adventureObjectiveCard.tabIndex = 0;
+            adventureObjectiveCard.setAttribute('aria-haspopup', 'dialog');
+            adventureObjectiveCard.addEventListener('click', openReview);
+            adventureObjectiveCard.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openReview(); }
+            });
+        }
+
         // Game Over Menu Action
         if (btnGoMenu) {
             btnGoMenu.addEventListener('click', () => {
@@ -4304,7 +4321,9 @@
         const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
         set('obj-intro-kicker', `${getLevelCode(level)} · ${isGoalLevel(level) ? 'GOAL' : 'OBJECTIVE'}`);
         const newBadge = document.getElementById('obj-intro-new');
-        if (newBadge) newBadge.hidden = !opts.newGoal;
+        if (newBadge) newBadge.hidden = !opts.newGoal || !!opts.review;
+        const tap = overlay.querySelector('.obj-intro-tap');
+        if (tap) tap.textContent = opts.review ? 'TAP TO CLOSE' : 'TAP TO START';
         set('obj-intro-glyph', getObjectiveGlyph(obj));
         set('obj-intro-title', level.desc || (meta ? meta.short(obj) : 'Complete the objective'));
         renderIntroHint(document.getElementById('obj-intro-hint'), meta ? (typeof meta.hint === 'function' ? meta.hint(obj) : meta.hint) : '');
@@ -4328,7 +4347,16 @@
                 r.append(i, t);
                 parent.appendChild(r);
             };
-            if (!(level.goal && level.goal.type === 'survive')) row('↓', 'drops', `${level.maxDrops} drops available`);
+            // Mid-game review (tapped the strip): live progress first, then drops left
+            if (opts.review) {
+                const { cur, tgt } = getObjectiveCounts(obj);
+                const left = Math.max(0, tgt - cur);
+                row(adventureObjectiveMet ? '✓' : getObjectiveGlyph(obj), 'progress',
+                    adventureObjectiveMet ? 'Objective complete' : `${cur} of ${tgt} done · ${left} to go`);
+            }
+            if (opts.review) {
+                if (!(level.goal && level.goal.type === 'survive')) row('↓', 'drops', `${getDropsLeft()} of ${level.maxDrops} drops left`);
+            } else if (!(level.goal && level.goal.type === 'survive')) row('↓', 'drops', `${level.maxDrops} drops available`);
             if (level.rules && level.rules.fluxRate) row('↑', 'drops', `A row rises every ${level.rules.fluxRate} drops`);
 
             // Star goals start collapsed behind a "Star goals" bar; the arrow expands them
