@@ -552,10 +552,13 @@
     let classicDrops = 0;
     const CLASSIC_TIDE_EVERY = 25; // to be tuned (GDD §3.1)
     const CLASSIC_TIDE_MAX = 4;
-    // Classic pressure climbs with each Number Tide (index = tide)
-    const CLASSIC_RISE_EVERY = [5, 4, 4, 3, 3];        // moves between rising rows
-    const CLASSIC_DM_CHANCE = [0.6, 0.66, 0.72, 0.79, 0.85]; // Dark Matter share of a rising row
-    const CLASSIC_PAIR_BIAS = [0.2, 0.15, 0.1, 0.07, 0.05];  // chance the tray deals a match
+    // Classic Heat: +1 every CLASSIC_TIDE_EVERY drops with no cap (the tide stops at CLASSIC_TIDE_MAX).
+    // Pressure climbs with it (index = heat, last entry holds), and so does the score multiplier.
+    let classicHeat = 0;
+    const CLASSIC_RISE_EVERY = [5, 4, 4, 3, 3, 3, 3, 3, 2];                       // moves between rising rows
+    const CLASSIC_DM_CHANCE = [0.6, 0.66, 0.72, 0.79, 0.85, 0.88, 0.91, 0.93, 0.95]; // Dark Matter share of a rising row
+    const CLASSIC_PAIR_BIAS = [0.2, 0.15, 0.1, 0.07, 0.05, 0.04, 0.03, 0.02];       // chance the tray deals a match
+    const CLASSIC_HEAT_SCORE_STEP = 0.25; // score ×(1 + 0.25 per heat)
     let dropsUsed = 0;
     let maxDrops = 15;
 
@@ -2733,6 +2736,7 @@
         orbDealerKey = null;
         classicTide = 0;
         classicDrops = 0;
+        classicHeat = 0;
         runBestOrb = 0;
         runUsedHold = false;
         runUsedSwap = false;
@@ -2914,7 +2918,11 @@
     }
 
     function classicTideStep(table) {
-        return table[Math.min(classicTide, table.length - 1)];
+        return table[Math.min(classicHeat, table.length - 1)];
+    }
+
+    function classicScoreMult() {
+        return gameMode === 'classic' && !isTutorial && !firstPlay ? 1 + CLASSIC_HEAT_SCORE_STEP * classicHeat : 1;
     }
 
     function classicRisePeriod() {
@@ -2925,12 +2933,19 @@
     // A rise that lands during a Surge waits until the Surge ends (GDD §4.1)
     function tickClassicTide() {
         classicDrops++;
-        if (classicDrops % CLASSIC_TIDE_EVERY === 0 && classicTide < CLASSIC_TIDE_MAX) tidePending = true;
+        if (classicDrops % CLASSIC_TIDE_EVERY === 0) tidePending = true;
         if (!tidePending || classicSurge) return;
         tidePending = false;
-        classicTide++;
-        const vals = OrbBag.tideValues(classicTide);
-        addFloatingText(`NUMBER TIDE ↑ ±${vals[0]}–±${vals[vals.length - 1]}`, canvas.width / (2 * dpr), boardOffsetY + cellH * 2, '#00f2fe', 1.3);
+        classicHeat++;
+        const multText = `SCORE ×${classicScoreMult().toFixed(2).replace(/\.?0+$/, '')}`;
+        if (classicTide < CLASSIC_TIDE_MAX) {
+            classicTide++;
+            const vals = OrbBag.tideValues(classicTide);
+            addFloatingText(`NUMBER TIDE ↑ ±${vals[0]}–±${vals[vals.length - 1]}`, canvas.width / (2 * dpr), boardOffsetY + cellH * 2, '#00f2fe', 1.3);
+            addFloatingText(multText, canvas.width / (2 * dpr), boardOffsetY + cellH * 2.8, '#f9d423', 1.1);
+        } else {
+            addFloatingText(`HEAT ${classicHeat} · ${multText}`, canvas.width / (2 * dpr), boardOffsetY + cellH * 2, '#ff6b3d', 1.3);
+        }
         sfx.playSpecial();
     }
 
@@ -2965,7 +2980,7 @@
             val = energyPool[Math.floor(Math.random() * energyPool.length)];
         } else if (gameMode === 'classic' && !isTutorial && typeof OrbBag !== 'undefined') {
             // Classic: bag randomizer over the current Number Tide, leaning toward pairs less as it climbs
-            const key = `classic:${classicTide}`;
+            const key = `classic:${classicTide}:${classicHeat}`;
             if (orbDealerKey !== key) {
                 orbDealer = OrbBag.createDealer({ values: OrbBag.tideValues(classicTide), pairBias: classicTideStep(CLASSIC_PAIR_BIAS) });
                 orbDealerKey = key;
@@ -5175,6 +5190,7 @@
     }
 
     function addScore(pts, at = null) {
+        pts = Math.round(pts * classicScoreMult());
         score += pts;
         if (gameMode === 'classic' && !firstPlay) {
             if (score > career.highScore) {
@@ -5308,7 +5324,7 @@
     // Starts on every SURGE_EVERY-th drop. Dark Storm raises a row straight away,
     // unless one already rose this turn.
     async function startSurge(roseThisTurn) {
-        classicSurge = surgeBag();
+        classicSurge = ClassicRun.scaleSurge(surgeBag(), classicHeat);
         const s = classicSurge;
         sfx.playWarning();
         triggerHaptic('overdrive');

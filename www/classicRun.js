@@ -59,7 +59,7 @@
         const level = Math.floor(index / 2);
         const rung = { index, id: task.id, event: task.event, kind: task.kind, glyph: task.glyph, reward: rungReward(index) };
         if (task.kind === 'orb') rung.units = task.units * Math.pow(2, Math.min(2, Math.floor(index / 4)));
-        else rung.target = Math.min(task.max, task.base + task.step * level);
+        else rung.target = Math.min(task.max + Math.floor(Math.max(0, index - 10) / 4), task.base + task.step * level);
         return rung;
     }
 
@@ -135,6 +135,16 @@
         };
     }
 
+    // Surges get tougher with Classic Heat: bigger targets, fewer moves
+    function scaleSurge(surge, heat = 0) {
+        const s = { ...surge };
+        if (s.kind === 'count') s.target += Math.min(3, Math.floor(heat / 3));
+        else if (s.kind === 'max') s.target = Math.min(8, s.target + Math.floor(heat / 3));
+        else if (s.kind === 'orb' && heat >= 6) s.units *= 2;
+        s.dropsLeft = Math.max(4, s.dropsLeft - Math.floor(heat / 3));
+        return s;
+    }
+
     function surgeReward(tide, count) {
         return {
             score: 300 * (tide + 1),
@@ -188,7 +198,7 @@
 
     return {
         BOUNTY_TASKS, BIG_RUNG_EVERY, createLadder, currentRung, ladderEvent,
-        SURGES, SURGE_EVERY, SURGE_DROPS, createSurgeBag, surgeReward,
+        SURGES, SURGE_EVERY, SURGE_DROPS, createSurgeBag, scaleSurge, surgeReward,
         goalProgress, goalTarget, goalDone, describe, describeReward,
         REFILL_MIX, buildRefill
     };
