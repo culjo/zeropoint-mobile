@@ -647,6 +647,7 @@
     let screenFlashColor = '#ffffff';
     let floatingTexts = [];
     let screenShake = 0;
+    let hitStopUntil = 0;      // performance.now() timestamp; the board freezes until then
     let scoreShown = 0;        // value the HUD has caught up to (flyers add on arrival)
     let scoreFlySession = 0;   // bumped on reset so stale flyers don't add
     let lastScoreFlyAt = 0;
@@ -3648,6 +3649,8 @@
             bannerColor = '#c471ed';
             bannerScale = 1.65;
         }
+
+        triggerHitStop(HIT_STOP_MS[tier] || 0);
 
         damageNullCoreForBlast(r, c, r2, c2, tier, { x, y });
 
@@ -7593,6 +7596,13 @@
                 </div>
                 <p class="dev-note">Adventure goals only. Challenges keep the bar.</p>
 
+                <h3 class="dev-section">Game feel</h3>
+                <div class="dev-seg" role="radiogroup" aria-label="Hit-stop">
+                    <button type="button" role="radio" data-hit-stop="on"><strong>Hit-stop on</strong><span>Freeze on big blasts</span></button>
+                    <button type="button" role="radio" data-hit-stop="off"><strong>Hit-stop off</strong><span>No freeze</span></button>
+                </div>
+                <p class="dev-note">Cross Laser 60ms, Supernova 90ms, Hyperspace 120ms.</p>
+
                 <h3 class="dev-section">Levels</h3>
                 ${devRowHTML('level-editor', 'Level editor', 'Paint a board, play-test it, export to levels.js')}
                 <div class="dev-jump">
@@ -7629,6 +7639,13 @@
             if (stripSeg) {
                 if (sfx) sfx.playMove();
                 setObjStripStyle(stripSeg.dataset.objStrip);
+                renderDevTools();
+                return;
+            }
+            const hitStopSeg = e.target.closest('[data-hit-stop]');
+            if (hitStopSeg) {
+                if (sfx) sfx.playMove();
+                setHitStopEnabled(hitStopSeg.dataset.hitStop === 'on');
                 renderDevTools();
                 return;
             }
@@ -7681,6 +7698,12 @@
         const stripStyle = getObjStripStyle();
         devRoot.querySelectorAll('[data-obj-strip]').forEach((b) => {
             const on = b.dataset.objStrip === stripStyle;
+            b.classList.toggle('is-on', on);
+            b.setAttribute('aria-checked', on ? 'true' : 'false');
+        });
+        const hitStopOn = isHitStopEnabled();
+        devRoot.querySelectorAll('[data-hit-stop]').forEach((b) => {
+            const on = (b.dataset.hitStop === 'on') === hitStopOn;
             b.classList.toggle('is-on', on);
             b.setAttribute('aria-checked', on ? 'true' : 'false');
         });
@@ -7791,6 +7814,17 @@
             goal(n = 1) {
                 if (!isDebugMode() || currentScreen !== 'game') return;
                 checkAdventureObjective('goal', n, false);
+            },
+            // Fire a blast of the given magnitude mid-board to feel the hit-stop (8 = Supernova)
+            blast(magnitude = 8) {
+                if (!isDebugMode() || currentScreen !== 'game') return;
+                const r = Math.floor(ROWS / 2), c = Math.floor(COLS / 2);
+                triggerZeroPointBlast(r, c, `${magnitude} + (-${magnitude}) = 0!`, 0, magnitude, r, c);
+            },
+            // Turn hit-stop off/on to compare the feel
+            hitStop(on = true) {
+                setHitStopEnabled(!!on);
+                return isHitStopEnabled();
             }
         };
     }
@@ -7836,6 +7870,9 @@
     }
 
     function update(dt) {
+        // Hit-stop: hold the frame on impact; render keeps drawing the shake and flash
+        if (performance.now() < hitStopUntil) return;
+
         // Projectile physics update
         if (activeProjectile) {
             const p = activeProjectile;
@@ -9435,6 +9472,23 @@
         });
     }
 
+    // Freeze-frame length per blast tier; only the big blasts get one
+    const HIT_STOP_MS = [0, 0, 0, 60, 90, 120];
+
+    const HIT_STOP_KEY = 'zeropoint_hit_stop';
+
+    function isHitStopEnabled() {
+        try { return localStorage.getItem(HIT_STOP_KEY) !== 'off'; } catch (e) { return true; }
+    }
+    function setHitStopEnabled(on) {
+        try { localStorage.setItem(HIT_STOP_KEY, on ? 'on' : 'off'); } catch (e) { /* storage blocked */ }
+    }
+
+    function triggerHitStop(ms) {
+        if (ms <= 0 || !isHitStopEnabled()) return;
+        hitStopUntil = Math.max(hitStopUntil, performance.now() + ms);
+    }
+
     function triggerScreenShake(magnitude = 6) {
         const factor = (career && career.settings) ? (career.settings.shake === 'off' ? 0 : career.settings.shake === 'mild' ? 0.4 : 1.0) : 1.0;
         screenShake = Math.max(screenShake, magnitude * factor);
@@ -9519,8 +9573,14 @@
         }
     }
 
-    function delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
+    // Waits ms, plus any hit-stop still running, so turn pacing pauses with the board
+    async function delay(ms) {
+        await new Promise(resolve => setTimeout(resolve, ms));
+        let held = hitStopUntil - performance.now();
+        while (held > 0) {
+            await new Promise(resolve => setTimeout(resolve, held));
+            held = hitStopUntil - performance.now();
+        }
     }
 
     // Run Game
