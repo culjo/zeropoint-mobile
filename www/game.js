@@ -549,6 +549,10 @@
     let classicDrops = 0;
     const CLASSIC_TIDE_EVERY = 25; // to be tuned (GDD §3.1)
     const CLASSIC_TIDE_MAX = 4;
+    // Classic pressure climbs with each Number Tide (index = tide)
+    const CLASSIC_RISE_EVERY = [5, 4, 4, 3, 3];        // moves between rising rows
+    const CLASSIC_DM_CHANCE = [0.6, 0.66, 0.72, 0.79, 0.85]; // Dark Matter share of a rising row
+    const CLASSIC_PAIR_BIAS = [0.2, 0.15, 0.1, 0.07, 0.05];  // chance the tray deals a match
     let dropsUsed = 0;
     let maxDrops = 15;
 
@@ -2696,7 +2700,7 @@
         if (gameMode === 'adventure' && activeAdventureLevel && activeAdventureLevel.rules && activeAdventureLevel.rules.fluxRate > 0) {
             movesUntilRise = activeAdventureLevel.rules.fluxRate;
         } else {
-            movesUntilRise = MOVES_PER_RISE;
+            movesUntilRise = classicRisePeriod();
         }
         isGameOver = false;
         isProcessing = false;
@@ -2857,6 +2861,14 @@
         return (Math.floor(Math.random() * maxBase) + 1) * OrbBag.tideScale(currentTide());
     }
 
+    function classicTideStep(table) {
+        return table[Math.min(classicTide, table.length - 1)];
+    }
+
+    function classicRisePeriod() {
+        return gameMode === 'classic' && !isTutorial ? classicTideStep(CLASSIC_RISE_EVERY) : MOVES_PER_RISE;
+    }
+
     // Classic Number Tide: the pool doubles every CLASSIC_TIDE_EVERY drops
     // A rise that lands during a Surge waits until the Surge ends (GDD §4.1)
     function tickClassicTide() {
@@ -2900,10 +2912,10 @@
             const energyPool = [2, 4];
             val = energyPool[Math.floor(Math.random() * energyPool.length)];
         } else if (gameMode === 'classic' && !isTutorial && typeof OrbBag !== 'undefined') {
-            // Classic: bag randomizer over the current Number Tide, leaning toward pairs
+            // Classic: bag randomizer over the current Number Tide, leaning toward pairs less as it climbs
             const key = `classic:${classicTide}`;
             if (orbDealerKey !== key) {
-                orbDealer = OrbBag.createDealer({ values: OrbBag.tideValues(classicTide), pairBias: 0.2 });
+                orbDealer = OrbBag.createDealer({ values: OrbBag.tideValues(classicTide), pairBias: classicTideStep(CLASSIC_PAIR_BIAS) });
                 orbDealerKey = key;
             }
             return numberOrb(orbDealer.next({ exposed: getExposedValues() }));
@@ -3255,7 +3267,7 @@
                     } else {
                         movesUntilRise--;
                         if (movesUntilRise <= 0) {
-                            movesUntilRise = MOVES_PER_RISE;
+                            movesUntilRise = classicRisePeriod();
                             await pushRisingRow();
                             rose = true;
                         }
@@ -3773,10 +3785,11 @@
             grid[r] = grid[r + 1];
         }
 
-        // Create new bottom row of Dark Matter blocks with a few number gaps
+        // Create new bottom row of Dark Matter blocks with a few number gaps (fewer as Classic's tide climbs)
+        const dmChance = gameMode === 'classic' && !isTutorial ? classicTideStep(CLASSIC_DM_CHANCE) : 0.6;
         const newRow = [];
         for (let c = 0; c < COLS; c++) {
-            if (Math.random() < 0.6) {
+            if (Math.random() < dmChance) {
                 newRow.push(createTile(0, 'dark_matter'));
             } else {
                 const val = (Math.random() < 0.5 ? 1 : -1) * randomBoardMagnitude(3);
@@ -5262,7 +5275,7 @@
             });
         });
         sfx.playDrop();
-        movesUntilRise = MOVES_PER_RISE;
+        movesUntilRise = classicRisePeriod();
         await delay(400);
     }
 
@@ -5564,7 +5577,7 @@
             // First play doesn't mention Dark Matter or rising rows (they unlock later)
             riseCounter.textContent = firstPlay ? '' : `${movesUntilRise}`;
             if (turnCounterLabel) turnCounterLabel.textContent = firstPlay ? '' : 'Dark Matter Rises In';
-            if (riseFill) riseFill.style.height = `${Math.round(Math.min(1, (MOVES_PER_RISE - movesUntilRise + 1) / MOVES_PER_RISE) * 100)}%`;
+            if (riseFill) riseFill.style.height = `${Math.round(Math.min(1, (classicRisePeriod() - movesUntilRise + 1) / classicRisePeriod()) * 100)}%`;
             if (riseStatusBar) {
                 if (movesUntilRise <= 1) {
                     riseStatusBar.classList.add('danger-pulse');
