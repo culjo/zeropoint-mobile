@@ -26,6 +26,12 @@
     .dl { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px; white-space: nowrap; }
     .dl:hover { color: var(--text); border-color: var(--muted); }
     .dl:disabled { opacity: .5; cursor: wait; }
+    .taps { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+    .tap { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; text-align: left; color: var(--text); font: inherit; cursor: pointer; transition: border-color .15s, transform .08s; }
+    .tap:hover { border-color: var(--violet); }
+    .tap:active { transform: scale(0.97); border-color: var(--cyan); }
+    .tap strong { display: block; font-size: 15px; }
+    .tap span { color: var(--muted); font-size: 12px; }
     @media (max-width: 520px) { .track { grid-template-columns: auto 1fr; } .dl { grid-column: 2; justify-self: start; } }
 </style>
 </head>
@@ -35,8 +41,11 @@
     <p class="lead">Procedural tracks, generated live with Web Audio and no audio files. Each one loops endlessly and never repeats exactly. Pick one to ship as the in-game soundtrack.</p>
     <div class="bar">Volume <input id="vol" type="range" min="0" max="1" step="0.01" value="0.6"></div>
     <div id="list"></div>
+    <h2>Button sounds</h2>
+    <p class="lead">Tap each one a few times: they vary slightly in pitch, and Kalimba plays a different note each tap.</p>
+    <div id="taps" class="taps"></div>
 </main>
-<script>document.write('<script src="../www/music.js?' + Date.now() + '"><\/script>');</script>
+<script>document.write('<script src="../www/music.js?' + Date.now() + '"><\/script><script src="../www/audio.js?' + Date.now() + '"><\/script>');</script>
 <script>
     let ctx = null, music = null, playingId = null;
     const vol = document.getElementById('vol');
@@ -136,6 +145,16 @@
         }
         return new Blob([out], { type: 'audio/wav' });
     }
+
+    const taps = document.getElementById('taps');
+    const tapSounds = soundFX.constructor.tapSounds;
+    Object.keys(tapSounds).forEach(id => {
+        const b = document.createElement('button');
+        b.className = 'tap';
+        b.innerHTML = `<strong>${tapSounds[id].name}</strong><span>${tapSounds[id].desc}</span>`;
+        b.addEventListener('pointerdown', () => { soundFX.init(); soundFX.playTap(id); });
+        taps.appendChild(b);
+    });
 
     window.renderTrack = renderTrack;
     window.toWav = toWav;

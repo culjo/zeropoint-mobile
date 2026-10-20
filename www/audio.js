@@ -6,6 +6,25 @@ const BGM_ROTATION = ['lattice', 'drift', 'cascade', 'prism', 'coffee', 'nebula'
 const BGM_BOSS = ['overclock', 'neonrun'];
 const BGM_MIN_PLAY = 45; // seconds a track plays before a new game rotates it
 
+// Button tap sounds: picked in dev tools, stored per device. All soft, short and with a
+// touch of random pitch so repeated taps don't feel mechanical.
+const TAP_SOUNDS = {
+    classic: { name: 'Classic', desc: 'Bright click (original)' },
+    droplet: { name: 'Droplet', desc: 'Soft water bloop' },
+    dropdeep: { name: 'Deep Drop', desc: 'Droplet, lower with a sub layer' },
+    dropround: { name: 'Round Drop', desc: 'Droplet, doubled and chorused' },
+    bubble:  { name: 'Bubble',  desc: 'Round rising pop' },
+    bubbledeep: { name: 'Deep Bubble', desc: 'Bubble, low and full-bodied' },
+    bubblegloop: { name: 'Gloop', desc: 'Bubble, thick double blip' },
+    marimba: { name: 'Marimba', desc: 'Warm wooden tap' },
+    chime:   { name: 'Chime',   desc: 'Airy glass ping' },
+    felt:    { name: 'Felt Key', desc: 'Muted piano key' },
+    kalimba: { name: 'Kalimba', desc: 'Gentle notes, taps make a tune' },
+    softpop: { name: 'Soft Pop', desc: 'Cushioned thud' }
+};
+const TAP_SOUND_KEY = 'nullfall_tap_sound';
+const TAP_DEFAULT = 'dropround';
+const KALIMBA_SCALE = [0, 2, 4, 7, 9, 12]; // C major pentatonic from C5
 
 // Cascade ladder: each merge or blast in one turn climbs a C major pentatonic scale
 const CASCADE_SCALE = [0, 2, 4, 7, 9]; // semitones above the root: C D E G A
@@ -40,6 +59,20 @@ class SoundFX {
         this.bgmTrack = null;
         this.out = null;      // where every effect connects (compressor input)
         this.musicBus = null; // music input; its gain does the ducking
+        this.tapSound = TAP_DEFAULT;
+        try {
+            const saved = localStorage.getItem(TAP_SOUND_KEY);
+            if (saved && TAP_SOUNDS[saved]) this.tapSound = saved;
+        } catch (e) {}
+        this.kalimbaLast = -1;
+    }
+
+    static get tapSounds() { return TAP_SOUNDS; }
+
+    setTapSound(id) {
+        if (!TAP_SOUNDS[id]) return;
+        this.tapSound = id;
+        try { localStorage.setItem(TAP_SOUND_KEY, id); } catch (e) {}
     }
 
     // Start of a turn: the next merge or blast plays the root again
@@ -283,26 +316,126 @@ class SoundFX {
     }
 
     // Short, soft "tock" for menu and game buttons
-    playTap() {
+    playTap(id = this.tapSound) {
         if (this.muted || !this.ctx) return;
         this.resume();
-        const now = this.ctx.currentTime;
+        const t = this.ctx.currentTime;
+        const r = 1 + (Math.random() - 0.5) * 0.04; // ±2% pitch
+        switch (id) {
+            case 'droplet':
+                this.tapTone(t, 520 * r, { glide: 1100 * r, glideTime: 0.035, peak: 0.07, decay: 0.09 });
+                break;
+            case 'marimba':
+                this.tapTone(t, 587 * r, { peak: 0.07, decay: 0.14 });
+                this.tapTone(t, 587 * 3.93 * r, { peak: 0.016, decay: 0.03 });
+                break;
+            case 'chime':
+                this.tapTone(t, 1318 * r, { peak: 0.035, attack: 0.006, decay: 0.35 });
+                this.tapTone(t, 1318 * 2.76 * r, { peak: 0.008, attack: 0.006, decay: 0.12 });
+                break;
+            case 'bubble':
+                this.tapTone(t, 260 * r, { glide: 620 * r, glideTime: 0.07, peak: 0.065, attack: 0.01, decay: 0.1 });
+                break;
+            // Thicker variants: lower fundamentals, a sub-octave underneath and a little
+            // triangle for harmonics
+            case 'dropdeep':
+                this.tapTone(t, 300 * r, { glide: 640 * r, glideTime: 0.045, peak: 0.056, decay: 0.12 });
+                this.tapTone(t, 150 * r, { glide: 320 * r, glideTime: 0.045, peak: 0.034, decay: 0.11 });
+                this.tapTone(t, 300 * r, { type: 'triangle', glide: 640 * r, glideTime: 0.045, peak: 0.011, decay: 0.08 });
+                break;
+            case 'dropround':
+                this.tapTone(t, 380 * r * 0.993, { glide: 800 * r * 0.993, glideTime: 0.04, peak: 0.038, decay: 0.11 });
+                this.tapTone(t, 380 * r * 1.007, { glide: 800 * r * 1.007, glideTime: 0.04, peak: 0.038, decay: 0.11 });
+                this.tapTone(t, 190 * r, { peak: 0.030, attack: 0.006, decay: 0.1 });
+                break;
+            case 'bubbledeep':
+                this.tapTone(t, 160 * r, { glide: 380 * r, glideTime: 0.08, peak: 0.056, attack: 0.012, decay: 0.13 });
+                this.tapTone(t, 80 * r, { glide: 190 * r, glideTime: 0.08, peak: 0.038, attack: 0.012, decay: 0.12 });
+                this.tapTone(t, 160 * r, { type: 'triangle', glide: 380 * r, glideTime: 0.08, peak: 0.012, attack: 0.012, decay: 0.09 });
+                break;
+            case 'bubblegloop':
+                this.tapTone(t, 200 * r, { glide: 480 * r, glideTime: 0.06, peak: 0.053, attack: 0.01, decay: 0.09 });
+                this.tapTone(t, 100 * r, { glide: 240 * r, glideTime: 0.06, peak: 0.034, attack: 0.01, decay: 0.09 });
+                this.tapTone(t + 0.04, 250 * r, { glide: 580 * r, glideTime: 0.05, peak: 0.038, attack: 0.008, decay: 0.08 });
+                break;
+            case 'felt':
+                this.tapFelt(t, 440 * r);
+                break;
+            case 'kalimba': {
+                // Random pentatonic note, never the same twice in a row
+                let i;
+                do { i = Math.floor(Math.random() * KALIMBA_SCALE.length); } while (i === this.kalimbaLast);
+                this.kalimbaLast = i;
+                const f = 523.25 * Math.pow(2, KALIMBA_SCALE[i] / 12);
+                this.tapTone(t, f, { peak: 0.055, decay: 0.28 });
+                this.tapTone(t, f * 4.2, { peak: 0.01, decay: 0.035 });
+                break;
+            }
+            case 'softpop':
+                this.tapTone(t, 180 * r, { glide: 120 * r, glideTime: 0.05, peak: 0.06, decay: 0.06 });
+                this.tapNoise(t, 900, 0.035, 0.045);
+                break;
+            default: // classic
+                this.tapTone(t, 980, { type: 'triangle', glide: 520, glideTime: 0.05, peak: 0.09, attack: 0.005, decay: 0.06 });
+        }
+    }
+
+    tapTone(t, freq, { type = 'sine', glide = 0, glideTime = 0.05, peak = 0.06, attack = 0.004, decay = 0.1 } = {}) {
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(980, now);
-        osc.frequency.exponentialRampToValueAtTime(520, now + 0.05);
-
-        gain.gain.setValueAtTime(0.0001, now);
-        gain.gain.exponentialRampToValueAtTime(0.09, now + 0.005);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
-
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, t);
+        if (glide) osc.frequency.exponentialRampToValueAtTime(glide, t + glideTime);
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(peak, t + attack);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + decay);
         osc.connect(gain);
         gain.connect(this.out);
+        osc.start(t);
+        osc.stop(t + decay + 0.02);
+    }
 
-        osc.start(now);
-        osc.stop(now + 0.06);
+    // Muted piano key: gentle FM through a low-pass
+    tapFelt(t, freq) {
+        const ctx = this.ctx;
+        const car = ctx.createOscillator();
+        const mod = ctx.createOscillator();
+        const modGain = ctx.createGain();
+        const lp = ctx.createBiquadFilter();
+        const amp = ctx.createGain();
+        car.frequency.value = freq;
+        mod.frequency.value = freq;
+        modGain.gain.setValueAtTime(freq * 0.8, t);
+        modGain.gain.exponentialRampToValueAtTime(10, t + 0.08);
+        lp.type = 'lowpass';
+        lp.frequency.value = 1600;
+        amp.gain.setValueAtTime(0.0001, t);
+        amp.gain.exponentialRampToValueAtTime(0.065, t + 0.004);
+        amp.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+        mod.connect(modGain);
+        modGain.connect(car.frequency);
+        car.connect(lp);
+        lp.connect(amp);
+        amp.connect(this.out);
+        [car, mod].forEach(o => { o.start(t); o.stop(t + 0.18); });
+    }
+
+    tapNoise(t, freq, dur, peak) {
+        const buffer = this.getNoiseBuffer();
+        if (!buffer) return;
+        const src = this.ctx.createBufferSource();
+        src.buffer = buffer;
+        const bp = this.ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = freq;
+        bp.Q.value = 1.2;
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(peak, t);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        src.connect(bp);
+        bp.connect(gain);
+        gain.connect(this.out);
+        src.start(t, Math.random() * 0.5, dur + 0.02);
     }
 
     playDrop() {

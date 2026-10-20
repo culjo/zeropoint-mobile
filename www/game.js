@@ -7775,6 +7775,10 @@
                 <div class="dev-seg dev-music" id="dev-music" role="radiogroup" aria-label="Music track"></div>
                 <p class="dev-note" id="dev-music-note"></p>
 
+                <h3 class="dev-section">Button sound</h3>
+                <div class="dev-seg dev-music" id="dev-tap" role="radiogroup" aria-label="Button sound" data-no-tap></div>
+                <p class="dev-note">Tap one to hear it and use it for every button. Saved on this device.</p>
+
                 <h3 class="dev-section">Levels</h3>
                 ${devRowHTML('level-editor', 'Level editor', 'Paint a board, play-test it, export to levels.js')}
                 <div class="dev-jump">
@@ -7819,6 +7823,14 @@
                 if (sfx) sfx.playMove();
                 setHitStopEnabled(hitStopSeg.dataset.hitStop === 'on');
                 renderDevTools();
+                return;
+            }
+            const tapChip = e.target.closest('[data-tap-sound]');
+            if (tapChip) {
+                sfx.init();
+                sfx.setTapSound(tapChip.dataset.tapSound);
+                sfx.playTap();
+                renderDevTap();
                 return;
             }
             const musicChip = e.target.closest('[data-music]');
@@ -7901,6 +7913,18 @@
         if (info) info.innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
         renderDevJump();
         renderDevMusic();
+        renderDevTap();
+    }
+
+    function renderDevTap() {
+        const box = devRoot && devRoot.querySelector('#dev-tap');
+        if (!box || !sfx) return;
+        const sounds = sfx.constructor.tapSounds;
+        box.innerHTML = Object.keys(sounds).map((id) => {
+            const on = id === sfx.tapSound;
+            return `<button type="button" role="radio" aria-checked="${on}" class="${on ? 'is-on' : ''}" data-tap-sound="${id}">`
+                + `<strong>${sounds[id].name}</strong><span>${sounds[id].desc}</span></button>`;
+        }).join('');
     }
 
     // Music: a chip per track (plays it now, even with music switched off) and Stop
