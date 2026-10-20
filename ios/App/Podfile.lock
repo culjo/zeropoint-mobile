@@ -4,6 +4,8 @@ PODS:
   - CapacitorCordova (8.5.3)
   - CapacitorHaptics (8.0.2):
     - Capacitor
+  - CapacitorLocalNotifications (8.3.1):
+    - Capacitor
   - CapacitorScreenOrientation (8.0.2):
     - Capacitor
   - CapacitorStatusBar (8.0.4):
@@ -13,6 +15,7 @@ DEPENDENCIES:
   - "Capacitor (from `../../node_modules/@capacitor/ios`)"
   - "CapacitorCordova (from `../../node_modules/@capacitor/ios`)"
   - "CapacitorHaptics (from `../../node_modules/@capacitor/haptics`)"
+  - "CapacitorLocalNotifications (from `../../node_modules/@capacitor/local-notifications`)"
   - "CapacitorScreenOrientation (from `../../node_modules/@capacitor/screen-orientation`)"
   - "CapacitorStatusBar (from `../../node_modules/@capacitor/status-bar`)"
 
@@ -23,6 +26,8 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/@capacitor/ios"
   CapacitorHaptics:
     :path: "../../node_modules/@capacitor/haptics"
+  CapacitorLocalNotifications:
+    :path: "../../node_modules/@capacitor/local-notifications"
   CapacitorScreenOrientation:
     :path: "../../node_modules/@capacitor/screen-orientation"
   CapacitorStatusBar:
@@ -32,9 +37,10 @@ SPEC CHECKSUMS:
   Capacitor: 2f67eaeb8ed79909cd35b5e7439a5c2a9ca58e0f
   CapacitorCordova: 0b7326439c7a09fc5d20eced5e0dab986327a493
   CapacitorHaptics: 296f771ecd89c7a1bd92a7b6826a7d268e2e70f5
+  CapacitorLocalNotifications: e0747a329ddde3074d52dc74a003688af90e42be
   CapacitorScreenOrientation: 0ccb98cbbfbb1dce509da837a3e35848128417ce
   CapacitorStatusBar: ff844df1f126da6c4fbc4028272425fa3a91e7e3
 
-PODFILE CHECKSUM: 08ec0e6643b4f7c9962ab2351cc29bf46156c012
+PODFILE CHECKSUM: 856c88d9e20b112fda7ada6bafd8b3f8d2a24e4c
 
 COCOAPODS: 1.17.0
