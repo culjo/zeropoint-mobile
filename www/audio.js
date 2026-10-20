@@ -84,6 +84,29 @@ class SoundFX {
         osc.stop(now + 0.04);
     }
 
+    // Short, soft "tock" for menu and game buttons
+    playTap() {
+        if (this.muted || !this.ctx) return;
+        this.resume();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(980, now);
+        osc.frequency.exponentialRampToValueAtTime(520, now + 0.05);
+
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.09, now + 0.005);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.06);
+    }
+
     playDrop() {
         if (this.muted || !this.ctx) return;
         this.resume();

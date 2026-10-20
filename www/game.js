@@ -2422,6 +2422,16 @@
             });
         }
 
+        // Tap feedback for every button: a soft click and a light haptic
+        const TAP_TARGETS = 'button, [role="button"], [role="switch"], label.qs-row, a[href]';
+        document.addEventListener('pointerdown', (e) => {
+            const el = e.target.closest && e.target.closest(TAP_TARGETS);
+            if (!el || el.disabled || el.getAttribute('aria-disabled') === 'true' || el.closest('[data-no-tap]')) return;
+            sfx.init();
+            sfx.playTap();
+            triggerHaptic('tap');
+        }, { passive: true });
+
         // Native: always full screen; re-hide the system bars and refresh reminders around app switches
         const systemBars = nativePlugin('SystemBars');
         const hideBars = () => { if (systemBars) systemBars.hide().catch(() => {}); };
