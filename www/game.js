@@ -9197,11 +9197,11 @@
         ctx.fillStyle = '#ffe3e4';
         ctx.font = `900 ${Math.round(radius * 0.62)}px 'Lato', 'Inter', sans-serif`;
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(String(core.hp), 0, 2);
-        ctx.fillStyle = 'rgba(255, 150, 152, 0.8)';
-        ctx.font = `800 ${Math.round(radius * 0.2)}px 'Inter', sans-serif`;
-        ctx.fillText('NULL CORE', 0, radius * 0.48);
+        // Centre the HP on the digits' real height (the objective bar names the core)
+        ctx.textBaseline = 'alphabetic';
+        const hpText = String(core.hp);
+        const m = ctx.measureText(hpText);
+        ctx.fillText(hpText, 0, (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2);
         ctx.restore();
     }
 
