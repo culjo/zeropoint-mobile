@@ -19,6 +19,9 @@ const DUCK_LEVEL = 0.4;    // music level while ducked
 const DUCK_ATTACK = 0.05;  // seconds to dip
 const DUCK_HOLD = 0.15;    // seconds held low
 const DUCK_RELEASE = 0.5;  // seconds to come back
+const MUFFLE_OPEN_HZ = 20000; // music low-pass when the board is safe
+const MUFFLE_DANGER_HZ = 650; // at full danger
+const MUFFLE_TIME = 0.25;     // seconds (time constant) to glide between them
 
 function cascadeNoteHz(step) {
     const octave = Math.floor(step / CASCADE_SCALE.length);
@@ -75,14 +78,28 @@ class SoundFX {
             comp.attack.value = SFX_COMP.attack;
             comp.release.value = SFX_COMP.release;
             comp.connect(master);
+            // Music: duck gain → low-pass (opens fully unless the board is in danger) → master
             const music = ctx.createGain();
-            music.connect(master);
+            const muffle = ctx.createBiquadFilter();
+            muffle.type = 'lowpass';
+            muffle.frequency.value = MUFFLE_OPEN_HZ;
+            muffle.Q.value = 0.7;
+            music.connect(muffle);
+            muffle.connect(master);
             this.out = comp;
             this.musicBus = music;
+            this.muffle = muffle;
         } catch (e) {
             this.out = ctx.destination;
             this.musicBus = ctx.destination;
         }
+    }
+
+    // Danger 0–1 closes the music's low-pass from fully open down to a muffled thud
+    setDanger(level) {
+        if (!this.ctx || !this.muffle) return;
+        const hz = MUFFLE_OPEN_HZ * Math.pow(MUFFLE_DANGER_HZ / MUFFLE_OPEN_HZ, Math.max(0, Math.min(1, level)));
+        this.muffle.frequency.setTargetAtTime(hz, this.ctx.currentTime, MUFFLE_TIME);
     }
 
     // Dip the music under a big blast, then bring it back

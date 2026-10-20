@@ -650,6 +650,9 @@
     let screenFlashY = null;
     let floatingTexts = [];
     let comboCounter = null;   // the single on-board ×N that follows a cascade
+    let dangerLevel = 0;       // 0–1, eased toward the board's danger; drives vignette, heartbeat, muffle
+    let dangerBeatAt = 0;      // performance.now() of the last heartbeat
+    let dangerSentToAudio = -1;
     let shakeTrauma = 0;       // 0–1; hits add to it, it drains over time, shake grows with its square
     let shakeKickX = 0;        // one-off shove away from a blast, springs back on its own
     let shakeKickY = 0;
@@ -7965,6 +7968,12 @@
                 triggerZeroPointBlast(r, c, `${magnitude} + (-${magnitude}) = 0!`, 0, magnitude, r, c);
                 combo = keep;
             },
+            // Stack column col so it leaves `free` empty rows above it, to preview the danger state
+            stack(free = 0, col = 0) {
+                if (!isDebugMode() || currentScreen !== 'game') return;
+                for (let r = 0; r < ROWS; r++) grid[r][col] = r > free ? createTile(r % 2 ? 3 : 5) : null;
+                return minColumnHeadroom();
+            },
             // Turn hit-stop off/on to compare the feel
             hitStop(on = true) {
                 setHitStopEnabled(!!on);
@@ -8006,6 +8015,7 @@
         if (!isPaused && currentScreen === 'game') {
             update(dt);
         }
+        updateDanger(dt, now);
         if (currentScreen === 'game') {
             render();
         }
@@ -8198,6 +8208,9 @@
 
         // 6. Draw Shockwaves & Sparks
         drawEffects();
+
+        // 6.5 Danger: red vignette and a glow under the threshold line, beating with the heart
+        drawDanger(w, h);
 
         // 7. Draw Floating Texts, then the cascade's combo counter on top
         drawFloatingTexts();
@@ -9779,6 +9792,70 @@
         });
     }
 
+    // Danger state: as the tallest column nears the line the screen pulses red like a heartbeat,
+    // a light haptic beats with it, and the music goes muffled. It clears as soon as space opens.
+    const DANGER_BY_HEADROOM = [1, 0.7, 0.35]; // free rows above the tallest column: 0, 1, 2
+    const DANGER_EASE = 4;           // per second, toward the target level
+    const DANGER_BEAT_SLOW = 1.2;    // seconds between beats at the mild end
+    const DANGER_BEAT_FAST = 0.75;   // seconds between beats at critical
+    const DANGER_DUB_DELAY = 0.22;   // seconds from "lub" to "dub"
+    const DANGER_VIGNETTE = 0.32;    // edge opacity at full danger, top of the beat
+
+    function boardDangerTarget() {
+        if (currentScreen !== 'game' || isPaused || isGameOver || !grid || !grid.length) return 0;
+        return DANGER_BY_HEADROOM[minColumnHeadroom()] || 0;
+    }
+
+    function dangerBeatPeriod() {
+        return DANGER_BEAT_SLOW + (DANGER_BEAT_FAST - DANGER_BEAT_SLOW) * dangerLevel;
+    }
+
+    // 0–1 heartbeat envelope: a strong "lub" then a softer "dub"
+    function dangerPulse(now) {
+        if (prefersReducedMotion()) return 0.5;
+        const t = (now - dangerBeatAt) / 1000;
+        const bump = (at, width) => Math.exp(-Math.pow((t - at) / width, 2));
+        return Math.max(bump(0.03, 0.06), 0.6 * bump(DANGER_DUB_DELAY + 0.03, 0.06));
+    }
+
+    function updateDanger(dt, now) {
+        const target = boardDangerTarget();
+        dangerLevel += (target - dangerLevel) * (1 - Math.exp(-DANGER_EASE * dt));
+        if (dangerLevel < 0.01 && target === 0) dangerLevel = 0;
+        if (target > 0 && now - dangerBeatAt >= dangerBeatPeriod() * 1000) {
+            dangerBeatAt = now;
+            triggerHaptic('heartbeat');
+            setTimeout(() => { if (boardDangerTarget() > 0) triggerHaptic('heartbeat-dub'); }, DANGER_DUB_DELAY * 1000);
+        }
+        // Only tell the audio when the level has moved enough to hear
+        const q = Math.round(dangerLevel * 20) / 20;
+        if (q !== dangerSentToAudio && sfx && sfx.setDanger) {
+            dangerSentToAudio = q;
+            sfx.setDanger(q);
+        }
+    }
+
+    function drawDanger(w, h) {
+        if (dangerLevel <= 0) return;
+        const pulse = dangerPulse(performance.now());
+        const a = dangerLevel * DANGER_VIGNETTE * (0.55 + 0.45 * pulse);
+        ctx.save();
+        const cx = w / 2, cy = h / 2;
+        const vg = ctx.createRadialGradient(cx, cy, Math.min(w, h) * 0.3, cx, cy, Math.hypot(w, h) * 0.6);
+        vg.addColorStop(0, 'rgba(255, 30, 60, 0)');
+        vg.addColorStop(1, `rgba(255, 30, 60, ${a.toFixed(3)})`);
+        ctx.fillStyle = vg;
+        ctx.fillRect(0, 0, w, h);
+        // A glow hanging under the threshold line
+        const lineY = boardOffsetY + cellH;
+        const band = ctx.createLinearGradient(0, lineY, 0, lineY + cellH * 0.9);
+        band.addColorStop(0, `rgba(255, 78, 80, ${(dangerLevel * (0.22 + 0.25 * pulse)).toFixed(3)})`);
+        band.addColorStop(1, 'rgba(255, 78, 80, 0)');
+        ctx.fillStyle = band;
+        ctx.fillRect(boardOffsetX, lineY, COLS * cellW, cellH * 0.9);
+        ctx.restore();
+    }
+
     // Screen flash: old strengths (0.55–0.9) scale down and cap, so even Hyperspace stays gentle
     const FLASH_SCALE = 0.42;
     const FLASH_MAX = 0.35;
@@ -9869,7 +9946,7 @@
 
     // Cascades fire many haptics at once: within the gap, only a stronger one gets through
     const HAPTIC_MIN_GAP_MS = 60;
-    const HAPTIC_RANK = { tick: 0, swap: 0, tap: 0, light: 0, merge: 1, pop: 1, drop: 2, pulse: 2, laser: 3, overdrive: 3, zero: 4, supernova: 4 };
+    const HAPTIC_RANK = { tick: 0, swap: 0, tap: 0, light: 0, 'heartbeat-dub': 0, heartbeat: 1, merge: 1, pop: 1, drop: 2, pulse: 2, laser: 3, overdrive: 3, zero: 4, supernova: 4 };
     let lastHapticAt = -Infinity;
     let lastHapticRank = -1;
 
@@ -9893,7 +9970,11 @@
                 const Haptics = window.Capacitor.Plugins.Haptics;
                 switch (type) {
                     case 'tick':
+                    case 'heartbeat-dub':
                         if (Haptics.selectionChanged) Haptics.selectionChanged();
+                        return;
+                    case 'heartbeat':
+                        if (Haptics.impact) Haptics.impact({ style: 'LIGHT' });
                         return;
                     case 'drop':
                         if (Haptics.impact) Haptics.impact({ style: 'MEDIUM' });
@@ -9936,7 +10017,11 @@
             try {
                 switch (type) {
                     case 'tick':
+                    case 'heartbeat-dub':
                         navigator.vibrate(8);
+                        break;
+                    case 'heartbeat':
+                        navigator.vibrate(14);
                         break;
                     case 'drop':
                         navigator.vibrate(18);
