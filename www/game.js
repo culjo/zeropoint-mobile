@@ -559,6 +559,13 @@
     const CLASSIC_DM_CHANCE = [0.6, 0.66, 0.72, 0.79, 0.85, 0.88, 0.91, 0.93, 0.95]; // Dark Matter share of a rising row
     const CLASSIC_PAIR_BIAS = [0.2, 0.15, 0.1, 0.07, 0.05, 0.04, 0.03, 0.02];       // chance the tray deals a match
     const CLASSIC_HEAT_SCORE_STEP = 0.25; // score ×(1 + 0.25 per heat)
+    // Adventure elements join Classic by Heat (concept id → Heat it unlocks at). They arrive in
+    // rising rows (Risers push up on their own); unseen ones get their concept card just in time.
+    const CLASSIC_ELEMENTS = { risers: 1, dense_cores: 2, webbed_orbs: 3, entangled_pairs: 4, static_blocks: 5 };
+    const CLASSIC_RISER_EVERY = 6;   // moves between Riser spawns
+    const CLASSIC_STATIC_MAX = 4;    // walls on the board at once
+    const CLASSIC_WALL_LIFE = 6;     // rising rows a Classic wall lasts (rows push walls up, so they crumble)
+    const CLASSIC_ELEMENT_BONUS = 40; // points for clearing a Riser, a dense core or an entangled pair
     let dropsUsed = 0;
     let maxDrops = 15;
 
@@ -2865,14 +2872,19 @@
     }
 
     // pool: { values: [magnitudes], specials: chance, favor?: magnitude dealt twice as often }
-    function generateLevelPoolOrb(pool) {
-        // Guarantees first (a Riser's opposite turns up within a few deals)
+    // Guarantees first (a Riser's opposite turns up within a few deals)
+    function takeDueDeal() {
+        if (!pendingDeals.length) return null;
         pendingDeals.forEach((d) => { d.due--; });
         const dueIdx = pendingDeals.findIndex((d) => d.due <= 0);
-        if (dueIdx >= 0) {
-            const v = pendingDeals.splice(dueIdx, 1)[0].value;
-            return { type: 'number', value: v, label: v > 0 ? `+${v}` : `${v}` };
-        }
+        if (dueIdx < 0) return null;
+        const v = pendingDeals.splice(dueIdx, 1)[0].value;
+        return { type: 'number', value: v, label: v > 0 ? `+${v}` : `${v}` };
+    }
+
+    function generateLevelPoolOrb(pool) {
+        const due = takeDueDeal();
+        if (due) return due;
         if (pool.specials && Math.random() < pool.specials) return makeSpecialOrb();
         if (orbDealerKey !== activeAdventureLevel) {
             const goal = activeAdventureLevel.goal;
@@ -2919,6 +2931,98 @@
 
     function classicTideStep(table) {
         return table[Math.min(classicHeat, table.length - 1)];
+    }
+
+    function classicHas(id) {
+        return gameMode === 'classic' && !isTutorial && !firstPlay && classicHeat >= CLASSIC_ELEMENTS[id];
+    }
+
+    // Classic: Risers climb every move and a new one pushes up every few moves
+    async function runClassicElementEffects(state) {
+        if (countRisers() > 0 && climbRisers()) {
+            await delay(200);
+            await settleBoard(state);
+            for (let c = 0; c < COLS; c++) {
+                if (grid[0][c] && grid[0][c].riser) return; // checkGameOver ends the run
+            }
+            ensureRiserOpposites();
+        }
+        if (!classicHas('risers')) return;
+        riserClock++;
+        if (riserClock < CLASSIC_RISER_EVERY) return;
+        riserClock = 0;
+        if (countRisers() < (classicHeat >= 5 ? 2 : 1) && spawnRiser(true)) {
+            queueJit('risers');
+            await delay(200);
+            await settleBoard(state);
+        }
+    }
+
+    // Classic: dress a new rising row with the elements unlocked so far
+    function decorateClassicRow(row) {
+        const pick = (pred) => {
+            const cols = row.map((t, c) => (t && pred(t) ? c : -1)).filter((c) => c >= 0);
+            return cols.length ? cols[Math.floor(Math.random() * cols.length)] : -1;
+        };
+        const isDM = (t) => t.type === 'dark_matter' && !t.dense;
+        const isPlain = (t) => t.type === 'number' && !t.web && !t.link;
+        if (classicHas('static_blocks') && Math.random() < 0.25) {
+            let walls = 0;
+            forEachTile((t) => { if (t.type === 'static') walls++; });
+            const c = walls < CLASSIC_STATIC_MAX ? pick(isDM) : -1;
+            if (c >= 0) {
+                row[c] = createTile(0, 'static');
+                row[c].wallLife = CLASSIC_WALL_LIFE;
+                queueJit('static_blocks');
+            }
+        }
+        if (classicHas('dense_cores') && Math.random() < 0.5) {
+            const c = pick(isDM);
+            if (c >= 0) {
+                row[c].hp = 4;
+                row[c].dense = true;
+                queueJit('dense_cores');
+            }
+        }
+        if (classicHas('webbed_orbs')) {
+            for (let i = 0; i < 2; i++) {
+                const c = Math.random() < 0.35 ? pick(isPlain) : -1;
+                if (c < 0) continue;
+                row[c].web = true;
+                queueJit('webbed_orbs');
+            }
+        }
+        if (classicHas('entangled_pairs') && Math.random() < 0.5) {
+            const a = pick(isPlain);
+            if (a >= 0) {
+                row[a].link = -1; // placeholder so the twin pick skips it
+                const b = pick(isPlain);
+                if (b >= 0) {
+                    let link = 0;
+                    forEachTile((t) => { if (t.link) link = Math.max(link, t.link); });
+                    row[a].link = row[b].link = link + 1;
+                    queueJit('entangled_pairs');
+                } else {
+                    delete row[a].link;
+                }
+            }
+        }
+    }
+
+    // Classic walls ride rising rows up, so each crumbles after a few rows instead of
+    // walking into the red line
+    function ageClassicWalls() {
+        forEachTile((t, r, c) => {
+            if (t.type !== 'static' || !t.wallLife) return;
+            t.wallLife--;
+            if (t.wallLife > 0) return;
+            grid[r][c] = null;
+            const x = boardOffsetX + c * cellW + cellW / 2;
+            const y = boardOffsetY + r * cellH + cellH / 2;
+            createSparks(x, y, '#9aa4c4', 14);
+            addFloatingText('WALL CRUMBLES', x, y - cellH * 0.3, '#9aa4c4', 0.95);
+            sfx.playCrack();
+        });
     }
 
     function classicScoreMult() {
@@ -2980,6 +3084,8 @@
             val = energyPool[Math.floor(Math.random() * energyPool.length)];
         } else if (gameMode === 'classic' && !isTutorial && typeof OrbBag !== 'undefined') {
             // Classic: bag randomizer over the current Number Tide, leaning toward pairs less as it climbs
+            const due = takeDueDeal();
+            if (due) return due;
             const key = `classic:${classicTide}:${classicHeat}`;
             if (orbDealerKey !== key) {
                 orbDealer = OrbBag.createDealer({ values: OrbBag.tideValues(classicTide), pairBias: classicTideStep(CLASSIC_PAIR_BIAS) });
@@ -3344,6 +3450,7 @@
                     if (!isTutorial) {
                         tickSurge();
                         tickClassicTide();
+                        await runClassicElementEffects(state);
                     }
                     let rose = false;
                     if (!isTutorial && isBoardEmpty()) {
@@ -3860,6 +3967,8 @@
         if (gameMode === 'classic' && !isTutorial) queueJit('rising_rows', 'dark_matter');
         sfx.playWarning();
         triggerScreenShake(5);
+        const classicRow = gameMode === 'classic' && !isTutorial;
+        if (classicRow) ageClassicWalls();
 
         // Shift all rows up by 1
         for (let r = 0; r < ROWS - 1; r++) {
@@ -3877,6 +3986,7 @@
                 newRow.push(createTile(val));
             }
         }
+        if (classicRow) decorateClassicRow(newRow);
         grid[ROWS - 1] = newRow;
 
         addFloatingText('REACTOR PRESSURE RISE!', canvas.width / (2 * dpr), boardOffsetY + cellH * 3, 'var(--danger)', 1.3);
@@ -3982,6 +4092,10 @@
 
     // Tiles that left the board by any cause except merging (blasts, specials, craters, vortex)
     function noteTilesRemoved(tiles, pos = null, seen = new Set()) {
+        if (gameMode === 'classic' && !isTutorial && !firstPlay) {
+            const special = tiles.filter((t) => t && (t.riser || t.dense || t.link) && !seen.has(t)).length;
+            if (special) addScore(CLASSIC_ELEMENT_BONUS * special, pos);
+        }
         if (gameMode === 'adventure' && isGoalLevel(activeAdventureLevel)) {
             const n = goalCountForRemoved(activeAdventureLevel.goal, tiles);
             if (n > 0) checkAdventureObjective('goal', n, pos);
@@ -4211,7 +4325,8 @@
 
     // A new Riser pushes up from the bottom of the emptiest column (never the core's columns)
     function spawnRiser(announce = true) {
-        const pool = (activeAdventureLevel && activeAdventureLevel.rules && activeAdventureLevel.rules.pool) || { values: [1, 2, 3] };
+        const pool = gameMode === 'classic' ? { values: OrbBag.tideValues(classicTide).slice(0, 3) }
+            : (activeAdventureLevel && activeAdventureLevel.rules && activeAdventureLevel.rules.pool) || { values: [1, 2, 3] };
         const columns = [];
         for (let c = 0; c < COLS; c++) {
             let hasCore = false;
@@ -8037,6 +8152,17 @@
                 await celebrateBoardClear();
                 isProcessing = false;
                 updateHUD();
+            },
+            // Jump Classic to a Heat level (tide follows, up to its max) and raise a row
+            async heat(n) {
+                if (!isDebugMode() || currentScreen !== 'game' || gameMode !== 'classic') return;
+                classicHeat = Math.max(0, n | 0);
+                classicTide = Math.min(CLASSIC_TIDE_MAX, classicHeat);
+                isProcessing = true;
+                await pushRisingRow();
+                isProcessing = false;
+                updateHUD();
+                return { heat: classicHeat, tide: classicTide, rise: classicRisePeriod() };
             },
             async surge() {
                 if (!isDebugMode() || currentScreen !== 'game' || gameMode !== 'classic' || !surgeBag || classicSurge) return;
