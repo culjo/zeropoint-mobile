@@ -12,6 +12,14 @@ const CASCADE_SCALE = [0, 2, 4, 7, 9]; // semitones above the root: C D E G A
 const CASCADE_ROOT_HZ = 261.63;        // C4
 const CASCADE_TOP_STEP = 10;           // two octaves up, then the run holds its top note
 
+// Master bus: effects go through a compressor so stacked cascades don't clip;
+// music joins after it through its own gain, which dips under big blasts
+const SFX_COMP = { threshold: -14, knee: 10, ratio: 4, attack: 0.003, release: 0.2 };
+const DUCK_LEVEL = 0.4;    // music level while ducked
+const DUCK_ATTACK = 0.05;  // seconds to dip
+const DUCK_HOLD = 0.15;    // seconds held low
+const DUCK_RELEASE = 0.5;  // seconds to come back
+
 function cascadeNoteHz(step) {
     const octave = Math.floor(step / CASCADE_SCALE.length);
     const semis = octave * 12 + CASCADE_SCALE[step % CASCADE_SCALE.length];
@@ -27,6 +35,8 @@ class SoundFX {
         this.cascadeStep = 0;
         this.music = null;
         this.bgmTrack = null;
+        this.out = null;      // where every effect connects (compressor input)
+        this.musicBus = null; // music input; its gain does the ducking
     }
 
     // Start of a turn: the next merge or blast plays the root again
@@ -45,11 +55,46 @@ class SoundFX {
         try {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             this.ctx = new AudioContext();
+            this.buildBus();
             this.initialized = true;
             this.warmUp();
         } catch (e) {
             console.warn("Web Audio not supported", e);
         }
+    }
+
+    buildBus() {
+        const ctx = this.ctx;
+        try {
+            const master = ctx.createGain();
+            master.connect(ctx.destination);
+            const comp = ctx.createDynamicsCompressor();
+            comp.threshold.value = SFX_COMP.threshold;
+            comp.knee.value = SFX_COMP.knee;
+            comp.ratio.value = SFX_COMP.ratio;
+            comp.attack.value = SFX_COMP.attack;
+            comp.release.value = SFX_COMP.release;
+            comp.connect(master);
+            const music = ctx.createGain();
+            music.connect(master);
+            this.out = comp;
+            this.musicBus = music;
+        } catch (e) {
+            this.out = ctx.destination;
+            this.musicBus = ctx.destination;
+        }
+    }
+
+    // Dip the music under a big blast, then bring it back
+    duckMusic() {
+        if (!this.ctx || !this.musicBus || !this.musicBus.gain) return;
+        const g = this.musicBus.gain;
+        const now = this.ctx.currentTime;
+        g.cancelScheduledValues(now);
+        g.setValueAtTime(g.value, now);
+        g.linearRampToValueAtTime(DUCK_LEVEL, now + DUCK_ATTACK);
+        g.setValueAtTime(DUCK_LEVEL, now + DUCK_ATTACK + DUCK_HOLD);
+        g.linearRampToValueAtTime(1, now + DUCK_ATTACK + DUCK_HOLD + DUCK_RELEASE);
     }
 
     // Start the audio hardware and build shared buffers up front (on the first
@@ -61,7 +106,7 @@ class SoundFX {
             const silent = this.ctx.createBuffer(1, 1, this.ctx.sampleRate);
             const src = this.ctx.createBufferSource();
             src.buffer = silent;
-            src.connect(this.ctx.destination);
+            src.connect(this.out);
             src.start(0);
             // Silent oscillator so the first real tone doesn't pay the node setup cost
             const now = this.ctx.currentTime;
@@ -69,7 +114,7 @@ class SoundFX {
             const gain = this.ctx.createGain();
             gain.gain.setValueAtTime(0, now);
             osc.connect(gain);
-            gain.connect(this.ctx.destination);
+            gain.connect(this.out);
             osc.start(now);
             osc.stop(now + 0.02);
             this.getNoiseBuffer();
@@ -111,7 +156,7 @@ class SoundFX {
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
 
         osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(this.out);
 
         osc.start(now);
         osc.stop(now + 0.04);
@@ -134,7 +179,7 @@ class SoundFX {
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
 
         osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(this.out);
 
         osc.start(now);
         osc.stop(now + 0.06);
@@ -155,7 +200,7 @@ class SoundFX {
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
 
         osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(this.out);
 
         osc.start(now);
         osc.stop(now + 0.09);
@@ -186,7 +231,7 @@ class SoundFX {
 
         osc.connect(gain);
         osc2.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(this.out);
 
         osc.start(now);
         osc2.start(now);
@@ -198,6 +243,8 @@ class SoundFX {
         if (this.muted || !this.ctx) return;
         this.resume();
         const now = this.ctx.currentTime;
+
+        if (tier >= 4) this.duckMusic(); // Supernova and up get the room to themselves
 
         const duration = 0.35 + Math.min(tier * 0.12, 0.5);
         const subFreq = Math.max(35, 110 - tier * 15);
@@ -213,7 +260,7 @@ class SoundFX {
         subGain.gain.setValueAtTime(subVol, now);
         subGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
         sub.connect(subGain);
-        subGain.connect(this.ctx.destination);
+        subGain.connect(this.out);
         sub.start(now);
         sub.stop(now + duration);
 
@@ -228,7 +275,7 @@ class SoundFX {
             laserGain.gain.setValueAtTime(0.2, now);
             laserGain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
             laser.connect(laserGain);
-            laserGain.connect(this.ctx.destination);
+            laserGain.connect(this.out);
             laser.start(now);
             laser.stop(now + 0.25);
         }
@@ -250,7 +297,7 @@ class SoundFX {
             chimeGain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.02 + 0.3);
 
             chime.connect(chimeGain);
-            chimeGain.connect(this.ctx.destination);
+            chimeGain.connect(this.out);
             chime.start(now + i * 0.02);
             chime.stop(now + i * 0.02 + 0.3);
         }
@@ -275,7 +322,7 @@ class SoundFX {
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
 
         osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(this.out);
 
         osc.start(now);
         osc.stop(now + 0.22);
@@ -307,7 +354,7 @@ class SoundFX {
 
         noise.connect(filter);
         filter.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(this.out);
 
         noise.start(now, offset, len);
     }
@@ -327,7 +374,7 @@ class SoundFX {
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
 
         osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(this.out);
 
         osc.start(now);
         osc.stop(now + 0.16);
@@ -348,7 +395,7 @@ class SoundFX {
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
 
         osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(this.out);
 
         osc.start(now);
         osc.stop(now + 0.85);
@@ -367,7 +414,7 @@ class SoundFX {
             gain.gain.setValueAtTime(0.18, now + idx * 0.05);
             gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.05 + 0.35);
             osc.connect(gain);
-            gain.connect(this.ctx.destination);
+            gain.connect(this.out);
             osc.start(now + idx * 0.05);
             osc.stop(now + idx * 0.05 + 0.35);
         });
@@ -385,7 +432,7 @@ class SoundFX {
         gain.gain.setValueAtTime(0.25, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
         osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(this.out);
         osc.start(now);
         osc.stop(now + 0.4);
         this.playNoiseBlast(0.3, 0.25);
@@ -406,7 +453,7 @@ class SoundFX {
         suctionGain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
 
         suction.connect(suctionGain);
-        suctionGain.connect(this.ctx.destination);
+        suctionGain.connect(this.out);
         suction.start(now);
         suction.stop(now + 0.55);
 
@@ -418,7 +465,7 @@ class SoundFX {
         subGain.gain.setValueAtTime(0.4, now + 0.2);
         subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
         sub.connect(subGain);
-        subGain.connect(this.ctx.destination);
+        subGain.connect(this.out);
         sub.start(now + 0.2);
         sub.stop(now + 0.65);
 
@@ -443,7 +490,7 @@ class SoundFX {
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
 
             osc.connect(gain);
-            gain.connect(this.ctx.destination);
+            gain.connect(this.out);
 
             osc.start(now);
             osc.stop(now + 0.18);
@@ -468,7 +515,7 @@ class SoundFX {
             gain.gain.exponentialRampToValueAtTime(0.001, time + 0.3);
 
             osc.connect(gain);
-            gain.connect(this.ctx.destination);
+            gain.connect(this.out);
 
             osc.start(time);
             osc.stop(time + 0.3);
@@ -494,7 +541,7 @@ class SoundFX {
                 gain.gain.exponentialRampToValueAtTime(0.001, time + 0.18);
 
                 osc.connect(gain);
-                gain.connect(this.ctx.destination);
+                gain.connect(this.out);
 
                 osc.start(time);
                 osc.stop(time + 0.18);
@@ -521,7 +568,7 @@ class SoundFX {
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.23);
 
             osc.connect(gain);
-            gain.connect(this.ctx.destination);
+            gain.connect(this.out);
 
             osc.start(now);
             osc.stop(now + 0.23);
@@ -546,7 +593,7 @@ class SoundFX {
                 gain.gain.exponentialRampToValueAtTime(0.001, noteTime + 0.4);
 
                 osc.connect(gain);
-                gain.connect(this.ctx.destination);
+                gain.connect(this.out);
 
                 osc.start(noteTime);
                 osc.stop(noteTime + 0.4);
@@ -557,7 +604,7 @@ class SoundFX {
     // Ambient soundtrack lives in music.js; the track comes from rotateBGM / playBGMTrack
     startBGM() {
         if (this.muted || !this.ctx || !window.AmbientMusic) return;
-        if (!this.music) this.music = new AmbientMusic(this.ctx);
+        if (!this.music) this.music = new AmbientMusic(this.ctx, this.musicBus);
         if (this.music.playing) return;
         if (!this.bgmTrack) this.rotateBGM();
         this.resume();
@@ -598,7 +645,7 @@ class SoundFX {
     previewBGM(trackId) {
         this.init();
         if (!this.ctx || !window.AmbientMusic) return;
-        if (!this.music) this.music = new AmbientMusic(this.ctx);
+        if (!this.music) this.music = new AmbientMusic(this.ctx, this.musicBus);
         this.resume();
         this.bgmTrack = trackId;
         this.music.start(trackId, { volume: 0.5, fadeIn: 1 });
