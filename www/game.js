@@ -644,8 +644,10 @@
     let particles = [];
     let shockwaves = [];
     let laserBeams = [];
-    let screenFlash = 0;
+    let screenFlash = 0;           // current flash opacity at its centre
     let screenFlashColor = '#ffffff';
+    let screenFlashX = null;       // canvas px the flash spreads from; null = board centre
+    let screenFlashY = null;
     let floatingTexts = [];
     let comboCounter = null;   // the single on-board ×N that follows a cascade
     let shakeTrauma = 0;       // 0–1; hits add to it, it drains over time, shake grows with its square
@@ -1698,8 +1700,7 @@
             tutBusy = true;
             if (tutTurn.breach) {
                 triggerScreenShake(16);
-                screenFlash = 0.6;
-                screenFlashColor = '#ff4e50';
+                triggerScreenFlash(0.6, '#ff4e50');
                 sfx.playGameOver();
             } else {
                 sfx.playWarning();
@@ -2728,6 +2729,7 @@
         activeMergeAnimations = [];
         activeZeroPointCollapses = [];
         screenFlash = 0;
+        screenFlashX = screenFlashY = null;
         floatingTexts = [];
         comboCounter = null;
         activeProjectile = null;
@@ -3130,8 +3132,7 @@
             // Black Hole Vortex: Sucks in and annihilates the entire column!
             sfx.playBlackHole();
             triggerScreenShake(26);
-            screenFlash = 0.55;
-            screenFlashColor = '#bc13fe';
+            triggerScreenFlash(0.55, '#bc13fe', { x: boardOffsetX + col * cellW + cellW / 2, y: boardOffsetY + cellH * 2.5 });
 
             shockwaves.push({ 
                 x: boardOffsetX + col * cellW + cellW / 2, 
@@ -3169,8 +3170,7 @@
             // Supernova Core: Detonates Tier 4 Supernova Crater at target area
             sfx.playAnnihilate(combo, 4);
             triggerScreenShake(22);
-            screenFlash = 0.65;
-            screenFlashColor = '#ffd700';
+            triggerScreenFlash(0.65, '#ffd700', { x: boardOffsetX + col * cellW + cellW / 2, y: boardOffsetY + Math.max(0, Math.min(ROWS - 1, row >= 0 ? row : ROWS - 1)) * cellH });
 
             const epicR = Math.max(0, Math.min(ROWS - 1, row >= 0 ? row : ROWS - 1));
             damageSupernovaArea(epicR, col, epicR, col);
@@ -3631,8 +3631,7 @@
         } else if (tier === 4) {
             // Tier 4: Supernova Crater (Magnitude 8-15)
             triggerScreenShake(24, { x, y });
-            screenFlash = 0.65;
-            screenFlashColor = '#ffd700';
+            triggerScreenFlash(0.65, '#ffd700', { x, y });
 
             shockwaves.push({ x: x, y: y, radius: 15, maxRadius: cellW * 5.2, alpha: 1, color: '#ffd700' });
             shockwaves.push({ x: x, y: y, radius: 8, maxRadius: cellW * 3.5, alpha: 1, color: '#ffffff' });
@@ -3647,8 +3646,7 @@
         } else {
             // Tier 5: Hyperspace Singularity (Magnitude 16+)
             triggerScreenShake(32, { x, y });
-            screenFlash = 0.85;
-            screenFlashColor = '#ffffff';
+            triggerScreenFlash(0.85, '#ffffff', { x, y });
 
             shockwaves.push({ x: x, y: y, radius: 20, maxRadius: cellW * 7.5, alpha: 1, color: '#c471ed' });
             shockwaves.push({ x: x, y: y, radius: 10, maxRadius: cellW * 5.0, alpha: 1, color: '#00f2fe' });
@@ -4256,8 +4254,7 @@
                 createSparks(boardOffsetX + c * cellW + cellW / 2, boardOffsetY + r * cellH + cellH / 2, '#ff4e50', 24);
                 grid[r][c] = null;
             });
-            screenFlash = 0.6;
-            screenFlashColor = '#ff4e50';
+            triggerScreenFlash(0.6, '#ff4e50', pos);
         }
     }
 
@@ -5168,8 +5165,7 @@
         sfx.playOverdriveActivate();
         triggerHaptic('overdrive');
         triggerScreenShake(20);
-        screenFlash = 0.75;
-        screenFlashColor = '#ffd700';
+        triggerScreenFlash(0.75, '#ffd700');
 
         // Select the next special in rotation (Vortex -> Supernova Core -> Antimatter Nuke -> repeat)
         const special = FRENZY_SPECIALS[frenzySpecialIndex % FRENZY_SPECIALS.length];
@@ -5386,8 +5382,7 @@
     async function celebrateBoardClear() {
         const cx = boardOffsetX + (COLS * cellW) / 2;
         const cy = boardOffsetY + (ROWS * cellH) / 2;
-        screenFlash = 0.9;
-        screenFlashColor = '#ffffff';
+        triggerScreenFlash(0.9, '#ffffff', { x: cx, y: cy });
         triggerScreenShake(10);
         triggerHaptic('zero');
         sfx.playBountyComplete();
@@ -7958,7 +7953,7 @@
 
         // Screen Flash decay
         if (screenFlash > 0) {
-            screenFlash = Math.max(0, screenFlash - 4.5 * dt);
+            screenFlash = Math.max(0, screenFlash - FLASH_DECAY * dt);
         }
 
         // Sparks update: oldest go first past the cap; sparks burst out then hang on air drag,
@@ -9486,11 +9481,18 @@
         }
         ctx.restore();
 
-        // 4. Screen Flash (Tier 4 / 5)
+        // 4. Screen Flash: a glow spreading from the blast, brightest at its centre
         if (screenFlash > 0) {
+            const fx = screenFlashX != null ? screenFlashX : boardOffsetX + (COLS * cellW) / 2;
+            const fy = screenFlashY != null ? screenFlashY : boardOffsetY + (ROWS * cellH) / 2;
+            const reach = Math.hypot(w, h) * FLASH_REACH;
+            const color = screenFlashColor || '#ffffff';
+            const grad = ctx.createRadialGradient(fx, fy, 0, fx, fy, reach);
+            grad.addColorStop(0, tierRgba(color, screenFlash));
+            grad.addColorStop(0.35, tierRgba(color, screenFlash * 0.45));
+            grad.addColorStop(1, tierRgba(color, 0));
             ctx.save();
-            ctx.globalAlpha = Math.min(1, screenFlash);
-            ctx.fillStyle = screenFlashColor || '#ffffff';
+            ctx.fillStyle = grad;
             ctx.fillRect(0, 0, w, h);
             ctx.restore();
         }
@@ -9668,6 +9670,26 @@
             y0: y,
             age: 0
         });
+    }
+
+    // Screen flash: old strengths (0.55–0.9) scale down and cap, so even Hyperspace stays gentle
+    const FLASH_SCALE = 0.42;
+    const FLASH_MAX = 0.35;
+    const FLASH_REACH = 0.75;      // gradient radius as a share of the screen diagonal
+    const FLASH_DECAY = 1.3;       // opacity per second (0.35 clears in about 0.27s)
+    const reducedMotionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+
+    function prefersReducedMotion() {
+        return !!(reducedMotionQuery && reducedMotionQuery.matches);
+    }
+
+    // origin (canvas px) is where the glow spreads from; default is the board centre
+    function triggerScreenFlash(strength, color = '#ffffff', origin = null) {
+        if (prefersReducedMotion()) return; // full-screen flashes are the effect people most often need gone
+        screenFlash = Math.max(screenFlash, Math.min(FLASH_MAX, strength * FLASH_SCALE));
+        screenFlashColor = color;
+        screenFlashX = origin ? origin.x : null;
+        screenFlashY = origin ? origin.y : null;
     }
 
     // Freeze-frame length per blast tier; only the big blasts get one
