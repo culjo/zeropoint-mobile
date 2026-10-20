@@ -2169,15 +2169,6 @@
 
     function syncShakePills() {
         const level = (career.settings && career.settings.shake) || 'high';
-        // Native: always full screen; re-hide the system bars when returning to the app
-        const systemBars = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()
-            && window.Capacitor.Plugins && window.Capacitor.Plugins.SystemBars;
-        if (systemBars) {
-            const hideBars = () => systemBars.hide().catch(() => {});
-            hideBars();
-            document.addEventListener('visibilitychange', () => { if (!document.hidden) hideBars(); });
-        }
-
         settingShakePills.forEach((pill) => {
             const on = pill.dataset.shake === level;
             pill.classList.toggle('on', on);
@@ -2430,6 +2421,20 @@
                 }
             });
         }
+
+        // Native: always full screen; re-hide the system bars and refresh reminders around app switches
+        const systemBars = nativePlugin('SystemBars');
+        const hideBars = () => { if (systemBars) systemBars.hide().catch(() => {}); };
+        hideBars();
+        scheduleReminders();
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                scheduleReminders();
+            } else {
+                hideBars();
+                cancelReminders();
+            }
+        });
 
         if (settingVibrationToggle) {
             settingVibrationToggle.addEventListener('change', (e) => {
@@ -4676,11 +4681,60 @@
         }
     }
 
+    // ---------- Native helpers: plugins and game reminders ----------
+    function nativePlugin(name) {
+        const cap = window.Capacitor;
+        return cap && cap.isNativePlatform && cap.isNativePlatform() && cap.Plugins ? cap.Plugins[name] || null : null;
+    }
+
+    const REMINDERS = [
+        { id: 101, days: 1, title: 'The reactor misses you', body: 'Your board is waiting. Drop in for a quick run.' },
+        { id: 102, days: 3, title: 'Numbers are piling up', body: 'Come back and zero them out before the tide rises.' },
+        { id: 103, days: 7, title: 'New stars to earn', body: 'Pick up where you left off in Nullfall.' }
+    ];
+
+    // Asked once, after the first win, so the prompt lands on a good moment
+    async function askReminderPermission() {
+        const notifs = nativePlugin('LocalNotifications');
+        if (!notifs || !career.settings || career.settings.remindersAsked) return;
+        career.settings.remindersAsked = true;
+        saveCareerData();
+        try {
+            const res = await notifs.requestPermissions();
+            if (res.display === 'granted') scheduleReminders();
+        } catch (e) { /* plugin unavailable */ }
+    }
+
+    async function cancelReminders() {
+        const notifs = nativePlugin('LocalNotifications');
+        if (!notifs) return;
+        try { await notifs.cancel({ notifications: REMINDERS.map((r) => ({ id: r.id })) }); } catch (e) { /* none pending */ }
+    }
+
+    // Reminders count from the last time the app was left, so they never fire mid-session
+    async function scheduleReminders() {
+        const notifs = nativePlugin('LocalNotifications');
+        if (!notifs) return;
+        try {
+            const perm = await notifs.checkPermissions();
+            if (perm.display !== 'granted') return;
+            await cancelReminders();
+            const now = Date.now();
+            await notifs.schedule({
+                notifications: REMINDERS.map((r) => ({
+                    id: r.id, title: r.title, body: r.body,
+                    schedule: { at: new Date(now + r.days * 86400000), allowWhileIdle: true }
+                }))
+            });
+        } catch (e) { /* scheduling failed; try again next time */ }
+    }
+
     function triggerAdventureVictory() {
         if (isGameOver || (modalVictory && modalVictory.classList.contains('visible'))) return;
         isGameOver = true;
         sfx.playVictory();
         triggerScreenShake(8);
+        setTimeout(askReminderPermission, 1800);
 
         // Adventure nodes: stars from drops left. Challenges keep their drops + score stars.
         const goalLevel = isGoalLevel(activeAdventureLevel);
