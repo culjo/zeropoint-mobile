@@ -53,20 +53,38 @@ class SoundFX {
         return step;
     }
 
-    init() {
+    // App load: build the context (it waits suspended) and the heavy buffers in idle time,
+    // so the first tap only has to resume
+    prepare() {
         if (this.initialized) return;
         try {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             this.ctx = new AudioContext();
             this.buildBus();
             this.initialized = true;
-            this.warmUp();
             const unlock = () => this.unlock();
             document.addEventListener('pointerdown', unlock, { capture: true, passive: true });
             document.addEventListener('touchend', unlock, { capture: true, passive: true });
+            this.prepareBuffers();
         } catch (e) {
             console.warn("Web Audio not supported", e);
         }
+    }
+
+    prepareBuffers() {
+        const ctx = this.ctx;
+        const idle = (fn) => (window.requestIdleCallback ? window.requestIdleCallback(fn, { timeout: 500 }) : setTimeout(fn, 16));
+        idle(() => { if (this.ctx === ctx) this.getNoiseBuffer(); });
+        if (window.AmbientMusic && AmbientMusic.prepare) AmbientMusic.prepare(ctx);
+    }
+
+    // First tap: resume and warm the node graph once
+    init() {
+        if (!this.initialized) this.prepare();
+        if (!this.ctx) return;
+        if (this.warmed) { this.resume(); return; }
+        this.warmed = true;
+        this.warmUp();
     }
 
     buildBus() {
@@ -184,7 +202,6 @@ class SoundFX {
             gain.connect(this.out);
             osc.start(now);
             osc.stop(now + 0.02);
-            this.getNoiseBuffer();
         } catch (e) {}
     }
 
@@ -240,6 +257,7 @@ class SoundFX {
         this.noiseBuffer = null;
         this.buildBus();
         this.warmUp();
+        this.prepareBuffers();
         if (wasPlaying) this.startBGM();
     }
 

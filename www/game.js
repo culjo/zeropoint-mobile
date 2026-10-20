@@ -2243,12 +2243,13 @@
         if (btnHomeSound) btnHomeSound.addEventListener('click', toggleSound);
 
         // Each app open starts on the next soundtrack in the rotation
-        if (sfx) sfx.rotateBGM();
+        if (sfx) { sfx.prepare(); sfx.rotateBGM(); }
 
+        // Music starts just after the first tap, so the tap itself stays instant
         const initAudioOnGesture = () => {
             sfx.init();
             if (career.settings && career.settings.bgm && !sfx.muted) {
-                sfx.startBGM();
+                setTimeout(() => sfx.startBGM(), 60);
             }
         };
 

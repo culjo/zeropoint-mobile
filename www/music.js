@@ -278,6 +278,43 @@
         return buf;
     }
 
+    // Fill every track's reverb impulse ahead of time in small idle slices, so starting
+    // the music never stalls a frame (a 7 s stereo impulse is ~700k samples)
+    const idle = (fn) => (window.requestIdleCallback ? window.requestIdleCallback(fn, { timeout: 500 }) : setTimeout(fn, 16));
+    function prepareImpulses(ctx, tracks) {
+        let byKey = impulseCache.get(ctx);
+        if (!byKey) impulseCache.set(ctx, byKey = new Map());
+        const jobs = [];
+        Object.values(tracks).forEach((t) => {
+            if (!t.reverb) return;
+            const key = t.reverb.seconds + ':' + t.reverb.decay;
+            if (!jobs.some((j) => j.key === key)) jobs.push({ key, seconds: t.reverb.seconds, decay: t.reverb.decay });
+        });
+        const SLICE = 16384;
+        const runJob = () => {
+            const job = jobs.shift();
+            if (!job) return;
+            if (byKey.has(job.key)) { idle(runJob); return; }
+            const rate = ctx.sampleRate;
+            const len = Math.floor(rate * job.seconds);
+            const buf = ctx.createBuffer(2, len, rate);
+            const chans = [buf.getChannelData(0), buf.getChannelData(1)];
+            let ch = 0, i = 0;
+            const step = () => {
+                if (byKey.has(job.key)) { idle(runJob); return; } // filled on demand meanwhile
+                const d = chans[ch];
+                const end = Math.min(len, i + SLICE);
+                for (; i < end; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, job.decay);
+                if (i >= len) { ch++; i = 0; }
+                if (ch < 2) { idle(step); return; }
+                byKey.set(job.key, buf);
+                idle(runJob);
+            };
+            idle(step);
+        };
+        idle(runJob);
+    }
+
     class AmbientMusic {
         constructor(ctx, destination) {
             this.ctx = ctx;
@@ -288,6 +325,8 @@
         }
 
         static get tracks() { return TRACKS; }
+
+        static prepare(ctx) { prepareImpulses(ctx, TRACKS); }
 
         get playing() { return !!this.track; }
 
