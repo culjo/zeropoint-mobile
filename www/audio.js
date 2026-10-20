@@ -24,6 +24,8 @@ const TAP_SOUNDS = {
 };
 const TAP_SOUND_KEY = 'nullfall_tap_sound';
 const TAP_DEFAULT = 'dropround';
+// Level for every button sound: +6 dB so taps sit above the music but under drops and merges
+const TAP_GAIN = 2.5;
 const KALIMBA_SCALE = [0, 2, 4, 7, 9, 12]; // C major pentatonic from C5
 
 // Cascade ladder: each merge or blast in one turn climbs a C major pentatonic scale
@@ -380,6 +382,17 @@ class SoundFX {
         }
     }
 
+    // Every tap sound goes through one gain (TAP_GAIN) into the effects bus
+    tapBus() {
+        if (!this.tapOut || this.tapOutCtx !== this.ctx) {
+            this.tapOut = this.ctx.createGain();
+            this.tapOut.gain.value = TAP_GAIN;
+            this.tapOut.connect(this.out);
+            this.tapOutCtx = this.ctx;
+        }
+        return this.tapOut;
+    }
+
     tapTone(t, freq, { type = 'sine', glide = 0, glideTime = 0.05, peak = 0.06, attack = 0.004, decay = 0.1 } = {}) {
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -390,7 +403,7 @@ class SoundFX {
         gain.gain.exponentialRampToValueAtTime(peak, t + attack);
         gain.gain.exponentialRampToValueAtTime(0.0001, t + decay);
         osc.connect(gain);
-        gain.connect(this.out);
+        gain.connect(this.tapBus());
         osc.start(t);
         osc.stop(t + decay + 0.02);
     }
@@ -416,7 +429,7 @@ class SoundFX {
         modGain.connect(car.frequency);
         car.connect(lp);
         lp.connect(amp);
-        amp.connect(this.out);
+        amp.connect(this.tapBus());
         [car, mod].forEach(o => { o.start(t); o.stop(t + 0.18); });
     }
 
@@ -434,7 +447,7 @@ class SoundFX {
         gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
         src.connect(bp);
         bp.connect(gain);
-        gain.connect(this.out);
+        gain.connect(this.tapBus());
         src.start(t, Math.random() * 0.5, dur + 0.02);
     }
 
