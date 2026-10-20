@@ -6171,7 +6171,9 @@
 
         // Resume audio and unstick processing on tab visibility changes / play breaks
         document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) {
+            if (document.hidden) {
+                if (sfx) sfx.pause();
+            } else {
                 lastTime = performance.now();
                 if (sfx) sfx.resume();
                 resizeCanvas();
@@ -6190,6 +6192,8 @@
             lastTime = performance.now();
             if (sfx) sfx.resume();
         });
+        // iOS bfcache / WebView restore: pageshow can fire without a visibilitychange
+        window.addEventListener('pageshow', () => { if (sfx) sfx.resume(); });
     }
 
     // ---------- Main gameplay input: drag & place (maingameplay.html) ----------

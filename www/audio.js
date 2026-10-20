@@ -61,6 +61,9 @@ class SoundFX {
             this.buildBus();
             this.initialized = true;
             this.warmUp();
+            const unlock = () => this.unlock();
+            document.addEventListener('pointerdown', unlock, { capture: true, passive: true });
+            document.addEventListener('touchend', unlock, { capture: true, passive: true });
         } catch (e) {
             console.warn("Web Audio not supported", e);
         }
@@ -197,12 +200,47 @@ class SoundFX {
         return this.noiseBuffer;
     }
 
+    // iOS can leave the context 'interrupted' (calls, Siri, backgrounding), not just 'suspended'
     resume() {
         try {
-            if (this.ctx && this.ctx.state === 'suspended') {
+            if (this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed') {
                 this.ctx.resume().catch(() => {});
             }
         } catch (e) {}
+    }
+
+    // App hidden: suspend on purpose so the context comes back cleanly
+    pause() {
+        try {
+            if (this.ctx && this.ctx.state === 'running') this.ctx.suspend().catch(() => {});
+        } catch (e) {}
+    }
+
+    // On every tap: iOS only restarts audio inside a user gesture. A context stuck
+    // 'interrupted' or 'closed' won't resume, so it is rebuilt here, still inside the gesture.
+    unlock() {
+        if (!this.ctx || document.hidden) return;
+        const state = this.ctx.state;
+        if (state === 'interrupted' || state === 'closed') this.rebuild();
+        else if (state !== 'running') this.resume();
+    }
+
+    rebuild() {
+        const wasPlaying = !!(this.music && this.music.playing);
+        try { if (this.music) this.music.stop(0); } catch (e) {}
+        try { if (this.ctx.state !== 'closed') this.ctx.close(); } catch (e) {}
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            this.ctx = new AudioContext();
+        } catch (e) {
+            this.ctx = null;
+            return;
+        }
+        this.music = null;
+        this.noiseBuffer = null;
+        this.buildBus();
+        this.warmUp();
+        if (wasPlaying) this.startBGM();
     }
 
     playMove() {
