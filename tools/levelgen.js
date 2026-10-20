@@ -8,6 +8,7 @@
 // Usage:
 //   node tools/levelgen.js                 generate every slot
 //   node tools/levelgen.js --slot 2-7      one slot (others in levelsGenerated.js are kept)
+//   node tools/levelgen.js --sectors 4-10  only slots in these sectors (also limits --tune-hand)
 //   node tools/levelgen.js --tune-hand     also print budgets for handcrafted levels (--apply writes them)
 //   options: --candidates 20 --games 60 --confirm 200
 
@@ -31,6 +32,13 @@ const CANDIDATES = parseInt(arg('candidates', '20'), 10);
 const GAMES = parseInt(arg('games', '60'), 10);
 const CONFIRM = parseInt(arg('confirm', '200'), 10);
 const ONLY = arg('slot', null);
+const SECTORS = (() => {
+    const r = arg('sectors', null);
+    if (!r) return null;
+    const [a, b] = r.split('-').map(Number);
+    return { from: a, to: b || a };
+})();
+const inSectors = (id) => !SECTORS || (parseInt(id, 10) >= SECTORS.from && parseInt(id, 10) <= SECTORS.to);
 const OPEN_BUDGET = 60;
 
 function hashId(id) {
@@ -121,7 +129,7 @@ ${body}
 function main() {
     const levels = { ...NodeGenerator.GENERATED };
     Object.keys(SLOTS).forEach((id) => {
-        if (ONLY && id !== ONLY) return;
+        if ((ONLY && id !== ONLY) || !inSectors(id)) return;
         const t0 = Date.now();
         levels[id] = generateSlot(id, SLOTS[id]);
         const l = levels[id];
@@ -139,7 +147,7 @@ function tuneHandcrafted(apply) {
     Object.keys(NodeGenerator.HANDCRAFTED).forEach((id) => {
         const sector = parseInt(id, 10);
         const data = NodeGenerator.HANDCRAFTED[id];
-        if (data.goal.type === 'survive' || id === '1-1') return; // survive has no budget; 1-1 follows first play
+        if (data.goal.type === 'survive' || id === '1-1' || !inSectors(id)) return; // survive has no budget; 1-1 follows first play
         const used = dropsCurve(sector, id, data, 120, 7000);
         const target = targetFor(id);
         const raw = budgetFor(used, target);

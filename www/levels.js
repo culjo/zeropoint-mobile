@@ -121,6 +121,12 @@
             '+2 +1 N  N  -1 -2',
             '-1 +3 N  N  -3 +1'
         ],
+        // Late openers: walls split a low board, opposites on each side
+        wallsWide: [
+            '.  -2 .  .  +3 .',
+            '-1 +3 #  #  -3 +1',
+            '+2 -1 +4 -4 +1 -2'
+        ],
         // Big Orb: matching pairs already in reach
         pairs: [
             '+1 .  .  .  .  +2',
@@ -190,7 +196,36 @@
         // ===== Sector 3: Event Horizon =====
         '3-1': { title: 'Graviton Well', goal: collect(8, 4), drops: 35, board: B.threeRows, pool: { ...POOL_STD, favor: 1 }, risers: { start: 1 } },
         '3-7': { title: 'Relativistic Shear', goal: clearRisers(6), drops: 19, board: B.risers3, pool: POOL_STD, risers: { every: 5, max: 3 } },
-        '3-13': { title: 'The Zero Point Core', goal: nullCore(16), drops: 28, board: B.nullCore, pool: POOL_STD, rise: 5, risers: { every: 6, max: 2 } }
+        '3-13': { title: 'The Zero Point Core', goal: nullCore(16), drops: 28, board: B.nullCore, pool: POOL_STD, rise: 5, risers: { every: 6, max: 2 } },
+
+        // ===== Sectors 4–10: handcrafted opener and boss; the rest is generated =====
+        // ===== Sector 4: Cosmic Web (Tide 3) =====
+        '4-1': { title: 'Thread of Light', goal: zeroOut(20), drops: 23, board: B.threeRows, pool: POOL_STD },
+        '4-12': { title: 'The Weaver Core', goal: nullCore(16), drops: 28, board: B.nullCore, pool: POOL_STD, rise: 5, risers: { every: 7, max: 2 } },
+
+        // ===== Sector 5: Pulsar Fields (Tide 3) =====
+        '5-1': { title: 'First Beacon', goal: catchStars(5), drops: 10, board: B.stars5, pool: POOL_STD },
+        '5-11': { title: 'The Clockwork Pulsar', goal: nullCore(16), drops: 28, board: B.nullCore, pool: POOL_STD, rise: 5, risers: { every: 6, max: 2 } },
+
+        // ===== Sector 6: Magnetar Reach (Tide 4) =====
+        '6-1': { title: 'Magnetic North', goal: breakCores(6), drops: 24, board: B.cores6, pool: POOL_STD },
+        '6-13': { title: 'The Magnetar Heart', goal: nullCore(18), drops: 32, board: B.nullCore, pool: POOL_STD, rise: 6, risers: { every: 6, max: 2 } },
+
+        // ===== Sector 7: Quasar Drift (Tide 4) =====
+        '7-1': { title: 'Distant Light', goal: collect(10, 32), drops: 35, board: B.threeRows, pool: { ...POOL_STD, favor: 2 } },
+        '7-11': { title: 'The Quasar Engine', goal: nullCore(18), drops: 30, board: B.nullCore, pool: POOL_STD, rise: 6, risers: { every: 5, max: 3 } },
+
+        // ===== Sector 8: Void Expanse (Tide 5) =====
+        '8-1': { title: 'Edge of Nothing', goal: zeroOut(22), drops: 26, board: B.wallsWide, pool: POOL_STD },
+        '8-14': { title: 'The Void Warden', goal: nullCore(18), drops: 27, board: B.nullCore, pool: POOL_STD, rise: 6, risers: { every: 4, max: 2 } },
+
+        // ===== Sector 9: Entropy Shoals (Tide 5) =====
+        '9-1': { title: 'Arrow of Time', goal: clearRisers(3), drops: 12, board: B.risers2, pool: POOL_STD, risers: { every: 6, max: 1 } },
+        '9-10': { title: 'The Entropy Core', goal: nullCore(18), drops: 28, board: B.nullCore, pool: POOL_STD, rise: 6, risers: { start: 1, every: 6, max: 3 } },
+
+        // ===== Sector 10: Nullfall (Tide 6) =====
+        '10-1': { title: 'The Last Sector', goal: zeroOut(24), drops: 30, board: B.wallsWide, pool: POOL_STD },
+        '10-14': { title: 'Nullfall', goal: nullCore(20), drops: 31, board: B.nullCore, pool: POOL_STD, rise: 6, risers: { every: 4, max: 2 } }
     };
 
     return { LEVELS };

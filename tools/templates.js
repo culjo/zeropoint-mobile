@@ -4,6 +4,9 @@
 
 'use strict';
 
+const path = require('path');
+const NodeGenerator = require(path.join(__dirname, '..', 'www', 'nodeGenerator.js'));
+
 const ROWS = 8;
 const COLS = 6;
 
@@ -205,5 +208,88 @@ const SLOTS = {
     '3-11': { template: 'survive', title: 'Dark Tide', goal: survive(20), rise: 4, risers: { start: 1 } },
     '3-12': { template: 'zero_out', title: 'Zero Horizon', goal: zeroOut(34), rise: 5, statics: 2 }
 };
+
+// ---------- Sectors 4–10 ----------
+// Each sector lists its generated main nodes (opener and boss are handcrafted in levels.js) as a
+// goal order plus titles, and its bonus rift titles. Targets and obstacles grow with the sector
+// (k = 0 at Sector 4 … 6 at Sector 10) and with the node's place in the sector (p = 0 … 1).
+const LATE_SECTORS = {
+    4: {
+        goals: ['collect', 'cores', 'stars', 'zero_out', 'risers', 'survive', 'collect', 'cores', 'stars', 'zero_out'],
+        titles: ['Strand Weaver', 'Filament Fork', 'Web Junction', 'Gossamer Drift', 'Node Cluster', 'Dark Thread', 'Silk Horizon', 'Lattice Knot', 'Cobweb Spiral', 'Strand Breaker'],
+        bonus: ['Filament Rift', 'Web Rift']
+    },
+    5: {
+        goals: ['risers', 'zero_out', 'survive', 'cores', 'collect', 'stars', 'risers', 'survive', 'cores'],
+        titles: ['Beacon Sweep', 'Lighthouse Beam', 'Spin Down', 'Radio Pulse', 'Neutron Hum', 'Timing Array', 'Glitch Star', 'Beam Crossing', 'Millisecond Flash'],
+        bonus: ['Beacon Rift']
+    },
+    6: {
+        goals: ['stars', 'collect', 'cores', 'risers', 'zero_out', 'survive', 'stars', 'collect', 'risers', 'cores', 'survive'],
+        titles: ['Crust Quake', 'Field Line', 'Starquake', 'Flux Tube', 'Iron Rain', 'Polar Cap', 'Magnetic Storm', 'Fracture Zone', 'Sheared Field', 'Twisted Pole', 'Flare Burst'],
+        bonus: ['Crust Rift', 'Flux Rift']
+    },
+    7: {
+        goals: ['zero_out', 'risers', 'cores', 'survive', 'collect', 'stars', 'cores', 'risers', 'survive'],
+        titles: ['Jet Stream', 'Blazing Disc', 'Redshift Run', 'Lyman Forest', 'Radio Lobe', 'Hot Spot', 'Torus Ring', 'Broad Line', 'Beamed Light'],
+        bonus: ['Jet Rift', 'Disc Rift']
+    },
+    8: {
+        goals: ['collect', 'stars', 'risers', 'cores', 'zero_out', 'survive', 'collect', 'stars', 'risers', 'cores', 'zero_out', 'survive'],
+        titles: ['Empty Reach', 'Silent Shell', 'Cold Wall', 'Void Bubble', 'Sparse Field', 'Lost Signal', 'Dim Halo', 'Bootes Gap', 'Echo Chamber', 'Hollow Sky', 'Thin Thread', 'Drift Line'],
+        bonus: ['Void Rift', 'Hollow Rift']
+    },
+    9: {
+        goals: ['cores', 'risers', 'survive', 'collect', 'stars', 'zero_out', 'risers', 'survive'],
+        titles: ['Heat Death', 'Cooling Ember', 'Slow Decay', 'Faded Star', 'Last Light', 'Iron Star', 'Red Dwarf Sea', 'Frozen Time'],
+        bonus: ['Ember Rift']
+    },
+    10: {
+        goals: ['survive', 'collect', 'cores', 'risers', 'stars', 'zero_out', 'survive', 'collect', 'cores', 'risers', 'stars', 'zero_out'],
+        titles: ['Collapse Front', 'Zero Field', 'Final Fold', 'Null Wave', 'Edge of Zero', 'Fallen Light', 'Last Horizon', 'Undoing', 'Silent Sum', 'Balance Point', 'Zero Crown', 'Fall Line'],
+        bonus: ['Null Rift', 'Zero Rift']
+    }
+};
+
+// One generated slot: goal size and obstacle from the sector (k), the node's place (p) and
+// how many of this goal the sector has had so far (n, so repeats swap their obstacle)
+function lateSlot(goal, title, k, p, n, scale) {
+    const alt = n % 2 === 1;
+    if (goal === 'zero_out') {
+        return { template: 'zero_out', title, goal: zeroOut(24 + k + Math.round(4 * p)), ...(alt ? { rise: 5 } : { statics: 2 }) };
+    }
+    if (goal === 'collect') {
+        const favor = [2, 3, 1, 4][(k + n) % 4];
+        return { template: 'collect', title, goal: collect(10 + Math.floor(k / 3) + Math.round(2 * p), favor * scale), favor, ...(alt ? { risers: { start: 1 } } : { statics: 2 }) };
+    }
+    if (goal === 'cores') {
+        return { template: 'cores', title, goal: breakCores(Math.min(12, 8 + Math.floor(k / 3) + Math.round(2 * p))), ...(alt ? { risers: { start: 2 } } : { rise: 5 }) };
+    }
+    if (goal === 'stars') {
+        return { template: 'stars', title, goal: catchStars(6 + Math.round(2 * p)), ...(alt ? { risers: { start: 1 } } : { rise: 5 }) };
+    }
+    if (goal === 'risers') {
+        return { template: 'risers', title, goal: clearRisers(5 + Math.floor(k / 2) + Math.round(p)), boardRisers: 2, risers: { every: Math.max(4, 5 - Math.floor(k / 3)), max: k >= 3 ? 3 : 2 } };
+    }
+    // survive: no budget to tune, so pressure comes from faster rows later on and Risers that keep coming
+    return { template: 'survive', title, goal: survive(18 + k + Math.round(4 * p)), rise: p >= 0.5 ? 3 : 4, risers: { every: 6, max: k >= 3 ? 2 : 1 } };
+}
+
+Object.keys(LATE_SECTORS).forEach((key) => {
+    const sector = Number(key);
+    const plan = LATE_SECTORS[key];
+    const k = sector - 4;
+    const scale = Math.pow(2, NodeGenerator.sectorTide(sector));
+    const seen = {};
+    plan.goals.forEach((goal, i) => {
+        const p = plan.goals.length > 1 ? i / (plan.goals.length - 1) : 0;
+        const n = seen[goal] || 0;
+        seen[goal] = n + 1;
+        SLOTS[`${sector}-${i + 2}`] = lateSlot(goal, plan.titles[i], k, p, n, scale);
+    });
+    plan.bonus.forEach((title, i) => {
+        SLOTS[`${sector}-bonus-${i + 1}`] = { template: 'big_orb', title, goal: bigOrb(8 * scale) };
+    });
+});
 
 module.exports = { TEMPLATES, SLOTS, buildBoard };

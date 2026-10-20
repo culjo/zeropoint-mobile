@@ -3397,6 +3397,7 @@ input:checked + .toggle-slider:before {
     --world: var(--cyan);
     background: #06070d;
     overflow: hidden;
+    overflow: clip; /* hidden still lets focus scroll it sideways (a pill coming into view) */
 }
 
 #screen-adventure-nodes.screen-view {
@@ -3477,12 +3478,14 @@ input:checked + .toggle-slider:before {
     justify-content: center;
     gap: 5px;
     margin: 12px 16px 0;
+    max-width: calc(100% - 32px);
     padding: 0;
     background: none;
     border: 0;
 }
 
 #screen-adventure-nodes .btn-sector-nav {
+    flex: 0 0 auto;
     width: 28px;
     height: 28px;
     padding: 0;
@@ -3503,13 +3506,25 @@ input:checked + .toggle-slider:before {
     opacity: 0.3;
 }
 
+/* Ten worlds don't fit a phone: the pills scroll sideways between the arrows */
 #screen-adventure-nodes .sector-pills {
     display: flex;
     gap: 5px;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    /* room for the lock badges and the active glow, which the scroller would clip */
+    padding: 7px 6px;
+    margin: -7px 0;
+}
+
+#screen-adventure-nodes .sector-pills::-webkit-scrollbar {
+    display: none;
 }
 
 #screen-adventure-nodes .sector-pill {
     --pill: var(--cyan);
+    flex: 0 0 auto;
     position: relative;
     width: 32px;
     height: 28px;
@@ -3569,6 +3584,7 @@ input:checked + .toggle-slider:before {
 #screen-adventure-nodes .adv-map-canvas-container {
     position: absolute;
     inset: 22px 10px 26px;
+    width: auto; /* the inset sets the width; 100% from the base rule overflowed by 10px */
     min-height: 0;
 }
 

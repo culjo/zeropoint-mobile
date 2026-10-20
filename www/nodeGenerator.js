@@ -30,8 +30,78 @@
             theme: "Tartarus Gravitational Core",
             color: "#ffd700",
             desc: "Intense gravity well with massive dark matter shields and laser crossfires."
+        },
+        {
+            sector: 4,
+            name: "Cosmic Web",
+            theme: "The Filament Labyrinth",
+            color: "#43e97b",
+            desc: "Threads of dark matter knot the void together. Untangle them strand by strand."
+        },
+        {
+            sector: 5,
+            name: "Pulsar Fields",
+            theme: "Lighthouse Graveyard",
+            color: "#ff6a88",
+            desc: "Dead stars spin out beams of light. Time every move to the pulse."
+        },
+        {
+            sector: 6,
+            name: "Magnetar Reach",
+            theme: "The Shattered Crust",
+            color: "#ff9a3c",
+            desc: "Starquakes crack the crust and fields twist every orb out of line."
+        },
+        {
+            sector: 7,
+            name: "Quasar Drift",
+            theme: "Blazing Accretion Jets",
+            color: "#7f7fd5",
+            desc: "A galaxy's engine burns at the centre. Its jets push the board ever higher."
+        },
+        {
+            sector: 8,
+            name: "Void Expanse",
+            theme: "The Great Emptiness",
+            color: "#7ee8fa",
+            desc: "Almost nothing lives out here, and what's left fights hard to stay."
+        },
+        {
+            sector: 9,
+            name: "Entropy Shoals",
+            theme: "Cooling Embers of Time",
+            color: "#f093fb",
+            desc: "The last stars burn low. Every move counts as the universe winds down."
+        },
+        {
+            sector: 10,
+            name: "Nullfall",
+            theme: "The Final Collapse",
+            color: "#ff2a5f",
+            desc: "Every number falls back to zero. Balance the universe one last time."
         }
     ];
+
+    // Map layout for Sector 4 onwards: main nodes zigzag up the map from start to boss, and each
+    // bonus rift sits further out on the same side as the node it branches from. `bonusAfter` lists those nodes.
+    const ZIGZAG = [-24, 2, 24, 0, -22, 4, 22, -2];
+    function pathLayout(sector, mains, bonusAfter) {
+        const nodes = [];
+        for (let i = 0; i < mains; i++) {
+            const num = i + 1;
+            const y = Math.round(92 - (84 * i) / (mains - 1));
+            let off = ZIGZAG[(i + sector) % ZIGZAG.length];
+            if (i === mains - 2 && Math.abs(off) < 20) off = off < 0 ? -24 : 24; // keep clear of the boss above
+            const x = i === mains - 1 ? 50 : 50 + off;
+            const id = `${sector}-${num}`;
+            nodes.push({ id, num, x, y, type: i === 0 ? 'start' : (i === mains - 1 ? 'boss' : 'normal'), branchOf: null });
+            const b = bonusAfter.indexOf(num);
+            if (b >= 0) {
+                nodes.push({ id: `${sector}-bonus-${b + 1}`, num: `B${b + 1}`, x: x > 50 ? 88 : 12, y: y - 4, type: 'bonus', branchOf: id });
+            }
+        }
+        return nodes;
+    }
 
     // Node graph spatial layouts for each sector (10 main nodes + 2 bonus branch nodes)
     // Coordinates normalized (0 to 100 percentage in scroll viewport)
@@ -85,7 +155,15 @@
             { id: '3-11', num: 11, x: 26, y: 22, type: 'normal', branchOf: null },
             { id: '3-12', num: 12, x: 74, y: 15, type: 'normal', branchOf: null },
             { id: '3-13', num: 13, x: 50, y: 8, type: 'boss', branchOf: null }
-        ]
+        ],
+        // Sectors 4–10: 11–16 levels each (main nodes + bonus rifts)
+        pathLayout(4, 12, [3, 7]),   // 14
+        pathLayout(5, 11, [5]),      // 12
+        pathLayout(6, 13, [4, 9]),   // 15
+        pathLayout(7, 11, [3, 7]),   // 13
+        pathLayout(8, 14, [4, 10]),  // 16
+        pathLayout(9, 10, [5]),      // 11
+        pathLayout(10, 14, [4, 10])  // 16
     ];
 
     // Progression order: each sector's main nodes in order, a bonus rift right after the node
@@ -117,6 +195,12 @@
 
     // Goals the game can play today; anything else needs a stand-in (see levels.js `temp`)
     const GOAL_TYPES = ['zero_out', 'collect', 'break_cores', 'catch_stars', 'risers', 'survive', 'null_core', 'big_orb'];
+
+    // Number Tide per sector: one step per sector up to Sector 3 (Tide 2), then one step every
+    // other sector, so Sector 10 is Tide 6 (±64–256) and big merges land on the named tiers
+    function sectorTide(sectorNum) {
+        return sectorNum <= 3 ? sectorNum - 1 : 3 + Math.floor((sectorNum - 4) / 2);
+    }
 
     // Stars from drops left: ★★ at ≥25%, ★★★ at ≥45%, rounded up to whole drops.
     // Survive uses headroom instead: every column ends with ≥3 (★★) / ≥5 (★★★) empty rows.
@@ -194,9 +278,9 @@
         if (risers && risers.every) modifiers.push({ icon: '▲', label: `New Riser every ${risers.every} moves` });
         else if (risers && risers.start) modifiers.push({ icon: '▲', label: `${risers.start} Riser${risers.start > 1 ? 's' : ''}` });
 
-        // Number Tide (GDD §3.1): each sector starts one tide higher. Pool values, favor and
-        // board numbers in levels.js are written at Tide 0 and doubled per tide step.
-        const tide = typeof data.tide === 'number' ? data.tide : sectorNum - 1;
+        // Number Tide (GDD §3.1): see sectorTide. Pool values, favor and board numbers in
+        // levels.js are written at Tide 0 and doubled per tide step.
+        const tide = typeof data.tide === 'number' ? data.tide : sectorTide(sectorNum);
         const scale = Math.pow(2, tide);
         const basePool = data.pool || { values: [1, 2, 3, 4], specials: 0.12 };
         const pool = {
@@ -309,6 +393,7 @@
         HANDCRAFTED,
         GENERATED,
         GOAL_TYPES,
+        sectorTide,
         starThresholds,
         starsForDropsLeft,
         describeGoal,

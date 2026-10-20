@@ -111,7 +111,7 @@ The smallest orb in the pool climbs over time, so the board keeps getting bigger
 
 - **Pool at each tide:** 1, 2, 3 and 4 times 2^tide, so Tide 1 deals ±2, 4, 6, 8 and Tide 2 deals ±4, 8, 12, 16. Every value doubles cleanly, so merges keep working.
 - **Classic:** the tide rises every 25 drops (to be tuned), up to Tide 4, with a "NUMBER TIDE ↑" callout. This replaces today's score-based pool, which only reaches ±8.
-- **Adventure:** each sector starts one tide higher: Sector 1 is Tide 0, Sector 2 is Tide 1 and Sector 3 is Tide 2. Level data is written at Tide 0, and the loader doubles pools and starting boards (§5.4).
+- **Adventure:** Sectors 1–3 each start one tide higher (Tide 0, 1, 2). From Sector 4 the tide rises every other sector: Sectors 4–5 are Tide 3, 6–7 Tide 4, 8–9 Tide 5 and Sector 10 Tide 6 (±64–256), so big merges land on the named tiers. Level data is written at Tide 0, and the loader doubles pools and starting boards (§5.4).
 - Dark Matter shatters and rising rows also follow the tide.
 
 ### 3.2 Merge-friendly tray
@@ -191,21 +191,22 @@ They currently use the old objective types. They need moving to the new goal set
 ### 5.1 Structure
 - **Map:** a node map per sector. Main nodes run in a line, with **bonus rifts** branching off. The last node is the **boss**.
 - **Unlocking:** clearing a node opens the next one and any bonus rift linked to it. Beating the boss opens the next sector.
-- **Size:** **100+ levels**. Sectors get longer as you go:
+- **Size:** **10 sectors, 138 levels** [LIVE]. Each sector has 10–16 levels (16 at most), and sizes vary from sector to sector:
 
-| Sector | Levels (main + bonus) |
-|---|---|
-| 1 | 12 |
-| 2 | 14 |
-| 3 | 15 |
-| 4 | 16 |
-| 5 | 18 |
-| 6 | 20 |
-| 7+ | 20 |
+| Sector | Name | Tide | Levels (main + bonus) | Boss |
+|---|---|---|---|---|
+| 1 | Subatomic Genesis | 0 | 12 (10 + 2) | 1-10 |
+| 2 | Ion Nebula | 1 | 14 (12 + 2) | 2-12 |
+| 3 | Event Horizon | 2 | 15 (13 + 2) | 3-13 |
+| 4 | Cosmic Web | 3 | 14 (12 + 2) | 4-12 |
+| 5 | Pulsar Fields | 3 | 12 (11 + 1) | 5-11 |
+| 6 | Magnetar Reach | 4 | 15 (13 + 2) | 6-13 |
+| 7 | Quasar Drift | 4 | 13 (11 + 2) | 7-11 |
+| 8 | Void Expanse | 5 | 16 (14 + 2) | 8-14 |
+| 9 | Entropy Shoals | 5 | 11 (10 + 1) | 9-10 |
+| 10 | Nullfall | 6 | 16 (14 + 2) | 10-14 |
 
-Six sectors give about 95 levels, so a seventh takes it past 100. **[OPEN]** sector names and themes after Sector 3.
-
-The three current sectors are Subatomic Genesis, Ion Nebula and Event Horizon.
+Sectors 4–10 use the existing goals and obstacles only, mixed more densely; their openers and bosses are handcrafted and the rest is generated (§5.3). New board elements for later sectors are still **[OPEN]** (§5.2).
 
 ### 5.2 Goals [LIVE]
 **One goal per level** and **at most one obstacle**. Full rules are in [adventure-objectives.md](adventure-objectives.md).
@@ -415,7 +416,7 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 ---
 
 ## 11. Open questions
-1. Names and themes for Sector 4 onwards, plus the new board element for each sector.
+1. ~~Names and themes for Sector 4 onwards~~ Drafted 2026-10-20 (§5.1). Still open: the new board element for each sector, and a handcrafted showcase level for Sectors 4–10.
 2. ~~Tier names from 256 up, and the colour for each doubling.~~ Decided 2026-10-17 (§3.3).
 3. Classic tide speed (25 drops, to be tuned). ~~Risers or Catch the Stars moments~~ answered by Surges (§4.1.3).
 4. What happens to Challenges: move them to the new goals, or fold them into Adventure?
@@ -465,3 +466,4 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 | 2026-10-18 | Classic Bounty Ladder: per run, no reroll, mixed rewards, big reward every 5th rung |
 | 2026-10-18 | Classic Surges every 20 drops, 6 drops long; rising rows keep going; tide rises wait for the Surge to end |
 | 2026-10-19 | Adventure board clear: same trigger and fanfare as Classic, +2 drops left and +15% Overdrive, no score, no Swap, no refill; rise countdown resets to 5; never wins a level by itself (§5.6) |
+| 2026-10-20 | 10 sectors, 138 levels; 10–16 levels per sector, sizes vary. Tide rises every other sector after Sector 3 (S10 = Tide 6). Sectors 4–10 reuse today's goals and obstacles; handcrafted opener and boss, the rest generated |

@@ -937,6 +937,9 @@
                 });
                 sectorPills.appendChild(pill);
             });
+            // Keep the current world centred in the scrolling pill row
+            const active = sectorPills.querySelector('.is-active');
+            if (active) sectorPills.scrollLeft = active.offsetLeft - sectorPills.offsetLeft - (sectorPills.clientWidth - active.offsetWidth) / 2;
         }
 
         // Sealed world overlay

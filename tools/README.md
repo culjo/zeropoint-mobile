@@ -5,13 +5,13 @@ All run in Node from the repo root; nothing here ships in the app.
 | Command | What it does |
 |---|---|
 | `npm run playtest` | The bot plays every Adventure level 200 times and prints win rate, stars and losses. Add `-- --level 2-7`, `-- --sector 2`, `-- --games 500` or `-- --json`. |
-| `npm run levelgen` | Regenerates every generated slot into `www/levelsGenerated.js`. `-- --slot 2-7` for one slot. |
+| `npm run levelgen` | Regenerates every generated slot into `www/levelsGenerated.js`. `-- --slot 2-7` for one slot, `-- --sectors 4-10` for a range of sectors (also limits `--tune-hand`). |
 | `npm run levelgen -- --slot none --tune-hand` | Prints bot-tuned drop budgets for handcrafted levels; add `--apply` to write them into `www/levels.js`. |
 
 ## Files
 - `sim/engine.js`: headless rules engine (keep in step with `www/game.js`).
 - `sim/bot.js`: one-move look-ahead bot and `runLevel()`.
-- `templates.js`: board templates and the generated slots (goal, obstacle, title per node).
+- `templates.js`: board templates and the generated slots (goal, obstacle, title per node). Sectors 4–10 are listed in `LATE_SECTORS` as a goal order plus titles; `lateSlot()` sizes each goal and picks its obstacle.
 - `targets.js`: target bot clear rate per slot.
 
 ## Workflow
