@@ -6146,12 +6146,94 @@
             return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
         };
 
-        function placeGhost(clientX, clientY) {
+        // The ghost eases toward its target each frame, so it can tilt with its speed,
+        // lean toward the column under it and glide home when a drag goes nowhere
+        const GHOST_FOLLOW = 38;      // per second; high enough to feel attached to the finger
+        const GHOST_LIFT_SCALE = 1.1; // size while held
+        const GHOST_PICKUP_MS = 160;  // pop-up from 0.85 to the held size, with an overshoot
+        const GHOST_TILT_PER_PX = 0.012; // degrees per px/s of sideways speed
+        const GHOST_TILT_MAX = 12;
+        const GHOST_SNAP = 0.55;      // share of the way the ghost is pulled to the column centre
+        const GHOST_RETURN_MS = 180;
+        const ghost = { x: 0, y: 0, tx: 0, ty: 0, tilt: 0, size: 40, pickAt: 0, last: 0, raf: 0, ret: null };
+
+        function ghostSize() { return Math.max(40, cellW - 6); }
+
+        function placeGhost(clientX, clientY, snapX = null) {
             if (!dragGhost) return;
-            const size = Math.max(40, cellW - 6);
+            ghost.tx = snapX == null ? clientX : clientX + (snapX - clientX) * GHOST_SNAP;
+            ghost.ty = clientY - LIFT;
+        }
+
+        function backEase(t) {
+            const c = 1.7;
+            return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2);
+        }
+
+        function ghostFrame(now) {
+            ghost.raf = 0;
+            if (!dragGhost) return;
+            const dt = Math.min(0.05, ghost.last ? (now - ghost.last) / 1000 : 0.016);
+            ghost.last = now;
+            const still = prefersReducedMotion();
+            let scale;
+            if (ghost.ret) {
+                const r = ghost.ret;
+                const t = Math.min(1, (now - r.start) / GHOST_RETURN_MS);
+                const e = still ? 1 : 1 - Math.pow(1 - t, 3);
+                ghost.x = r.fromX + (r.toX - r.fromX) * e;
+                ghost.y = r.fromY + (r.toY - r.fromY) * e;
+                scale = r.fromScale + (r.toScale - r.fromScale) * e;
+                ghost.tilt *= 1 - e;
+                if (t >= 1 || still) { finishReturn(); return; }
+            } else {
+                const k = still ? 1 : 1 - Math.exp(-GHOST_FOLLOW * dt);
+                const prevX = ghost.x;
+                ghost.x += (ghost.tx - ghost.x) * k;
+                ghost.y += (ghost.ty - ghost.y) * k;
+                const vx = dt > 0 ? (ghost.x - prevX) / dt : 0;
+                const tiltTarget = still ? 0 : Math.max(-GHOST_TILT_MAX, Math.min(GHOST_TILT_MAX, vx * GHOST_TILT_PER_PX));
+                ghost.tilt += (tiltTarget - ghost.tilt) * (1 - Math.exp(-14 * dt));
+                const p = Math.min(1, (now - ghost.pickAt) / GHOST_PICKUP_MS);
+                scale = still ? GHOST_LIFT_SCALE : 0.85 + (GHOST_LIFT_SCALE - 0.85) * backEase(p);
+            }
+            const size = ghost.size;
             dragGhost.style.width = `${size}px`;
             dragGhost.style.height = `${size}px`;
-            dragGhost.style.transform = `translate(${clientX - size / 2}px, ${clientY - LIFT - size / 2}px)`;
+            dragGhost.style.transform = `translate(${ghost.x - size / 2}px, ${ghost.y - size / 2}px) rotate(${ghost.tilt.toFixed(2)}deg) scale(${scale.toFixed(3)})`;
+            if (activeDrag || ghost.ret) ghost.raf = requestAnimationFrame(ghostFrame);
+        }
+
+        function runGhost() {
+            if (!ghost.raf) ghost.raf = requestAnimationFrame(ghostFrame);
+        }
+
+        // Released without being used: glide back into the slot it came from
+        function returnGhost(slotEl) {
+            if (!dragGhost || !slotEl) { if (dragGhost) dragGhost.classList.remove('show'); return; }
+            const r = slotEl.getBoundingClientRect();
+            const held = GHOST_LIFT_SCALE;
+            ghost.ret = {
+                fromX: ghost.x, fromY: ghost.y, fromScale: held,
+                toX: r.left + r.width / 2, toY: r.top + r.height / 2,
+                toScale: r.width / ghost.size,
+                start: performance.now(), slotEl
+            };
+            slotEl.style.visibility = 'hidden'; // the ghost is the orb until it lands
+            runGhost();
+        }
+
+        function finishReturn() {
+            const r = ghost.ret;
+            ghost.ret = null;
+            if (r && r.slotEl) r.slotEl.style.visibility = '';
+            if (dragGhost && !activeDrag) dragGhost.classList.remove('show');
+        }
+
+        // A refilled tray slot pops in instead of appearing
+        function popTraySlot(i) {
+            const el = dragTraySlots[i];
+            if (el) retriggerClass(el, 'dt-pop');
         }
 
         function beginDrag(source, slot, e) {
@@ -6172,11 +6254,18 @@
             activeDrag = { source, slot, orb, col: -1, ghostY: 0, overHold: false };
             currentOrb = orb; // drives the column beam + landing preview
             dropCancelArmed = true;
+            if (ghost.ret) finishReturn();
             if (dragGhost) {
                 renderQueueSlot(dragGhost, orb);
                 dragGhost.classList.add('show');
             }
+            ghost.size = ghostSize();
+            ghost.pickAt = performance.now();
+            ghost.tilt = 0;
             moveDrag(e.clientX, e.clientY);
+            ghost.x = ghost.tx; // start under the finger, then follow
+            ghost.y = ghost.ty;
+            runGhost();
             sfx.playMove();
             triggerHaptic('tick');
             updateHUD();
@@ -6184,7 +6273,6 @@
 
         function moveDrag(clientX, clientY) {
             const d = activeDrag;
-            placeGhost(clientX, clientY);
             const p = canvasPoint(clientX, clientY - LIFT);
             d.ghostY = p.y;
             const fpHoldOnly = firstPlay && firstPlay.kind === 'hold';
@@ -6203,6 +6291,8 @@
             }
             dropCancelArmed = d.col < 0; // hides the beam/preview while off the board
             if (btnTouchHold) btnTouchHold.classList.toggle('drop-target', d.overHold);
+            const snapX = d.col >= 0 ? canvas.getBoundingClientRect().left + boardOffsetX + d.col * cellW + cellW / 2 : null;
+            placeGhost(clientX, clientY, snapX);
         }
 
         function endDrag(cancelled) {
@@ -6210,7 +6300,6 @@
             if (!d) return;
             activeDrag = null;
             dropCancelArmed = false;
-            if (dragGhost) dragGhost.classList.remove('show');
             if (btnTouchHold) btnTouchHold.classList.remove('drop-target');
 
             // First play: only the move this step teaches counts; anything else snaps back
@@ -6251,11 +6340,18 @@
                     }
                 }
             }
+            // Used (dropped or held): the ghost vanishes into the move. Not used: it glides home.
+            const used = d.source === 'tray' ? dragTray[d.slot] !== d.orb : heldOrb !== d.orb;
+            if (used) {
+                if (dragGhost) dragGhost.classList.remove('show');
+                if (d.source === 'tray') popTraySlot(d.slot);
+            }
             if (firstPlay && !firstPlay.busy) fpStartHand();
             if (guide && !guide.busy) fpStartHand(guide);
             if (toolHint && !activeProjectile) fpStartHand(toolHint);
             if (!activeProjectile) currentOrb = null;
             updateHUD();
+            if (!used) returnGhost(d.source === 'tray' ? dragTraySlots[d.slot] : holdSlot);
         }
 
         function holdFromTray(slot) {
