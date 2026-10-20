@@ -206,7 +206,7 @@ They currently use the old objective types. They need moving to the new goal set
 | 9 | Entropy Shoals | 5 | 11 (10 + 1) | 9-10 |
 | 10 | Nullfall | 6 | 16 (14 + 2) | 10-14 |
 
-Sectors 4–10 use the existing goals and obstacles only, mixed more densely; their openers and bosses are handcrafted and the rest is generated (§5.3). New board elements for later sectors are still **[OPEN]** (§5.2).
+Sectors 4–10 use the existing goals and obstacles, mixed more densely, plus four new board elements (§5.2). Their openers, element intros, one showcase each and the bosses are handcrafted; the rest is generated (§5.3).
 
 ### 5.2 Goals [LIVE]
 **One goal per level** and **at most one obstacle**. Full rules are in [adventure-objectives.md](adventure-objectives.md).
@@ -228,7 +228,24 @@ Sectors 4–10 use the existing goals and obstacles only, mixed more densely; th
 
 **New content:** add **one new board element per sector or two**, never a new rule. Each one first appears in a handcrafted intro level (§6).
 - Sector 2 brings **static blocks** (0 walls that can't be cleared). [LIVE] They're fixed in place and unbreakable: they don't fall, can't be swapped or hit by specials, Risers can't climb past them, and they rise with rising rows.
-- **[OPEN]** later sectors. Ideas: sticky tiles, locked columns, portals.
+- Sectors 4–10 bring four more [LIVE]. Some arrive with a tide step, which is fine: tiers follow the tide, so a tide step only changes how the numbers look.
+
+| Sector | Element | Intro (guided) | Showcase |
+|---|---|---|---|
+| 4 | Webbed orbs | 4-2 | 4-8 stars under webs |
+| 5 | Dense cores | 5-2 | 5-7 Risers stuck under webs |
+| 6 | Sealed columns | 6-2 | 6-8 cores behind seals |
+| 7 | (none) | | 7-6 stars above a seal |
+| 8 | Entangled pairs | 8-2 | 8-9 chained pairs |
+| 9 | (none) | | 9-5 Collect with pairs and a seal |
+| 10 | (none, all mixed) | | 10-7 every element |
+
+- **Webbed orb** (token `+3W`): a number orb stuck in a web. It **ignores gravity**, hanging in place like a Riser can, so cells under it stay empty and drops land on top of it. Otherwise it plays as a normal orb: it cancels, merges and counts for goals. **The web snaps** on the hits that crack Dark Matter (an adjacent blast, a Laser in its row or column, a crater it survives, a Vortex next door) and when the orb merges (the merged orb is free). A snapped orb is a plain orb and falls. It can't be swapped, and Risers can't climb past it. ± / ÷2 / ×2 keep the web. Drawn with silver threads round the edge and strands to the cell corners.
+- **Dense core** (token `H`): Dark Matter with **4 HP**. The hits that damage a normal core damage it the same way, so a crater takes 2. It shatters into an orb and counts as one core for Break the Cores. Rising rows still bring normal cores only. Drawn darker, with a purple rim and one armour plate per HP left.
+- **Sealed column** (level field `sealed: [col]`, at most 2): **you can't drop into it.** The column glows red under the drag and the orb goes back to the tray. Tiles inside play by the normal rules, so you blast them from the next column over. **It opens for good** once a tile in it is cleared, merged or broken (a core shattering counts), or when it has no tiles. Risers never spawn there. A sealed column starts with an orb that a drop next door can reach. Drawn as a blue field down the column and a magnetic clamp at the red line, whose bars slide apart when it opens.
+- **Entangled pair** (token `+3E`, paired in reading order): when one orb is cleared, **its twin pops too**, the same moment. The pop is plain: no blast tier, no Dark Matter damage, and it counts for goals. A merge passes the link on to the merged orb, and twins that merge into each other lose it. Drawn with a halo in the pair's colour and a dashed arc between the two.
+- Portals were dropped: a column portal only moves where a drop lands, and a mid-board portal needs a new gravity rule.
+- **Generated levels:** Zero Out and Collect slots that would have had 0 walls, Stars slots with rising rows, and every other Risers slot rotate through the unlocked elements (newest first) and 0 walls, one per level. Core levels from Sector 5 make about a quarter of their cores dense. Generated stars never sit in a gap under a web.
 
 ### 5.3 Level building: hybrid
 Every level ships as **fixed data**, so levels never change after an update and saved stars stay valid. Generation happens while we build the game, not on the player's device.
@@ -260,7 +277,7 @@ That's about 35% handcrafted overall.
 - **Rules engine** `tools/sim/engine.js`: a Node port of the board rules in game.js (no swaps; Hold as a free stash).
 - **Playtest bot** `tools/sim/bot.js` + `npm run playtest`: plays every level ~200 times with different seeds and reports win rate, star spread and why runs were lost. It looks one move ahead, so its win rate is a difficulty measure, not a human clear rate.
 - **Generator** `npm run levelgen`: per slot, ~20 seeded candidates from a template, bot-tested with an open budget; keeps the best fit, sets the drop budget so the bot clears the slot's target, confirms with 200 runs, and writes `www/levelsGenerated.js` (with template, seed and bot result). `--tune-hand --apply` sets handcrafted budgets the same way.
-- **Level editor** (Dev tools → Level editor, debug mode): paint orbs, Risers, cores, the Null Core, walls and stars; set goal and rules; play-test in the real game without saving; copy a levels.js entry.
+- **Level editor** (Dev tools → Level editor, debug mode): paint orbs, Risers, cores, dense cores, webbed and entangled orbs, the Null Core, walls and stars, and toggle sealed columns; set goal and rules; play-test in the real game without saving; copy a levels.js entry.
 - **Targets** `tools/targets.js`: openers 95%, bonus rifts 80%, bosses 55%, main nodes falling from ~90% to 66% across a sector.
 
 ### 5.4 Orbs during a level [LIVE]
@@ -416,7 +433,7 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 ---
 
 ## 11. Open questions
-1. ~~Names and themes for Sector 4 onwards~~ Drafted 2026-10-20 (§5.1). Still open: the new board element for each sector, and a handcrafted showcase level for Sectors 4–10.
+1. ~~Names and themes for Sector 4 onwards~~ Drafted 2026-10-20 (§5.1). ~~The new board element for each sector, and a handcrafted showcase level for Sectors 4–10.~~ Built 2026-10-20 (§5.2).
 2. ~~Tier names from 256 up, and the colour for each doubling.~~ Decided 2026-10-17 (§3.3).
 3. Classic tide speed (25 drops, to be tuned). ~~Risers or Catch the Stars moments~~ answered by Surges (§4.1.3).
 4. What happens to Challenges: move them to the new goals, or fold them into Adventure?
@@ -467,3 +484,4 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 | 2026-10-18 | Classic Surges every 20 drops, 6 drops long; rising rows keep going; tide rises wait for the Surge to end |
 | 2026-10-19 | Adventure board clear: same trigger and fanfare as Classic, +2 drops left and +15% Overdrive, no score, no Swap, no refill; rise countdown resets to 5; never wins a level by itself (§5.6) |
 | 2026-10-20 | 10 sectors, 138 levels; 10–16 levels per sector, sizes vary. Tide rises every other sector after Sector 3 (S10 = Tide 6). Sectors 4–10 reuse today's goals and obstacles; handcrafted opener and boss, the rest generated |
+| 2026-10-20 | Late board elements: webbed orbs (S4), dense cores with 4 HP (S5, Lekan's addition), sealed columns (S6), entangled pairs (S8); S10 mixes them. Portals dropped. Each gets a guided intro at node 2 and every sector 4–10 a handcrafted showcase (§5.2) |

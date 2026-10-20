@@ -11,7 +11,7 @@ All run in Node from the repo root; nothing here ships in the app.
 ## Files
 - `sim/engine.js`: headless rules engine (keep in step with `www/game.js`).
 - `sim/bot.js`: one-move look-ahead bot and `runLevel()`.
-- `templates.js`: board templates and the generated slots (goal, obstacle, title per node). Sectors 4–10 are listed in `LATE_SECTORS` as a goal order plus titles; `lateSlot()` sizes each goal and picks its obstacle.
+- `templates.js`: board templates and the generated slots (goal, obstacle, title per node). Sectors 4–10 are listed in `LATE_SECTORS` as a goal order plus titles; `lateSlot()` sizes each goal and picks its obstacle, and `elementsFor()` rotates the board elements (webs, dense cores, sealed columns, entangled pairs, GDD §5.2) through the slots that take one. Slots that are handcrafted in `levels.js` are skipped.
 - `targets.js`: target bot clear rate per slot.
 
 ## Workflow
