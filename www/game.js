@@ -646,7 +646,9 @@
     let screenFlash = 0;
     let screenFlashColor = '#ffffff';
     let floatingTexts = [];
-    let screenShake = 0;
+    let shakeTrauma = 0;       // 0–1; hits add to it, it drains over time, shake grows with its square
+    let shakeKickX = 0;        // one-off shove away from a blast, springs back on its own
+    let shakeKickY = 0;
     let hitStopUntil = 0;      // performance.now() timestamp; the board freezes until then
     let scoreShown = 0;        // value the HUD has caught up to (flyers add on arrival)
     let scoreFlySession = 0;   // bumped on reset so stale flyers don't add
@@ -3575,7 +3577,7 @@
 
         if (tier === 1) {
             // Tier 1: Micro Detonation (Magnitude 1)
-            triggerScreenShake(6 + Math.min(combo * 2, 8));
+            triggerScreenShake(6 + Math.min(combo * 2, 8), { x, y });
             shockwaves.push({ x: x, y: y, radius: 10, maxRadius: cellW * 2.0, alpha: 1, color: '#fff' });
             createSparks(x, y, '#00f2fe', 14);
             createSparks(x, y, '#ff4e50', 14);
@@ -3585,7 +3587,7 @@
             bannerColor = '#00f2fe';
         } else if (tier === 2) {
             // Tier 2: Pulse Detonation (Magnitude 2-3)
-            triggerScreenShake(10 + Math.min(combo * 2, 10));
+            triggerScreenShake(10 + Math.min(combo * 2, 10), { x, y });
             shockwaves.push({ x: x, y: y, radius: 12, maxRadius: cellW * 3.0, alpha: 1, color: '#00f2fe' });
             createSparks(x, y, '#00f2fe', 22);
             createSparks(x, y, '#ff4e50', 22);
@@ -3596,7 +3598,7 @@
             bannerScale = 1.25;
         } else if (tier === 3) {
             // Tier 3: Cross Laser Blast (Magnitude 4-7)
-            triggerScreenShake(16);
+            triggerScreenShake(16, { x, y });
             shockwaves.push({ x: x, y: y, radius: 14, maxRadius: cellW * 4.2, alpha: 1, color: '#ffffff' });
             createSparks(x, y, '#00f2fe', 32);
             createSparks(x, y, '#ffd700', 20);
@@ -3613,7 +3615,7 @@
             bannerScale = 1.35;
         } else if (tier === 4) {
             // Tier 4: Supernova Crater (Magnitude 8-15)
-            triggerScreenShake(24);
+            triggerScreenShake(24, { x, y });
             screenFlash = 0.65;
             screenFlashColor = '#ffd700';
 
@@ -3629,7 +3631,7 @@
             bannerScale = 1.5;
         } else {
             // Tier 5: Hyperspace Singularity (Magnitude 16+)
-            triggerScreenShake(32);
+            triggerScreenShake(32, { x, y });
             screenFlash = 0.85;
             screenFlashColor = '#ffffff';
 
@@ -7881,9 +7883,13 @@
             }
         }
 
-        // Shake decay
-        if (screenShake > 0) {
-            screenShake = Math.max(0, screenShake - 30 * dt);
+        // Shake decay: trauma drains steadily, the blast shove springs back fast
+        if (shakeTrauma > 0) shakeTrauma = Math.max(0, shakeTrauma - SHAKE_TRAUMA_DECAY * dt);
+        if (shakeKickX || shakeKickY) {
+            const k = Math.exp(-SHAKE_KICK_RETURN * dt);
+            shakeKickX *= k;
+            shakeKickY *= k;
+            if (Math.abs(shakeKickX) < 0.05 && Math.abs(shakeKickY) < 0.05) shakeKickX = shakeKickY = 0;
         }
 
         // Shockwaves update
@@ -7988,17 +7994,11 @@
         const w = canvas.width / dpr;
         const h = canvas.height / dpr;
 
-        ctx.save();
-
-        // Screen shake transform
-        if (screenShake > 0) {
-            const sx = (Math.random() - 0.5) * screenShake;
-            const sy = (Math.random() - 0.5) * screenShake;
-            ctx.translate(sx, sy);
-        }
-
-        // Clear canvas
+        // Clear before the shake moves the canvas, so no strip is left uncleared at the edges
         ctx.clearRect(0, 0, w, h);
+
+        ctx.save();
+        applyScreenShake(w, h);
 
         // 1. Draw Grid Background & Danger Threshold
         drawGridBackground(w, h);
@@ -9484,9 +9484,52 @@
         hitStopUntil = Math.max(hitStopUntil, performance.now() + ms);
     }
 
-    function triggerScreenShake(magnitude = 6) {
-        const factor = (career && career.settings) ? (career.settings.shake === 'off' ? 0 : career.settings.shake === 'mild' ? 0.4 : 1.0) : 1.0;
-        screenShake = Math.max(screenShake, magnitude * factor);
+    // Trauma shake: hits add trauma, offset = max × trauma², moved by smooth noise
+    const SHAKE_MAX_PX = 9;            // noise ceiling; with the shove the peak stays near 12px on a phone
+    const SHAKE_MAX_ROT = 0.008;       // radians (~0.45°) at full trauma
+    const SHAKE_TRAUMA_PER_PX = 1 / 20; // old magnitudes (3–32) map onto trauma
+    const SHAKE_TRAUMA_DECAY = 1.6;    // trauma per second
+    const SHAKE_KICK_PER_PX = 0.18;    // shove away from a blast per unit of magnitude
+    const SHAKE_KICK_MAX_PX = 4;
+    const SHAKE_KICK_RETURN = 16;      // how fast the shove springs back (per second)
+    const shakeSeed = [Math.random() * 100, Math.random() * 100, Math.random() * 100];
+
+    function shakeFactor() {
+        if (!career || !career.settings) return 1;
+        return career.settings.shake === 'off' ? 0 : career.settings.shake === 'mild' ? 0.4 : 1;
+    }
+
+    // origin (canvas px) shoves the board away from that point
+    function triggerScreenShake(magnitude = 6, origin = null) {
+        if (shakeFactor() === 0) return;
+        shakeTrauma = Math.min(1, shakeTrauma + magnitude * SHAKE_TRAUMA_PER_PX);
+        if (origin && cellW) {
+            const cx = boardOffsetX + (COLS * cellW) / 2;
+            const cy = boardOffsetY + (ROWS * cellH) / 2;
+            let dx = cx - origin.x;
+            let dy = cy - origin.y;
+            const len = Math.hypot(dx, dy);
+            // A blast near the middle pushes the board down, like a weight landing
+            if (len < cellW * 0.5) { dx = 0; dy = 1; } else { dx /= len; dy /= len; }
+            const kick = Math.min(SHAKE_KICK_MAX_PX, magnitude * SHAKE_KICK_PER_PX);
+            shakeKickX += dx * kick;
+            shakeKickY += dy * kick;
+        }
+    }
+
+    function applyScreenShake(w, h) {
+        const factor = shakeFactor();
+        if (factor === 0 || (shakeTrauma <= 0 && !shakeKickX && !shakeKickY)) return;
+        const t = performance.now() / 1000;
+        // Two sines per axis at unrelated speeds read as smooth noise, not per-frame jitter
+        const wave = (seed, a, b) => 0.6 * Math.sin(t * a + seed) + 0.4 * Math.sin(t * b + seed * 1.7);
+        const amount = shakeTrauma * shakeTrauma * factor;
+        const sx = SHAKE_MAX_PX * amount * wave(shakeSeed[0], 47, 83) + shakeKickX * factor;
+        const sy = SHAKE_MAX_PX * amount * wave(shakeSeed[1], 53, 91) + shakeKickY * factor;
+        const rot = SHAKE_MAX_ROT * amount * wave(shakeSeed[2], 37, 71);
+        ctx.translate(w / 2 + sx, h / 2 + sy);
+        ctx.rotate(rot);
+        ctx.translate(-w / 2, -h / 2);
     }
 
     // Blast strength by tier: light, medium, heavy, then the success buzz for the biggest
