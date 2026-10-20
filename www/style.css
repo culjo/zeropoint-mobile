@@ -5577,6 +5577,16 @@ input:checked + .toggle-slider:before {
 /* Reduce Effects: stars fade in gently, no slam */
 .reduce-effects #modal-victory.visible .win-star:not(.off) { animation-name: winStarPop; }
 
+/* Overdrive: the board runs hot for a moment, then eases back */
+canvas {
+    transition: filter 0.45s ease-out;
+}
+
+canvas.overdrive-shift {
+    filter: saturate(1.7) brightness(1.15) contrast(1.05);
+    transition: none;
+}
+
 /* A lost board greys out while its tiles fall away */
 canvas.board-dead {
     filter: grayscale(0.85) brightness(0.75);

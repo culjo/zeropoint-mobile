@@ -659,6 +659,11 @@
     let shakeTrauma = 0;       // 0–1; hits add to it, it drains over time, shake grows with its square
     let shakeKickX = 0;        // one-off shove away from a blast, springs back on its own
     let shakeKickY = 0;
+    let starfield = null;      // background stars, built on first draw
+    let starJoltX = 0;         // starfield shove from a big blast, springs back
+    let starJoltY = 0;
+    let slowMoAt = 0;          // performance.now() when Overdrive's slow-motion began; 0 = off
+    let denyShakeAt = 0;       // performance.now() of the last "can't do that" head-shake
     let hitStopUntil = 0;      // performance.now() timestamp; the board freezes until then
     let scoreShown = 0;        // value the HUD has caught up to (flyers add on arrival)
     let scoreFlySession = 0;   // bumped on reset so stale flyers don't add
@@ -2994,7 +2999,7 @@
         sfx.init();
 
         if (sealedCols.includes(aimCol)) {
-            triggerScreenShake(6);
+            triggerDenyShake();
             sfx.playWarning();
             addFloatingText('🔒 SEALED · CLEAR A TILE INSIDE', boardOffsetX + aimCol * cellW + cellW / 2, boardOffsetY + cellH * 1.5, '#7fb0ff', 1.0);
             return false;
@@ -3030,7 +3035,7 @@
             isImpact = false;
         } else {
             // Column is full to the brim!
-            triggerScreenShake(8);
+            triggerDenyShake();
             sfx.playWarning();
             return false;
         }
@@ -3700,6 +3705,7 @@
         }
 
         triggerHitStop(HIT_STOP_MS[tier] || 0);
+        if (tier >= 3) joltStarfield(x, y, tier);
 
         damageNullCoreForBlast(r, c, r2, c2, tier, { x, y });
 
@@ -5222,6 +5228,7 @@
         triggerHaptic('overdrive');
         triggerScreenShake(20);
         triggerScreenFlash(0.75, '#ffd700');
+        startSlowMo();
 
         // Select the next special in rotation (Vortex -> Supernova Core -> Antimatter Nuke -> repeat)
         const special = FRENZY_SPECIALS[frenzySpecialIndex % FRENZY_SPECIALS.length];
@@ -5521,7 +5528,7 @@
     function toggleSwapMode() {
         if (isProcessing || isGameOver || (isTutorial && (!tutToolAllowed('swap') || tutBusy))) return;
         if (!isSwapModeActive && swapTokens <= 0) {
-            triggerScreenShake(6);
+            triggerDenyShake();
             sfx.playWarning();
             addFloatingText('NO SWAP TOKENS! Earn via 8 moves or Bounties', canvas.width / (2 * dpr), boardOffsetY + cellH * 3, '#ff4e50', 1.1);
             return;
@@ -6458,7 +6465,7 @@
             if (target && swapTokens <= 0) {
                 if (!s.warned) {
                     s.warned = true;
-                    triggerScreenShake(6);
+                    triggerDenyShake();
                     sfx.playWarning();
                     addFloatingText('NO SWAPS LEFT · EARN ONE EVERY 8 MOVES', canvas.width / (2 * dpr), boardOffsetY + cellH * 3, '#ff4e50', 1.05);
                 }
@@ -8010,10 +8017,10 @@
                 triggerZeroPointBlast(r, c, `${magnitude} + (-${magnitude}) = 0!`, 0, magnitude, r, c);
                 combo = keep;
             },
-            // Stack column col so it leaves `free` empty rows above it, to preview the danger state
-            stack(free = 0, col = 0) {
+            // Stack column col so it leaves `free` empty rows above it (danger state); value fills it with one orb
+            stack(free = 0, col = 0, value = null) {
                 if (!isDebugMode() || currentScreen !== 'game') return;
-                for (let r = 0; r < ROWS; r++) grid[r][col] = r > free ? createTile(r % 2 ? 3 : 5) : null;
+                for (let r = 0; r < ROWS; r++) grid[r][col] = r > free ? createTile(value || (r % 2 ? 3 : 5)) : null;
                 return minColumnHeadroom();
             },
             // Turn hit-stop off/on to compare the feel
@@ -8055,7 +8062,7 @@
         lastTime = now;
 
         if (!isPaused && currentScreen === 'game') {
-            update(dt);
+            update(dt * slowMoScale(now));
         }
         updateDanger(dt, now);
         if (currentScreen === 'game') {
@@ -8081,6 +8088,8 @@
                 handleProjectileLanding();
             }
         }
+
+        updateStarfield(dt);
 
         // Shake decay: trauma drains steadily, the blast shove springs back fast
         if (shakeTrauma > 0) shakeTrauma = Math.max(0, shakeTrauma - SHAKE_TRAUMA_DECAY * dt);
@@ -8265,6 +8274,8 @@
     }
 
     function drawGridBackground(w, h) {
+        drawStarfield(w, h);
+
         // Grid column highlights
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
         ctx.lineWidth = 1;
@@ -8673,6 +8684,7 @@
                     const label = tile.value > 0 ? `+${tile.value}` : `${tile.value}`;
                     if (tile.riser) drawRiserTrail(x, y, tw, th, r, tile.climbAt);
                     if (tile.link) drawLinkHalo(x, y, tw, th, tile.link);
+                    drawOrbBreath(x, y, tw, tile.value, r, c);
                     drawTileGraphic(x, y, tw, th, label, flavor, tile.flash);
                     if (tile.riser) drawRiserCap(x, y, tw, th, r);
                     if (tile.web) drawWebOverlay(x, y, tw, th);
@@ -10012,14 +10024,132 @@
         }
     }
 
+    // Ambient: orbs of 8 and up breathe a soft glow in their tier colour, each on its own phase
+    const BREATH_RAINBOW = ['#ff4e50', '#f9d423', '#00f2fe', '#b46cff'];
+    const BREATH_SPEED = 2.1;     // radians per second
+    const BREATH_MIN = 0.16;
+    const BREATH_RANGE = 0.16;
+
+    function drawOrbBreath(x, y, tw, value, r, c) {
+        const tier = Math.abs(value) >= 8 ? tierFor(Math.abs(value)) : null;
+        if (!tier) return;
+        const t = performance.now() / 1000;
+        const color = tier.color === 'rainbow'
+            ? BREATH_RAINBOW[Math.floor(t * 1.5 + r + c) % BREATH_RAINBOW.length]
+            : tier.color;
+        const wave = prefersReducedMotion() ? 0.5 : 0.5 + 0.5 * Math.sin(t * BREATH_SPEED + r * 1.7 + c * 2.3);
+        const radius = tw * (0.85 + 0.12 * wave);
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = BREATH_MIN + BREATH_RANGE * wave;
+        ctx.drawImage(glowSprite(color), x - radius, y - radius, radius * 2, radius * 2);
+        ctx.restore();
+    }
+
+    // Ambient: a sparse starfield behind the board drifts down slowly at three depths and
+    // jolts away from big blasts (nearer stars move more), then settles
+    const STAR_COUNT = 70;
+    const STAR_DRIFT = 7;         // px/s for the nearest layer
+    const STAR_JOLT_PX = 10;      // shove per tier above Cross Laser (tier 3 = 1 unit)
+    const STAR_JOLT_RETURN = 5;   // per second
+
+    function buildStarfield(w, h) {
+        starfield = [];
+        for (let i = 0; i < STAR_COUNT; i++) {
+            const z = [0.35, 0.6, 1][i % 3];
+            starfield.push({ x: Math.random() * w, y: Math.random() * h, z, size: 0.5 + z * 0.9, phase: Math.random() * 6.3, w, h });
+        }
+    }
+
+    function updateStarfield(dt) {
+        if (!starfield) return;
+        for (const st of starfield) {
+            st.y += STAR_DRIFT * st.z * dt;
+            if (st.y > st.h) { st.y -= st.h; st.x = Math.random() * st.w; }
+        }
+        const k = Math.exp(-STAR_JOLT_RETURN * dt);
+        starJoltX *= k;
+        starJoltY *= k;
+    }
+
+    function joltStarfield(x, y, tier) {
+        if (prefersReducedMotion() || !cellW) return;
+        const cx = boardOffsetX + (COLS * cellW) / 2;
+        const cy = boardOffsetY + (ROWS * cellH) / 2;
+        let dx = cx - x, dy = cy - y;
+        const len = Math.hypot(dx, dy);
+        if (len < 1) { dx = 0; dy = 1; } else { dx /= len; dy /= len; }
+        const push = STAR_JOLT_PX * (tier - 2);
+        starJoltX += dx * push;
+        starJoltY += dy * push;
+    }
+
+    function drawStarfield(w, h) {
+        if (!starfield || starfield.length && starfield[0].w !== w) buildStarfield(w, h);
+        const t = performance.now() / 1000;
+        const still = prefersReducedMotion();
+        ctx.save();
+        ctx.fillStyle = '#dfe6ff';
+        for (const st of starfield) {
+            const twinkle = still ? 0.7 : 0.55 + 0.45 * Math.sin(t * (0.8 + st.z) + st.phase);
+            ctx.globalAlpha = (0.12 + 0.3 * st.z) * twinkle;
+            const sx = ((st.x + starJoltX * st.z) % w + w) % w;
+            const sy = ((st.y + starJoltY * st.z) % h + h) % h;
+            ctx.fillRect(sx, sy, st.size, st.size);
+        }
+        ctx.restore();
+    }
+
+    // Overdrive: the board drops to slow motion and runs hot in colour, then snaps back.
+    // Only the simulation slows (animations, particles, shake); input and turn logic don't.
+    const SLOWMO_SCALE = 0.35;   // speed at the bottom of the dip
+    const SLOWMO_HOLD = 0.2;     // seconds held at that speed
+    const SLOWMO_RETURN = 0.3;   // seconds to ease back to full speed
+    const SLOWMO_TINT_MS = 300;  // the colour shift lasts this long, then fades out in CSS
+
+    function startSlowMo() {
+        if (prefersReducedMotion()) return;
+        slowMoAt = performance.now();
+        retriggerClass(canvas, 'overdrive-shift');
+        setTimeout(() => canvas.classList.remove('overdrive-shift'), SLOWMO_TINT_MS);
+    }
+
+    function slowMoScale(now) {
+        if (!slowMoAt) return 1;
+        const t = (now - slowMoAt) / 1000;
+        if (t < SLOWMO_HOLD) return SLOWMO_SCALE;
+        const p = (t - SLOWMO_HOLD) / SLOWMO_RETURN;
+        if (p >= 1) { slowMoAt = 0; return 1; }
+        return SLOWMO_SCALE + (1 - SLOWMO_SCALE) * (1 - Math.pow(1 - p, 2));
+    }
+
+    // "Can't do that": a quick side-to-side head-shake plus an error buzz, instead of a rumble
+    const DENY_SHAKE_PX = 7;
+    const DENY_SHAKE_HZ = 11;
+    const DENY_SHAKE_MS = 360;
+
+    function triggerDenyShake() {
+        triggerHaptic('deny');
+        if (shakeFactor() === 0) return;
+        denyShakeAt = performance.now();
+    }
+
+    function denyShakeOffset() {
+        if (!denyShakeAt) return 0;
+        const t = (performance.now() - denyShakeAt) / DENY_SHAKE_MS;
+        if (t >= 1) { denyShakeAt = 0; return 0; }
+        return DENY_SHAKE_PX * Math.sin(t * DENY_SHAKE_HZ * (DENY_SHAKE_MS / 1000) * Math.PI * 2) * (1 - t) * (1 - t);
+    }
+
     function applyScreenShake(w, h) {
         const factor = shakeFactor();
-        if (factor === 0 || (shakeTrauma <= 0 && !shakeKickX && !shakeKickY)) return;
+        const deny = denyShakeOffset() * factor;
+        if (factor === 0 || (shakeTrauma <= 0 && !shakeKickX && !shakeKickY && !deny)) return;
         const t = performance.now() / 1000;
         // Two sines per axis at unrelated speeds read as smooth noise, not per-frame jitter
         const wave = (seed, a, b) => 0.6 * Math.sin(t * a + seed) + 0.4 * Math.sin(t * b + seed * 1.7);
         const amount = shakeTrauma * shakeTrauma * factor;
-        const sx = SHAKE_MAX_PX * amount * wave(shakeSeed[0], 47, 83) + shakeKickX * factor;
+        const sx = SHAKE_MAX_PX * amount * wave(shakeSeed[0], 47, 83) + shakeKickX * factor + deny;
         const sy = SHAKE_MAX_PX * amount * wave(shakeSeed[1], 53, 91) + shakeKickY * factor;
         const rot = SHAKE_MAX_ROT * amount * wave(shakeSeed[2], 37, 71);
         ctx.translate(w / 2 + sx, h / 2 + sy);
@@ -10032,7 +10162,7 @@
 
     // Cascades fire many haptics at once: within the gap, only a stronger one gets through
     const HAPTIC_MIN_GAP_MS = 60;
-    const HAPTIC_RANK = { tick: 0, swap: 0, tap: 0, light: 0, 'heartbeat-dub': 0, heartbeat: 1, merge: 1, pop: 1, drop: 2, pulse: 2, laser: 3, overdrive: 3, zero: 4, supernova: 4 };
+    const HAPTIC_RANK = { tick: 0, swap: 0, tap: 0, light: 0, 'heartbeat-dub': 0, heartbeat: 1, merge: 1, pop: 1, drop: 2, pulse: 2, laser: 3, overdrive: 3, deny: 3, zero: 4, supernova: 4 };
     let lastHapticAt = -Infinity;
     let lastHapticRank = -1;
 
@@ -10089,6 +10219,10 @@
                     case 'overdrive':
                         if (Haptics.notification) Haptics.notification({ type: 'WARNING' });
                         return;
+                    case 'deny':
+                        if (Haptics.notification) Haptics.notification({ type: 'ERROR' });
+                        else if (Haptics.impact) Haptics.impact({ style: 'MEDIUM' });
+                        return;
                     default:
                         if (Haptics.impact) Haptics.impact({ style: 'LIGHT' });
                         return;
@@ -10135,6 +10269,9 @@
                         break;
                     case 'overdrive':
                         navigator.vibrate([30, 30, 50, 40, 60]);
+                        break;
+                    case 'deny':
+                        navigator.vibrate([18, 40, 18]);
                         break;
                     default:
                         navigator.vibrate(15);
