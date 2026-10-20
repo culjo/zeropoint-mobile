@@ -3567,13 +3567,7 @@
         const tier = getTier(magnitude);
 
         sfx.playAnnihilate(combo, tier);
-        if (tier >= 4) {
-            triggerHaptic('supernova');
-        } else if (tier === 3) {
-            triggerHaptic('laser');
-        } else {
-            triggerHaptic('zero');
-        }
+        triggerHaptic(BLAST_HAPTICS[tier] || 'pop');
 
         let bannerText = 'ZERO POINT!';
         let bannerColor = '#00f2fe';
@@ -9495,9 +9489,28 @@
         screenShake = Math.max(screenShake, magnitude * factor);
     }
 
+    // Blast strength by tier: light, medium, heavy, then the success buzz for the biggest
+    const BLAST_HAPTICS = [null, 'pop', 'pulse', 'laser', 'supernova', 'supernova'];
+
+    // Cascades fire many haptics at once: within the gap, only a stronger one gets through
+    const HAPTIC_MIN_GAP_MS = 60;
+    const HAPTIC_RANK = { tick: 0, swap: 0, tap: 0, light: 0, merge: 1, pop: 1, drop: 2, pulse: 2, laser: 3, overdrive: 3, zero: 4, supernova: 4 };
+    let lastHapticAt = -Infinity;
+    let lastHapticRank = -1;
+
+    function hapticAllowed(type) {
+        const now = performance.now();
+        const rank = HAPTIC_RANK[type] ?? 0;
+        if (now - lastHapticAt < HAPTIC_MIN_GAP_MS && rank <= lastHapticRank) return false;
+        lastHapticAt = now;
+        lastHapticRank = rank;
+        return true;
+    }
+
     // Native & Web Haptics Controller (Unified Capacitor & Browser)
     function triggerHaptic(type = 'light') {
         if (!career || !career.settings || career.settings.vibration === false) return;
+        if (!hapticAllowed(type)) return;
 
         // Capacitor Native Plugin support (@capacitor/haptics)
         if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics) {
@@ -9511,7 +9524,11 @@
                         if (Haptics.impact) Haptics.impact({ style: 'MEDIUM' });
                         return;
                     case 'merge':
+                    case 'pop':
                         if (Haptics.impact) Haptics.impact({ style: 'LIGHT' });
+                        return;
+                    case 'pulse':
+                        if (Haptics.impact) Haptics.impact({ style: 'MEDIUM' });
                         return;
                     case 'swap':
                         if (Haptics.selectionChanged) Haptics.selectionChanged();
@@ -9521,8 +9538,11 @@
                         else if (Haptics.impact) Haptics.impact({ style: 'HEAVY' });
                         return;
                     case 'laser':
-                    case 'supernova':
                         if (Haptics.impact) Haptics.impact({ style: 'HEAVY' });
+                        return;
+                    case 'supernova':
+                        if (Haptics.notification) Haptics.notification({ type: 'SUCCESS' });
+                        else if (Haptics.impact) Haptics.impact({ style: 'HEAVY' });
                         return;
                     case 'overdrive':
                         if (Haptics.notification) Haptics.notification({ type: 'WARNING' });
@@ -9548,6 +9568,12 @@
                         break;
                     case 'merge':
                         navigator.vibrate(28);
+                        break;
+                    case 'pop':
+                        navigator.vibrate(15);
+                        break;
+                    case 'pulse':
+                        navigator.vibrate(30);
                         break;
                     case 'swap':
                         navigator.vibrate(12);
