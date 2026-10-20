@@ -6962,6 +6962,10 @@ input:checked + .toggle-slider:before {
 .le-pos { background: #0f2433; border: 2px solid #00f2fe; }
 .le-neg { background: #33141d; border: 2px solid #ff4e50; }
 .le-riser { box-shadow: 0 0 0 2px #f9d423; }
+.le-web { outline: 2px dashed rgba(225, 233, 255, 0.8); outline-offset: -5px; }
+.le-link { box-shadow: 0 0 0 2px #7cffb2; }
+.le-dense { border: 3px solid #9a8ad6; font-size: 0.8em; }
+.le-cell.le-sealed { background-image: linear-gradient(rgba(79, 140, 255, 0.22), rgba(79, 140, 255, 0.22)); }
 .le-dm { background: repeating-linear-gradient(135deg, #1a1f2e 0 5px, #141826 5px 10px); border: 2px solid #3a445d; color: #8892b0; }
 .le-core { background: #3a0d16; border: 2px solid #ff4e50; color: #ffe3e4; }
 .le-wall { background: #232838; border: 2px solid #5a6380; color: #8a93b0; }

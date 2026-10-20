@@ -1,7 +1,7 @@
 // Nullfall - headless rules engine for the playtest bot (GDD §5.3)
 // A Node port of the board rules in www/game.js: gravity, Zero Blasts and blast tiers, merges,
-// Dark Matter, specials and Overdrive, Risers, stars, the Null Core, static blocks, rising rows,
-// goals and stars. No drawing, no timing. Keep it in step with game.js when rules change.
+// Dark Matter (and dense cores), specials and Overdrive, Risers, stars, the Null Core, static blocks,
+// webbed orbs, sealed columns, entangled pairs, rising rows, goals and stars. No drawing, no timing. Keep it in step with game.js when rules change.
 //
 // Known simplifications: no swaps; Hold is a free stash before a drop; score and bounties aren't
 // tracked; Overdrive deals its super-weapon as the next tray orb.
@@ -58,6 +58,9 @@ class Game {
         this.grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
         config.setupBoard(this.grid, ROWS, COLS, (v, t) => createTile(v, t));
         this.starCells = config.starCells ? config.starCells(ROWS) : [];
+        this.sealed = (this.rules.sealed || []).slice();
+        this.sealCounts = {};
+        this.tagSealed();
         this.maxDrops = config.maxDrops;
         this.dropsUsed = 0;
         this.progress = 0;
@@ -101,6 +104,8 @@ class Game {
             return c;
         }));
         g.starCells = this.starCells.map((s) => ({ ...s }));
+        g.sealed = this.sealed.slice();
+        g.sealCounts = { ...this.sealCounts };
         g.pendingDeals = this.pendingDeals.map((d) => ({ ...d }));
         g.rng = makeRng(this.rng.s);
         g.tray = this.tray.slice();
@@ -140,7 +145,7 @@ class Game {
 
     // ---------- helpers ----------
     isFixed(t) { return !!(t && (t.type === 'null_core' || t.type === 'static')); }
-    isAnchored(t) { return !!(t && (t.riser || this.isFixed(t))); }
+    isAnchored(t) { return !!(t && (t.riser || t.web || this.isFixed(t))); }
 
     landingRow(col) {
         for (let r = 0; r < ROWS; r++) if (this.grid[r][col]) return r - 1;
@@ -163,7 +168,48 @@ class Game {
     }
 
     removed(tiles) {
-        if (tiles.length) this.advance(this.goalCountFor(tiles));
+        if (!tiles.length) return;
+        this.advance(this.goalCountFor(tiles));
+        // Entangled pairs: a cleared orb pops its twin too (a plain pop, no blast)
+        tiles.forEach((t) => {
+            if (!t.link) return;
+            for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+                const u = this.grid[r][c];
+                if (u && u !== t && u.link === t.link && !tiles.includes(u)) {
+                    this.grid[r][c] = null;
+                    this.removed([u]);
+                    return;
+                }
+            }
+        });
+    }
+
+    // ---------- sealed columns ----------
+    // A sealed column takes no drops. It opens for good once a tile in it is cleared, merged or
+    // broken (one of the tiles tagged at the last check is gone), or when it has no tiles.
+    tagSealed() {
+        for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+            const t = this.grid[r][c];
+            if (!t) continue;
+            if (this.sealed.includes(c)) t.sealedIn = c;
+            else delete t.sealedIn;
+        }
+        this.sealed.forEach((col) => { this.sealCounts[col] = this.countSealTags(col); });
+    }
+
+    countSealTags(col) {
+        let n = 0;
+        this.grid.forEach((row) => row.forEach((t) => { if (t && t.sealedIn === col) n++; }));
+        return n;
+    }
+
+    updateSeals() {
+        if (!this.sealed.length) return;
+        this.sealed = this.sealed.filter((col) => {
+            const empty = this.grid.every((row) => !row[col]);
+            return !empty && this.countSealTags(col) >= (this.sealCounts[col] || 0);
+        });
+        this.tagSealed();
     }
 
     orbMade(m) {
@@ -187,6 +233,7 @@ class Game {
     damageDM(r, c, dmg) {
         if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return;
         const t = this.grid[r][c];
+        if (t && t.web) { t.web = false; return; } // the hits that crack a core snap a web
         if (!t || t.type !== 'dark_matter') return;
         t.hp -= dmg;
         if (t.hp <= 0) {
@@ -245,6 +292,7 @@ class Game {
                 if (!t) continue;
                 if (t.type === 'dark_matter') this.damageDM(r, c, 2);
                 else if (t.type === 'number' && Math.abs(t.value) <= 4) { out.push(t); this.grid[r][c] = null; }
+                else if (t.web) t.web = false;
             }
         }
         this.removed(out);
@@ -296,6 +344,8 @@ class Game {
                 if (!num(b) || a.value !== b.value) continue;
                 const fused = createTile(a.value * 2);
                 if (a.riser || b.riser) fused.riser = true;
+                // A merge snaps a web (the fused orb is free) and passes an entangled link on
+                this.passLink(a, b, fused);
                 g[r][c] = null;
                 g[r2][c2] = fused;
                 this.orbMade(Math.abs(fused.value));
@@ -305,6 +355,15 @@ class Game {
             }
         }
         return false;
+    }
+
+    passLink(a, b, fused) {
+        if (a.link && b.link) {
+            if (a.link === b.link) return;
+            this.grid.forEach((row) => row.forEach((t) => { if (t && t !== b && t.link === b.link) delete t.link; }));
+        }
+        const link = a.link || b.link;
+        if (link) fused.link = link;
     }
 
     gravity() {
@@ -376,7 +435,7 @@ class Game {
             const t = this.grid[r][c];
             if (!t || !t.riser) continue;
             const above = this.grid[r - 1][c];
-            if (this.isFixed(above)) continue;
+            if (this.isFixed(above) || (above && above.web)) continue;
             this.grid[r - 1][c] = t;
             this.grid[r][c] = above || null;
             moved = true;
@@ -391,7 +450,7 @@ class Game {
             let top = ROWS;
             for (let r = 0; r < ROWS; r++) {
                 const t = this.grid[r][c];
-                if (this.isFixed(t)) fixed = true;
+                if (this.isFixed(t) || this.sealed.includes(c)) fixed = true;
                 if (t && top === ROWS) top = r;
             }
             if (!fixed) cols.push({ c, top });
@@ -460,6 +519,7 @@ class Game {
             const orb = s === 'hold' ? this.hold : this.tray[s];
             if (!orb) return;
             for (let c = 0; c < COLS; c++) {
+                if (this.sealed.includes(c)) continue;
                 if (orb.type === 'number' && this.landingRow(c) < 0) continue;
                 out.push({ source: s, col: c });
             }
@@ -500,6 +560,7 @@ class Game {
             this.boardClears = (this.boardClears || 0) + 1;
         }
         this.turnEffects(state, { skipRiseTick: cleared });
+        this.updateSeals();
         this.checkEnd();
     }
 

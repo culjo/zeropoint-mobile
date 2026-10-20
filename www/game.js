@@ -530,6 +530,9 @@
     const SHOW_LAST_CORE_MARKER = false; // marker hidden for now; flip to re-enable
     let adventureObjectiveMet = false;
     let starCells = [];        // Catch the Stars: fixed board cells { r, c, caught }
+    let sealedCols = [];       // Sealed columns: no drops until a tile inside is cleared (GDD §5.2)
+    let sealCounts = {};       // tiles tagged in each sealed column at the last check
+    let sealOpenings = [];     // { col, at } clamp-opening animations
     let riserClock = 0;        // drops since the last Riser spawned
     let pendingDeals = [];     // tray guarantees, e.g. a Riser's opposite: { value, due }
     let orbDealer = null;      // OrbBag dealer for the current run (bag randomizer + guarantees)
@@ -1176,6 +1179,8 @@
             config.setupBoard(grid, ROWS, COLS, createTile);
         }
         starCells = config.starCells ? config.starCells(ROWS) : [];
+        sealedCols = ((config.rules && config.rules.sealed) || []).slice();
+        tagSealedCols();
         const riserRules = config.rules && config.rules.risers;
         for (let i = 0; i < ((riserRules && riserRules.start) || 0); i++) spawnRiser(false);
         ensureRiserOpposites();
@@ -2667,6 +2672,9 @@
         }
         grid = Array(ROWS).fill(null).map(() => Array(COLS).fill(null));
         starCells = [];
+        sealedCols = [];
+        sealCounts = {};
+        sealOpenings = [];
         riserClock = 0;
         pendingDeals = [];
         orbDealer = null;
@@ -2936,6 +2944,13 @@
         }
 
         sfx.init();
+
+        if (sealedCols.includes(aimCol)) {
+            triggerScreenShake(6);
+            sfx.playWarning();
+            addFloatingText('🔒 SEALED · CLEAR A TILE INSIDE', boardOffsetX + aimCol * cellW + cellW / 2, boardOffsetY + cellH * 1.5, '#7fb0ff', 1.0);
+            return false;
+        }
 
         dropsSinceSwapCharge++;
         if (dropsSinceSwapCharge >= 8) {
@@ -3281,6 +3296,7 @@
         } catch (err) {
             console.error('Error during cascade resolution:', err);
         } finally {
+            if (gameMode === 'adventure') updateSealedCols();
             checkGameOver();
             isProcessing = false;
             if (guide && guide.busy) endGuide();
@@ -3378,6 +3394,7 @@
                     grid[rB][cB] = createTile(fusedVal);
                     // A merged Riser keeps climbing (+3R and +3 make a +6 Riser)
                     if (tileA.riser || tileB.riser) grid[rB][cB].riser = true;
+                    passEntangledLink(tileA, tileB, grid[rB][cB]);
                     grid[rB][cB].flash = 1;
                     grid[rB][cB].scaleX = 1.45;
                     grid[rB][cB].scaleY = 1.45;
@@ -3669,6 +3686,7 @@
     function damageDarkMatterTile(r, c, dmg = 1) {
         if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return;
         const target = grid[r][c];
+        if (target && target.web) { snapWeb(r, c, target); return; }
         if (target && target.type === 'dark_matter') {
             target.hp -= dmg;
             sfx.playCrack();
@@ -3739,6 +3757,8 @@
                         createSparks(tx, ty, '#ffd700', 10);
                         vaporized.push(tile);
                         grid[r][c] = null;
+                    } else if (tile.web) {
+                        snapWeb(r, c, tile);
                     }
                 }
             }
@@ -3890,10 +3910,12 @@
     }
 
     // Tiles that left the board by any cause except merging (blasts, specials, craters, vortex)
-    function noteTilesRemoved(tiles, pos = null) {
-        if (gameMode !== 'adventure' || !isGoalLevel(activeAdventureLevel)) return;
-        const n = goalCountForRemoved(activeAdventureLevel.goal, tiles);
-        if (n > 0) checkAdventureObjective('goal', n, pos);
+    function noteTilesRemoved(tiles, pos = null, seen = new Set()) {
+        if (gameMode === 'adventure' && isGoalLevel(activeAdventureLevel)) {
+            const n = goalCountForRemoved(activeAdventureLevel.goal, tiles);
+            if (n > 0) checkAdventureObjective('goal', n, pos);
+        }
+        popEntangledTwins(tiles, seen);
     }
 
     function getDropsLeft() {
@@ -3913,9 +3935,97 @@
         return !!(t && (t.type === 'null_core' || t.type === 'static'));
     }
 
-    // Risers, the Null Core and static blocks ignore gravity
+    // Risers, webbed orbs, the Null Core and static blocks ignore gravity
     function isAnchoredTile(t) {
-        return !!(t && (t.riser || t.type === 'null_core' || t.type === 'static'));
+        return !!(t && (t.riser || t.web || t.type === 'null_core' || t.type === 'static'));
+    }
+
+    // ---------- Sealed columns (GDD §5.2) ----------
+    // A sealed column takes no drops. It opens for good once a tile in it is cleared, merged or
+    // broken (one of the tiles tagged at the last check is gone), or when it has no tiles.
+    // tools/sim/engine.js mirrors this.
+    function tagSealedCols() {
+        forEachTile((t, r, c) => {
+            if (sealedCols.includes(c)) t.sealedIn = c;
+            else delete t.sealedIn;
+        });
+        sealedCols.forEach((col) => { sealCounts[col] = countSealTags(col); });
+    }
+
+    function countSealTags(col) {
+        let n = 0;
+        forEachTile((t) => { if (t.sealedIn === col) n++; });
+        return n;
+    }
+
+    function updateSealedCols() {
+        if (!sealedCols.length) return;
+        sealedCols = sealedCols.filter((col) => {
+            const empty = grid.every((row) => !row[col]);
+            if (!empty && countSealTags(col) >= (sealCounts[col] || 0)) return true;
+            const x = boardOffsetX + col * cellW + cellW / 2;
+            sealOpenings.push({ col, at: performance.now() });
+            shockwaves.push({ x, y: boardOffsetY + cellH * 0.5, radius: 8, maxRadius: cellW * 2.2, alpha: 1, color: '#4f8cff' });
+            createSparks(x, boardOffsetY + cellH * 0.5, '#7fb0ff', 16);
+            addFloatingText('🔓 SEAL OPEN', x, boardOffsetY + cellH * 1.3, '#7fb0ff', 1.1);
+            sfx.playSpecial();
+            return false;
+        });
+        tagSealedCols();
+    }
+
+    // ---------- Webbed orbs and entangled pairs (GDD §5.2) ----------
+    // The hits that crack Dark Matter snap a web; the orb is then a plain orb and falls
+    function snapWeb(r, c, t) {
+        t.web = false;
+        t.flash = 0.6;
+        const x = boardOffsetX + c * cellW + cellW / 2;
+        const y = boardOffsetY + r * cellH + cellH / 2;
+        createSparks(x, y, '#dfe6ff', 10);
+        sfx.playCrack();
+        addFloatingText('WEB SNAPPED', x, y - cellH * 0.3, '#dfe6ff', 0.9);
+    }
+
+    // A merge snaps a web (the fused orb is a fresh tile) and passes an entangled link on.
+    // Twins that merge into each other lose the link; two different links keep A's.
+    function passEntangledLink(a, b, fused) {
+        if (a.link && b.link) {
+            if (a.link === b.link) return;
+            forEachTile((t) => { if (t !== b && t.link === b.link) delete t.link; });
+        }
+        const link = a.link || b.link;
+        if (link) fused.link = link;
+    }
+
+    // A cleared entangled orb pops its twin at the same moment: a plain pop, no blast.
+    // `seen` holds every tile already removed this way (a blast notes its pair before the
+    // animation clears their cells, so they're still on the grid here).
+    function popEntangledTwins(tiles, seen) {
+        tiles.forEach((t) => seen.add(t));
+        tiles.forEach((t) => {
+            if (!t || !t.link) return;
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    const u = grid[r][c];
+                    if (!u || u.link !== t.link || seen.has(u)) continue;
+                    grid[r][c] = null;
+                    const x = boardOffsetX + c * cellW + cellW / 2;
+                    const y = boardOffsetY + r * cellH + cellH / 2;
+                    const color = linkColor(u.link);
+                    createSparks(x, y, color, 16);
+                    shockwaves.push({ x, y, radius: 6, maxRadius: cellW * 1.3, alpha: 1, color });
+                    addFloatingText('ENTANGLED!', x, y - cellH * 0.3, color, 1.0);
+                    sfx.playSpecial();
+                    noteTilesRemoved([u], { x, y }, seen);
+                    return;
+                }
+            }
+        });
+    }
+
+    const LINK_COLORS = ['#7cffb2', '#ffb86b', '#ff7bea'];
+    function linkColor(link) {
+        return LINK_COLORS[(link - 1) % LINK_COLORS.length];
     }
 
     // Orbs land on top of the stack (Risers can float with empty cells under them)
@@ -4015,7 +4125,7 @@
                 const t = grid[r][c];
                 if (!t || !t.riser) continue;
                 const above = grid[r - 1][c];
-                if (isFixedTile(above)) continue;
+                if (isFixedTile(above) || (above && above.web)) continue; // walls and webs stop it
                 grid[r - 1][c] = t;
                 grid[r][c] = above || null;
                 t.animY = cellH;
@@ -4037,7 +4147,7 @@
             let top = ROWS;
             for (let r = 0; r < ROWS; r++) {
                 const t = grid[r][c];
-                if (isFixedTile(t)) hasCore = true; // never push a core or wall up
+                if (isFixedTile(t) || sealedCols.includes(c)) hasCore = true; // never push a core or wall up, never into a seal
                 if (t && top === ROWS) top = r;
             }
             if (!hasCore) columns.push({ c, top });
@@ -5425,8 +5535,8 @@
     function performSwap(r1, c1, r, c) {
         const t1 = grid[r1][c1];
         const t2 = grid[r][c];
-        // The Null Core and static blocks are fixed in place
-        if (isFixedTile(t1) || isFixedTile(t2)) {
+        // The Null Core, static blocks and webbed orbs are fixed in place
+        if (isFixedTile(t1) || isFixedTile(t2) || (t1 && t1.web) || (t2 && t2.web)) {
             isSwapModeActive = false;
             firstSwapTile = null;
             if (swapBanner) swapBanner.style.display = 'none';
@@ -6396,7 +6506,11 @@
             rise: `<div class="cc-col cc-rise">${t(1)}${t(-3)}<span class="cc-tile cc-dm">◈</span></div>`,
             null_core: `<div class="cc-row"><span class="cc-core"><b class="cc-hp"></b></span></div>`,
             riser: `<div class="cc-col cc-climb">${t(2, 'cc-riser')}</div>`,
-            wall: `<div class="cc-col">${t(-2)}<span class="cc-tile cc-wall">0</span></div>`
+            wall: `<div class="cc-col">${t(-2)}<span class="cc-tile cc-wall">0</span></div>`,
+            web: `<div class="cc-col">${t(2, 'cc-web')}<span class="cc-gap"></span><span class="cc-gap"></span></div>`,
+            dense: `<div class="cc-row">${t(-1, 'cc-drop')}<span class="cc-tile cc-dm cc-dense">◈</span></div>`,
+            seal: `<div class="cc-row"><span class="cc-sealcol"><span class="cc-clamp">🔒</span>${t(2)}</span>${t(-2, 'cc-drop')}</div>`,
+            entangle: `<div class="cc-row">${t(3, 'cc-twin cc-pop')}${t(-3, 'cc-pop')}<span class="cc-gap"></span>${t(-1, 'cc-twin cc-pop')}</div>`
         }[demo] || '';
         el.innerHTML = html;
     }
@@ -7862,7 +7976,10 @@
 
         // 3. Draw Board Tiles (star cells sit underneath)
         drawStarCells();
+        drawSealedColumns();
+        drawEntangleLinks();
         drawTiles();
+        drawSealClamps();
         if (firstPlay) drawFirstPlayHints();
         if (guide && !guide.busy && !activeDrag && !activeProjectile) {
             drawLandingCellReticle(boardOffsetX + guide.col * cellW, boardOffsetY + columnLandingRow(guide.col) * cellH, cellW, cellH, 'zero');
@@ -8032,6 +8149,19 @@
         if (MAIN_GAMEPLAY && !activeDrag) return; // only preview while an orb is held over the board
         const col = aimCol;
         const centerX = boardOffsetX + col * cellW + cellW / 2;
+
+        // Sealed column: a red beam and no landing preview
+        if (sealedCols.includes(col)) {
+            ctx.save();
+            ctx.fillStyle = 'rgba(255, 78, 80, 0.16)';
+            ctx.fillRect(boardOffsetX + col * cellW, boardOffsetY, cellW, cellH * ROWS);
+            ctx.fillStyle = '#ff8a8c';
+            ctx.font = '900 11px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('SEALED', centerX, boardOffsetY + cellH * 1.25);
+            ctx.restore();
+            return;
+        }
 
         // Column highlight beam (lighter & luminous to guide eye down the board)
         if (currentOrb && currentOrb.subType === 'blackhole') {
@@ -8271,7 +8401,7 @@
                 const th = (cellH - 8) * tile.scaleY;
 
                 if (tile.type === 'dark_matter') {
-                    drawDarkMatterTile(x, y, tw, th, tile.hp, tile.flash);
+                    drawDarkMatterTile(x, y, tw, th, tile.hp, tile.flash, tile.dense);
                 } else if (tile.type === 'static') {
                     drawStaticBlock(x, y, tw, th);
                 } else if (tile.type === 'null_core') {
@@ -8281,8 +8411,10 @@
                     const flavor = tile.value > 0 ? 'pos' : 'neg';
                     const label = tile.value > 0 ? `+${tile.value}` : `${tile.value}`;
                     if (tile.riser) drawRiserTrail(x, y, tw, th, r, tile.climbAt);
+                    if (tile.link) drawLinkHalo(x, y, tw, th, tile.link);
                     drawTileGraphic(x, y, tw, th, label, flavor, tile.flash);
                     if (tile.riser) drawRiserCap(x, y, tw, th, r);
+                    if (tile.web) drawWebOverlay(x, y, tw, th);
                 }
             }
         }
@@ -8318,6 +8450,152 @@
         ctx.textBaseline = 'middle';
         ctx.fillText('0', 0, 1);
         ctx.restore();
+    }
+
+    // Webbed orb: silver threads round the edge (the number stays readable) and strands to the corners
+    function drawWebOverlay(x, y, w, h) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.strokeStyle = 'rgba(225, 233, 255, 0.7)';
+        ctx.lineWidth = 1.3;
+        ctx.lineCap = 'round';
+        const rx = w / 2;
+        const ry = h / 2;
+        const ang = (i) => i * Math.PI / 3 + Math.PI / 6;
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+            ctx.moveTo(Math.cos(ang(i)) * rx * 0.5, Math.sin(ang(i)) * ry * 0.5);
+            ctx.lineTo(Math.cos(ang(i)) * rx * 0.98, Math.sin(ang(i)) * ry * 0.98);
+        }
+        [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([sx, sy]) => {
+            ctx.moveTo(sx * rx * 0.72, sy * ry * 0.72);
+            ctx.lineTo(sx * (rx + 3), sy * (ry + 3));
+        });
+        ctx.stroke();
+        [0.62, 0.9].forEach((k) => {
+            ctx.beginPath();
+            for (let i = 0; i <= 6; i++) {
+                const px = Math.cos(ang(i)) * rx * k;
+                const py = Math.sin(ang(i)) * ry * k;
+                if (i) ctx.quadraticCurveTo(Math.cos(ang(i - 0.5)) * rx * k * 0.86, Math.sin(ang(i - 0.5)) * ry * k * 0.86, px, py);
+                else ctx.moveTo(px, py);
+            }
+            ctx.stroke();
+        });
+        ctx.restore();
+    }
+
+    // Entangled orb: a halo in its pair's colour
+    function drawLinkHalo(x, y, w, h, link) {
+        const color = linkColor(link);
+        const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 260 + link);
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.globalAlpha = 0.55 + pulse * 0.35;
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 10 + pulse * 6;
+        ctx.beginPath();
+        ctx.roundRect(x - w / 2 - 2, y - h / 2 - 2, w + 4, h + 4, 14);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    // A thin dashed arc between each entangled pair
+    function drawEntangleLinks() {
+        const ends = {};
+        forEachTile((t, r, c) => {
+            if (t.type !== 'number' || !t.link) return;
+            (ends[t.link] = ends[t.link] || []).push({
+                x: boardOffsetX + c * cellW + cellW / 2 + (t.animX || 0),
+                y: boardOffsetY + r * cellH + cellH / 2 + (t.animY || 0)
+            });
+        });
+        const now = performance.now();
+        Object.keys(ends).forEach((link) => {
+            const [a, b] = ends[link];
+            if (!a || !b) return;
+            const mx = (a.x + b.x) / 2;
+            const my = (a.y + b.y) / 2;
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const len = Math.hypot(dx, dy) || 1;
+            const bend = Math.min(cellW * 0.8, len * 0.25);
+            ctx.save();
+            ctx.strokeStyle = linkColor(Number(link));
+            ctx.globalAlpha = 0.35 + 0.2 * Math.sin(now / 300 + Number(link));
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 6]);
+            ctx.lineDashOffset = -now / 40;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.quadraticCurveTo(mx - (dy / len) * bend, my + (dx / len) * bend, b.x, b.y);
+            ctx.stroke();
+            ctx.restore();
+        });
+    }
+
+    // Sealed column: a faint blue field down the column, under the tiles
+    function drawSealedColumns() {
+        if (!sealedCols.length) return;
+        const t = performance.now() / 1000;
+        sealedCols.forEach((col) => {
+            const x = boardOffsetX + col * cellW;
+            ctx.save();
+            const grad = ctx.createLinearGradient(0, boardOffsetY, 0, boardOffsetY + cellH * ROWS);
+            grad.addColorStop(0, `rgba(79, 140, 255, ${0.16 + 0.05 * Math.sin(t * 2 + col)})`);
+            grad.addColorStop(1, 'rgba(79, 140, 255, 0.04)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(x + 1, boardOffsetY, cellW - 2, cellH * ROWS);
+            ctx.strokeStyle = 'rgba(127, 176, 255, 0.35)';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 7]);
+            ctx.lineDashOffset = -t * 18;
+            ctx.beginPath();
+            ctx.moveTo(x + 2, boardOffsetY);
+            ctx.lineTo(x + 2, boardOffsetY + cellH * ROWS);
+            ctx.moveTo(x + cellW - 2, boardOffsetY);
+            ctx.lineTo(x + cellW - 2, boardOffsetY + cellH * ROWS);
+            ctx.stroke();
+            ctx.restore();
+        });
+    }
+
+    // The magnetic clamp at the red line (two bars and a lock), and its opening slide
+    function drawSealClamps() {
+        const now = performance.now();
+        sealOpenings = sealOpenings.filter((o) => now - o.at < 600);
+        const clamp = (col, open) => {
+            const x = boardOffsetX + col * cellW;
+            const y = boardOffsetY + cellH * 0.5;
+            const slide = open * cellW * 0.6;
+            ctx.save();
+            ctx.globalAlpha = 1 - open;
+            ctx.fillStyle = '#4f8cff';
+            ctx.shadowColor = '#4f8cff';
+            ctx.shadowBlur = 10;
+            [-1, 1].forEach((side) => {
+                ctx.beginPath();
+                ctx.roundRect(x + 5 + side * slide, y + side * cellH * 0.16 - 3, cellW - 10, 6, 3);
+                ctx.fill();
+            });
+            // Lock glyph
+            ctx.shadowBlur = 0;
+            const s = Math.min(cellW, cellH) * 0.14;
+            ctx.fillStyle = '#0d1220';
+            ctx.strokeStyle = '#cfe0ff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(x + cellW / 2 - s, y - s * 0.4, s * 2, s * 1.5, 3);
+            ctx.fill();
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(x + cellW / 2, y - s * 0.4, s * 0.65, Math.PI, 0);
+            ctx.stroke();
+            ctx.restore();
+        };
+        sealedCols.forEach((col) => clamp(col, 0));
+        sealOpenings.forEach((o) => clamp(o.col, (now - o.at) / 600));
     }
 
     // Catch the Stars: gold star in each uncaught star cell, under the tiles
@@ -8915,19 +9193,37 @@
         ctx.restore();
     }
 
-    function drawDarkMatterTile(x, y, w, h, hp, flash) {
+    function drawDarkMatterTile(x, y, w, h, hp, flash, dense = false) {
         ctx.save();
         ctx.translate(x, y);
 
         const r = 10;
         ctx.beginPath();
         ctx.roundRect(-w / 2, -h / 2, w, h, r);
-        ctx.fillStyle = '#161a29';
+        ctx.fillStyle = dense ? '#10121d' : '#161a29';
         ctx.fill();
 
-        ctx.strokeStyle = hp > 1 ? '#3a445d' : '#e06c75';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = hp > 1 ? (dense ? '#6b5fa0' : '#3a445d') : '#e06c75';
+        ctx.lineWidth = dense ? 3 : 2;
         ctx.stroke();
+
+        // Dense core: one armour plate per HP left (top, right, bottom, left); each hit knocks one off
+        if (dense && hp > 1) {
+            ctx.save();
+            ctx.fillStyle = '#9a8ad6';
+            const t = Math.max(3, Math.min(w, h) * 0.08);
+            const len = Math.min(w, h) * 0.42;
+            [[0, -h / 2 + t * 1.2, len, t], [w / 2 - t * 1.2, 0, t, len], [0, h / 2 - t * 1.2, len, t], [-w / 2 + t * 1.2, 0, t, len]]
+                .slice(0, Math.min(4, hp))
+                .forEach(([px, py, pw, ph]) => {
+                    ctx.beginPath();
+                    ctx.roundRect(px - pw / 2, py - ph / 2, pw, ph, 2);
+                    ctx.fill();
+                });
+            ctx.restore();
+            ctx.beginPath();
+            ctx.roundRect(-w / 2, -h / 2, w, h, r); // the plates replaced the path; keep the flash fill below right
+        }
 
         // Cracks pattern if HP is 1
         if (hp === 1) {

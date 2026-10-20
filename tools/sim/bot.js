@@ -41,6 +41,10 @@ function evaluate(g) {
         s += Math.log2(best + 1) * 60;
     }
 
+    // Board elements: prefer snapping webs and opening seals (more room to play)
+    g.grid.forEach((row) => row.forEach((t) => { if (t && t.web) s -= 10; }));
+    s -= (g.sealed ? g.sealed.length : 0) * 30;
+
     // Safety: tall columns and Risers near the red line
     tops.forEach((top) => {
         const h = ROWS - top;

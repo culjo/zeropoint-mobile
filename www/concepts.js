@@ -34,7 +34,11 @@
         { id: 'survive', kind: 'goal', unlock: '1-9', name: 'Survive', rule: 'Goal: last a number of moves. Stars come from free rows.', demo: 'rise', silent: true },
         { id: 'null_core', kind: 'goal', unlock: '1-10', name: 'Null Core boss', rule: 'Boss: blast beside the core to drain its HP. Lasers hit for 3.', demo: 'null_core' },
         { id: 'risers', kind: 'mechanic', unlock: '2-2', name: 'Risers', rule: 'Risers climb a row after every drop. Cancel one before it reaches the red line.', demo: 'riser' },
-        { id: 'static_blocks', kind: 'mechanic', unlock: '2-3', name: 'Static blocks', rule: '0 walls never move and can’t be cleared. Build around them.', demo: 'wall' }
+        { id: 'static_blocks', kind: 'mechanic', unlock: '2-3', name: 'Static blocks', rule: '0 walls never move and can’t be cleared. Build around them.', demo: 'wall' },
+        { id: 'webbed_orbs', kind: 'mechanic', unlock: '4-2', name: 'Webbed orbs', rule: 'Webs hold an orb in the air. A blast next to it or a merge snaps the web.', demo: 'web' },
+        { id: 'dense_cores', kind: 'mechanic', unlock: '5-2', name: 'Dense cores', rule: 'Armoured cores take four hits to break. Each hit knocks off a plate.', demo: 'dense' },
+        { id: 'sealed_columns', kind: 'mechanic', unlock: '6-2', name: 'Sealed columns', rule: 'You can’t drop into a sealed column. Clear a tile inside it to open it for good.', demo: 'seal' },
+        { id: 'entangled_pairs', kind: 'mechanic', unlock: '8-2', name: 'Entangled pairs', rule: 'Linked orbs share a fate: clear one and its twin pops too.', demo: 'entangle' }
     ];
 
     // Orb tiers (GDD §3.3): announced the first time each size is made; ring colour per doubling

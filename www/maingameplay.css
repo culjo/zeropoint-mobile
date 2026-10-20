@@ -1007,6 +1007,14 @@
 .cc-swap-b { animation: ccSwapB 2.6s ease-in-out infinite; }
 .cc-drop { animation: ccDrop 2.4s ease-out infinite; }
 .cc-crack { animation: ccCrack 2.4s linear infinite; }
+.cc-web { outline: 2px dashed rgba(225, 233, 255, 0.75); outline-offset: 3px; }
+.cc-gap { width: 46px; height: 46px; box-sizing: border-box; border-radius: 12px; border: 2px dashed rgba(255, 255, 255, 0.1); flex-shrink: 0; }
+.cc-dense { border: 3px solid #6b5fa0; box-shadow: inset 0 0 0 4px #10121d, inset 0 0 0 7px #9a8ad6; animation: ccDense 2.4s linear infinite; }
+.cc-sealcol { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px; border-radius: 12px; background: linear-gradient(rgba(79, 140, 255, 0.25), rgba(79, 140, 255, 0.05)); animation: ccSeal 2.4s linear infinite; }
+.cc-clamp { font-size: 16px; line-height: 1; }
+.cc-twin { box-shadow: 0 0 0 3px #7cffb2, 0 0 14px #7cffb2; }
+@keyframes ccDense { 0%, 30% { filter: none; } 35% { filter: brightness(2); } 45%, 100% { filter: none; } }
+@keyframes ccSeal { 0%, 45% { background: linear-gradient(rgba(79, 140, 255, 0.25), rgba(79, 140, 255, 0.05)); } 55%, 100% { background: transparent; } }
 .cc-pop { animation: ccPop 2s ease-in-out infinite; }
 .cc-pop.cc-late { animation-delay: 0.5s; }
 .cc-bar { width: 180px; height: 14px; border-radius: 7px; background: #1a1f2e; overflow: hidden; border: 1px solid #39405a; }

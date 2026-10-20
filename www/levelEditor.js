@@ -11,6 +11,10 @@
         { id: 'num', label: 'Orb' },
         { id: 'riser', label: 'Riser' },
         { id: 'D', label: 'Core ◈' },
+        { id: 'H', label: 'Dense ◈' },
+        { id: 'web', label: 'Webbed' },
+        { id: 'link', label: 'Entangled' },
+        { id: 'seal', label: 'Seal col' },
         { id: 'N', label: 'Null 2×2' },
         { id: '#', label: 'Wall 0' },
         { id: '*', label: 'Star ★' },
@@ -18,7 +22,7 @@
     ];
 
     let el = null;
-    let state = null; // { id, cells[r][c] (r = 0 is the top row), brush, value, form, extra, showAll }
+    let state = null; // { id, cells[r][c] (r = 0 is the top row), sealed [cols], brush, value, form, extra, showAll }
 
     // Fields the form doesn't edit but the level keeps (guide, placeholder notes, tide override)
     const KEPT = ['guide', 'temp', 'planned', 'tide'];
@@ -40,9 +44,11 @@
         const data = (typeof NodeGenerator !== 'undefined' && NodeGenerator.LEVEL_DATA[id]) || null;
         state.id = id;
         state.cells = blank();
+        state.sealed = [];
         state.form = defaultForm();
         state.extra = {};
         if (!data) return;
+        state.sealed = (data.sealed || []).slice();
         KEPT.forEach((k) => { if (data[k] !== undefined) state.extra[k] = data[k]; });
         const rows = data.board || [];
         rows.forEach((line, i) => {
@@ -78,6 +84,7 @@
         if (f.pairBias !== '' && f.pairBias !== undefined) pool.pairBias = Number(f.pairBias);
         const data = { title: f.title, goal, drops: Number(f.drops) || 16, board: boardRows(), pool };
         if (Number(f.rise)) data.rise = Number(f.rise);
+        if (state.sealed.length) data.sealed = state.sealed.slice().sort((a, b) => a - b);
         Object.assign(data, state.extra);
         if (Number(f.risersStart) || Number(f.risersEvery)) {
             data.risers = {};
@@ -187,18 +194,21 @@
         if (t === '.') return '';
         if (t === 'D') return '◈';
         if (t === 'N') return '●';
+        if (t === 'H') return '◈◈';
         if (t === '#') return '0';
         if (t === '*') return '★';
-        return t.replace('R', '▲');
+        return t.replace('R', '▲').replace('W', '🕸').replace('E', '∞');
     }
 
     function cellClass(t) {
         if (t === '.') return '';
         if (t === 'D') return 'le-dm';
+        if (t === 'H') return 'le-dm le-dense';
         if (t === 'N') return 'le-core';
         if (t === '#') return 'le-wall';
         if (t === '*') return 'le-star';
-        return (t.startsWith('-') ? 'le-neg' : 'le-pos') + (t.endsWith('R') ? ' le-riser' : '');
+        return (t.startsWith('-') ? 'le-neg' : 'le-pos') + (t.endsWith('R') ? ' le-riser' : '')
+            + (t.endsWith('W') ? ' le-web' : '') + (t.endsWith('E') ? ' le-link' : '');
     }
 
     function paint(r, c) {
@@ -207,6 +217,13 @@
         const tok = (v > 0 ? `+${v}` : `${v}`);
         if (b === 'num') state.cells[r][c] = tok;
         else if (b === 'riser') state.cells[r][c] = `${tok}R`;
+        else if (b === 'web') state.cells[r][c] = `${tok}W`;
+        else if (b === 'link') state.cells[r][c] = `${tok}E`; // paired in reading order: 1st with 2nd, 3rd with 4th
+        else if (b === 'seal') {
+            // Toggles the whole column (at most 2 per level)
+            if (state.sealed.includes(c)) state.sealed = state.sealed.filter((x) => x !== c);
+            else if (state.sealed.length < 2) state.sealed.push(c);
+        }
         else if (b === 'N') {
             // 2×2 core with the tapped cell as its top-left
             const r0 = Math.min(r, ROWS - 2);
@@ -290,7 +307,7 @@
             const act = a.dataset.a;
             if (act === 'close') close();
             else if (act === 'load') { loadLevel(sel.value); render(); }
-            else if (act === 'clear') { state.cells = blank(); render(); }
+            else if (act === 'clear') { state.cells = blank(); state.sealed = []; render(); }
             else if (act === 'all') { state.showAll = !state.showAll; renderObjective(); }
             else if (act === 'play') {
                 const sector = parseInt(state.id, 10) || 1;
@@ -317,7 +334,7 @@
     function render() {
         const grid = el.querySelector('[data-grid]');
         grid.innerHTML = state.cells.map((row, r) => row.map((t, c) =>
-            `<button type="button" class="le-cell ${r === 0 ? 'le-redline ' : ''}${cellClass(t)}" data-cell="${r},${c}" aria-label="Row ${r + 1} column ${c + 1}: ${t === '.' ? 'empty' : t}">${cellLabel(t)}</button>`).join('')).join('');
+            `<button type="button" class="le-cell ${r === 0 ? 'le-redline ' : ''}${state.sealed.includes(c) ? 'le-sealed ' : ''}${cellClass(t)}" data-cell="${r},${c}" aria-label="Row ${r + 1} column ${c + 1}: ${t === '.' ? 'empty' : t}${state.sealed.includes(c) ? ', sealed column' : ''}">${r === 0 && t === '.' && state.sealed.includes(c) ? '🔒' : cellLabel(t)}</button>`).join('')).join('');
         el.querySelectorAll('[data-brush]').forEach((b) => b.classList.toggle('on', b.dataset.brush === state.brush));
         el.querySelector('[data-value]').value = state.value;
         el.querySelector('[data-a="node"]').value = state.id;
@@ -328,7 +345,7 @@
     function open() {
         if (!el) build();
         if (!state) {
-            state = { id: '1-1', cells: blank(), brush: 'num', value: 1, form: defaultForm(), extra: {}, showAll: false };
+            state = { id: '1-1', cells: blank(), sealed: [], brush: 'num', value: 1, form: defaultForm(), extra: {}, showAll: false };
             loadLevel('1-1');
         }
         render();

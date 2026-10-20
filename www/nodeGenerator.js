@@ -231,20 +231,30 @@
 
     // Board rows (top to bottom) are aligned to the bottom of the grid.
     // Tokens: .  empty   +3 / -3  orb   +3R  Riser   D  Dark Matter   N  Null Core cell (2×2)
-    //         #  static block (0 wall)   *  star (empty cell)
+    //         #  static block (0 wall)   *  star (empty cell)   H  dense core (4 HP)
+    //         +3W  webbed orb (ignores gravity)   +3E  entangled orb (paired in reading order)
+    const DENSE_CORE_HP = 4;
+
     function parseBoard(rows) {
         const cells = [];
         const stars = [];
         const lines = rows || [];
+        let linked = 0;
         lines.forEach((line, i) => {
             const rowFromBottom = lines.length - 1 - i;
             String(line).trim().split(/\s+/).forEach((tok, c) => {
                 if (tok === '.' || tok === '') return;
                 if (tok === '*') stars.push({ rowFromBottom, c });
                 else if (tok === 'D') cells.push({ rowFromBottom, c, value: 0, type: 'dark_matter' });
+                else if (tok === 'H') cells.push({ rowFromBottom, c, value: 0, type: 'dark_matter', dense: true });
                 else if (tok === 'N') cells.push({ rowFromBottom, c, value: 0, type: 'null_core' });
                 else if (tok === '#') cells.push({ rowFromBottom, c, value: 0, type: 'static' });
-                else cells.push({ rowFromBottom, c, value: parseInt(tok, 10), type: 'number', riser: /R$/.test(tok) });
+                else {
+                    const cell = { rowFromBottom, c, value: parseInt(tok, 10), type: 'number', riser: /R$/.test(tok) };
+                    if (/W$/.test(tok)) cell.web = true;
+                    if (/E$/.test(tok)) cell.link = 1 + Math.floor(linked++ / 2);
+                    cells.push(cell);
+                }
             });
         });
         return { cells, stars };
@@ -277,6 +287,8 @@
         const risers = data.risers || null; // { start, every, max }
         if (risers && risers.every) modifiers.push({ icon: '▲', label: `New Riser every ${risers.every} moves` });
         else if (risers && risers.start) modifiers.push({ icon: '▲', label: `${risers.start} Riser${risers.start > 1 ? 's' : ''}` });
+        const sealed = (data.sealed || []).filter((c) => c >= 0 && c < 6);
+        if (sealed.length) modifiers.push({ icon: '🔒', label: `${sealed.length} sealed column${sealed.length > 1 ? 's' : ''}` });
 
         // Number Tide (GDD §3.1): see sectorTide. Pool values, favor and board numbers in
         // levels.js are written at Tide 0 and doubled per tide step.
@@ -299,10 +311,13 @@
             const core = coreCells.length ? { hp: goal.type === 'null_core' ? goal.target : 12, maxHp: goal.type === 'null_core' ? goal.target : 12, flash: 0 } : null;
             const coreTop = coreCells.length ? Math.max(...coreCells.map((cell) => cell.rowFromBottom)) : 0;
             const coreLeft = coreCells.length ? Math.min(...coreCells.map((cell) => cell.c)) : 0;
-            cells.forEach(({ rowFromBottom, c, value, type, riser }) => {
+            cells.forEach(({ rowFromBottom, c, value, type, riser, web, link, dense }) => {
                 const r = ROWS - 1 - rowFromBottom;
                 if (r < 0 || c >= COLS) return;
-                if (type === 'dark_matter') grid[r][c] = createTile(0, 'dark_matter');
+                if (type === 'dark_matter') {
+                    grid[r][c] = createTile(0, 'dark_matter');
+                    if (dense) { grid[r][c].hp = DENSE_CORE_HP; grid[r][c].dense = true; }
+                }
                 else if (type === 'static') grid[r][c] = createTile(0, 'static');
                 else if (type === 'null_core') {
                     const t = createTile(0, 'null_core');
@@ -312,6 +327,8 @@
                 } else {
                     grid[r][c] = createTile(value * scale);
                     if (riser) grid[r][c].riser = true;
+                    if (web) grid[r][c].web = true;
+                    if (link) grid[r][c].link = link;
                 }
             });
         };
@@ -340,6 +357,7 @@
                 fluxRate,
                 pool,
                 risers,
+                sealed,
                 modifiers
             },
             setupBoard
@@ -398,6 +416,7 @@
         starsForDropsLeft,
         describeGoal,
         parseBoard,
+        DENSE_CORE_HP,
         generateNodeConfig,
         getSectorGraph
     };
