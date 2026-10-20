@@ -1,10 +1,34 @@
 // Audio Engine using Web Audio API (procedural sound design, zero external assets)
+
+// Cascade ladder: each merge or blast in one turn climbs a C major pentatonic scale
+const CASCADE_SCALE = [0, 2, 4, 7, 9]; // semitones above the root: C D E G A
+const CASCADE_ROOT_HZ = 261.63;        // C4
+const CASCADE_TOP_STEP = 10;           // two octaves up, then the run holds its top note
+
+function cascadeNoteHz(step) {
+    const octave = Math.floor(step / CASCADE_SCALE.length);
+    const semis = octave * 12 + CASCADE_SCALE[step % CASCADE_SCALE.length];
+    return CASCADE_ROOT_HZ * Math.pow(2, semis / 12);
+}
+
 class SoundFX {
     constructor() {
         this.ctx = null;
         this.muted = false;
         this.initialized = false;
         this.noiseBuffer = null;
+        this.cascadeStep = 0;
+    }
+
+    // Start of a turn: the next merge or blast plays the root again
+    resetCascade() {
+        this.cascadeStep = 0;
+    }
+
+    takeCascadeStep() {
+        const step = Math.min(this.cascadeStep, CASCADE_TOP_STEP);
+        this.cascadeStep++;
+        return step;
     }
 
     init() {
@@ -128,13 +152,13 @@ class SoundFX {
         osc.stop(now + 0.09);
     }
 
-    playMerge(value = 2) {
+    playMerge() {
         if (this.muted || !this.ctx) return;
         this.resume();
         const now = this.ctx.currentTime;
 
-        // Base frequency scales musically with number magnitude
-        const baseFreq = 220 * Math.pow(1.08, Math.min(Math.abs(value), 32));
+        // Pitch is the next note of the cascade ladder
+        const baseFreq = cascadeNoteHz(this.takeCascadeStep());
 
         const osc = this.ctx.createOscillator();
         const osc2 = this.ctx.createOscillator();
@@ -143,10 +167,10 @@ class SoundFX {
         osc.type = 'sine';
         osc2.type = 'triangle';
         osc.frequency.setValueAtTime(baseFreq, now);
-        osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.5, now + 0.12);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.03, now + 0.12);
 
         osc2.frequency.setValueAtTime(baseFreq * 2, now);
-        osc2.frequency.exponentialRampToValueAtTime(baseFreq * 2.5, now + 0.12);
+        osc2.frequency.exponentialRampToValueAtTime(baseFreq * 2.06, now + 0.12);
 
         gain.gain.setValueAtTime(0.2, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
@@ -200,17 +224,18 @@ class SoundFX {
             laser.stop(now + 0.25);
         }
 
-        // 3. Multi-Harmonic Shimmer Glass Chime
-        const baseChord = [523.25, 659.25, 783.99, 1046.50]; // C5 Pentatonic
-        const noteCount = Math.min(tier + 1, baseChord.length);
+        // 3. Multi-Harmonic Shimmer Glass Chime, rooted an octave above the next cascade note
+        const root = this.takeCascadeStep() + CASCADE_SCALE.length;
+        const chordSteps = [0, 2, 3, 5]; // root, third, fifth, octave on C
+        const noteCount = Math.min(tier + 1, chordSteps.length);
         for (let i = 0; i < noteCount; i++) {
             const chime = this.ctx.createOscillator();
             const chimeGain = this.ctx.createGain();
-            const freq = baseChord[i] * Math.pow(1.12, Math.min(combo, 6));
+            const freq = cascadeNoteHz(root + chordSteps[i]);
 
             chime.type = 'triangle';
             chime.frequency.setValueAtTime(freq, now + i * 0.02);
-            chime.frequency.exponentialRampToValueAtTime(freq * 1.5, now + i * 0.02 + 0.25);
+            chime.frequency.exponentialRampToValueAtTime(freq * 1.04, now + i * 0.02 + 0.25);
 
             chimeGain.gain.setValueAtTime(0.18, now + i * 0.02);
             chimeGain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.02 + 0.3);

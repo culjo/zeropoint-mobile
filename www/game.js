@@ -3245,6 +3245,7 @@
     async function resolveBoardCascades(isSwap = false) {
         try {
             const state = { chainStep: 0, cascadeOccurred: false };
+            sfx.resetCascade();
 
             // Initial settle pause so player clearly sees the landed orb / swapped tile
             await delay(120);
@@ -3400,7 +3401,7 @@
                     grid[rB][cB].scaleX = 1.45;
                     grid[rB][cB].scaleY = 1.45;
 
-                    sfx.playMerge(fusedVal);
+                    sfx.playMerge();
                     triggerHaptic('merge');
                     shockwaves.push({
                         x: xB,
