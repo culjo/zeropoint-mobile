@@ -567,6 +567,7 @@
     let totalZeroPoints = 0;
     let movesUntilRise = MOVES_PER_RISE;
     let isGameOver = false;
+    let gameOverFallAt = 0;    // performance.now() when a lost board starts falling away; 0 = not falling
     let isProcessing = false; // true during animations/cascades
     let aimCol = 2; // Selected column (0..5)
     let canHold = true;
@@ -1939,7 +1940,7 @@
             vicScore._countValue = 0;
             const target = v.score;
             setTimeout(() => {
-                animateCount(vicScore, target, 1200, 0);
+                animateCount(vicScore, target, 1200, 0, scoreTicks);
                 setTimeout(() => retriggerClass(vicScore, 'count-done'), 1200);
             }, 900);
         }
@@ -1950,8 +1951,21 @@
         if (vicBest) vicBest.textContent = v.best;
         if (victoryStarsContainer) {
             // Each star lights for its own goal (objective · drops · score) when flags are given
+            let earned = 0;
             victoryStarsContainer.querySelectorAll('.win-star').forEach((el, i) => {
-                el.classList.toggle('off', v.starFlags ? !v.starFlags[i] : i >= v.stars);
+                const off = v.starFlags ? !v.starFlags[i] : i >= v.stars;
+                el.classList.toggle('off', off);
+                el.classList.remove('stamped');
+                // Earned stars slam down (CSS); each landing gets a ring, a haptic and a rising note
+                if (!off) {
+                    const nth = earned++;
+                    setTimeout(() => {
+                        if (!modalVictory || !modalVictory.classList.contains('visible')) return;
+                        if (!prefersReducedMotion()) retriggerClass(el, 'stamped');
+                        sfx.playStarStamp(nth);
+                        triggerHaptic(STAR_STAMP_HAPTICS[nth] || 'laser');
+                    }, VICTORY_PANEL_MS + STAR_DELAYS_MS[i] + STAR_LAND_MS);
+                }
             });
             victoryStarsContainer.setAttribute('aria-label', `${v.stars} of 3 stars`);
         }
@@ -4703,6 +4717,10 @@
         clearFlyingChips();
         sfx.playGameOver();
         triggerScreenShake(18);
+        // The board greys out and (unless effects are reduced) falls away before the panel opens
+        const still = prefersReducedMotion();
+        gameOverFallAt = performance.now() + (still ? 1e9 : 0);
+        const panelAt = still ? GAME_OVER_PANEL_MS_STILL : GAME_OVER_PANEL_MS;
 
         const isAdventureRun = gameMode === 'adventure' && !!activeAdventureLevel;
         const outOfDrops = /drops/i.test(message);
@@ -4736,9 +4754,9 @@
             goScore._countValue = 0;
             const target = score;
             setTimeout(() => {
-                animateCount(goScore, target, 1100, 0);
+                animateCount(goScore, target, 1100, 0, scoreTicks);
                 setTimeout(() => retriggerClass(goScore, 'count-done'), 1100);
-            }, 650);
+            }, panelAt + 250);
         }
         if (goBest) {
             if (isNewBest) {
@@ -4757,7 +4775,7 @@
 
         setTimeout(() => {
             if (modalGameOver) modalGameOver.classList.add('visible');
-        }, 400);
+        }, panelAt);
     }
 
     // Fail tips per objective type (shown under the breach reasons)
@@ -5037,20 +5055,33 @@
 
         setTimeout(() => {
             if (modalVictory) modalVictory.classList.add('visible');
-        }, 500);
+        }, VICTORY_PANEL_MS);
     }
 
+    // Victory panel timing (the star delays match #modal-victory .win-star in style.css)
+    const VICTORY_PANEL_MS = 500;
+    const STAR_DELAYS_MS = [150, 400, 650];
+    const STAR_LAND_MS = 275;     // the stamp hits at 55% of its 0.5s animation
+    const STAR_STAMP_HAPTICS = ['pop', 'pulse', 'laser'];
+    // Count-ups tick as they climb; the tick rises in pitch with the count
+    const scoreTicks = { everyMs: 70 };
+
     // Ease a number element from its current value up to `to` (rAF, ease-out cubic)
-    function animateCount(el, to, duration = 900, from = null) {
+    function animateCount(el, to, duration = 900, from = null, ticks = null) {
         if (!el) return;
         cancelAnimationFrame(el._countRaf);
         const start = from !== null ? from : (typeof el._countValue === 'number' ? el._countValue : (parseInt(String(el.textContent).replace(/[^0-9-]/g, ''), 10) || 0));
         const t0 = performance.now();
         el._countValue = start;
+        let lastTick = -Infinity;
         const step = (now) => {
             const p = Math.min(1, (now - t0) / duration);
             const eased = 1 - Math.pow(1 - p, 3);
             const v = Math.round(start + (to - start) * eased);
+            if (ticks && v !== el._countValue && now - lastTick >= ticks.everyMs) {
+                lastTick = now;
+                sfx.playCountTick(eased);
+            }
             el._countValue = v;
             el.textContent = v.toLocaleString();
             if (p < 1) el._countRaf = requestAnimationFrame(step);
@@ -8182,6 +8213,9 @@
         const w = canvas.width / dpr;
         const h = canvas.height / dpr;
 
+        if (!isGameOver && gameOverFallAt) gameOverFallAt = 0;
+        canvas.classList.toggle('board-dead', !!gameOverFallAt);
+
         // Clear before the shake moves the canvas, so no strip is left uncleared at the edges
         ctx.clearRect(0, 0, w, h);
 
@@ -8624,6 +8658,9 @@
                 const tw = (cellW - 8) * tile.scaleX;
                 const th = (cellH - 8) * tile.scaleY;
 
+                const fallen = applyTileFall(r, c, x, y);
+                if (fallen === 'gone') continue;
+
                 if (tile.type === 'dark_matter') {
                     drawDarkMatterTile(x, y, tw, th, tile.hp, tile.flash, tile.dense);
                 } else if (tile.type === 'static') {
@@ -8640,8 +8677,34 @@
                     if (tile.riser) drawRiserCap(x, y, tw, th, r);
                     if (tile.web) drawWebOverlay(x, y, tw, th);
                 }
+                if (fallen) ctx.restore();
             }
         }
+    }
+
+    // Game over: columns let go left to right, lower tiles first, and fall off the board
+    const FALL_COL_STAGGER = 70;  // ms between columns
+    const FALL_ROW_STAGGER = 12;  // ms between rows, bottom first
+    const FALL_GRAVITY = 2600;    // px/s²
+    const FALL_SPIN = 2.2;        // radians per second
+    const FALL_FADE = 0.7;        // seconds to fade out once falling
+    const GAME_OVER_PANEL_MS = 1100; // the breach panel opens once the board has fallen
+    const GAME_OVER_PANEL_MS_STILL = 450;
+
+    // Sets up the canvas for a falling tile; returns true (caller restores), false, or 'gone'
+    function applyTileFall(r, c, x, y) {
+        if (!gameOverFallAt || !isGameOver) return false;
+        const t = (performance.now() - gameOverFallAt - c * FALL_COL_STAGGER - (ROWS - 1 - r) * FALL_ROW_STAGGER) / 1000;
+        if (t <= 0) return false;
+        const alpha = 1 - t / FALL_FADE;
+        if (alpha <= 0) return 'gone';
+        const dir = c % 2 ? 1 : -1;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(x, y + 0.5 * FALL_GRAVITY * t * t);
+        ctx.rotate(dir * FALL_SPIN * t);
+        ctx.translate(-x, -y);
+        return true;
     }
 
     // Static block: a fixed, unbreakable 0 wall

@@ -95,6 +95,53 @@ class SoundFX {
         }
     }
 
+    // Count-up tick: a short blip that climbs an octave as the count fills (progress 0–1)
+    playCountTick(progress = 0) {
+        if (this.muted || !this.ctx) return;
+        this.resume();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(900 * Math.pow(2, Math.max(0, Math.min(1, progress))), now);
+        gain.gain.setValueAtTime(0.07, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        osc.connect(gain);
+        gain.connect(this.out);
+        osc.start(now);
+        osc.stop(now + 0.06);
+    }
+
+    // Victory star landing: a low thump plus a bell that rises with each star (C5, E5, A5)
+    playStarStamp(index = 0) {
+        if (this.muted || !this.ctx) return;
+        this.resume();
+        const now = this.ctx.currentTime;
+        const thump = this.ctx.createOscillator();
+        const thumpGain = this.ctx.createGain();
+        thump.type = 'sine';
+        thump.frequency.setValueAtTime(150, now);
+        thump.frequency.exponentialRampToValueAtTime(55, now + 0.18);
+        thumpGain.gain.setValueAtTime(0.35, now);
+        thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+        thump.connect(thumpGain);
+        thumpGain.connect(this.out);
+        thump.start(now);
+        thump.stop(now + 0.21);
+
+        const bellSteps = [5, 7, 9]; // cascade-ladder steps: C5, E5, A5
+        const bell = this.ctx.createOscillator();
+        const bellGain = this.ctx.createGain();
+        bell.type = 'triangle';
+        bell.frequency.setValueAtTime(cascadeNoteHz(bellSteps[Math.min(index, bellSteps.length - 1)]), now);
+        bellGain.gain.setValueAtTime(0.18, now);
+        bellGain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+        bell.connect(bellGain);
+        bellGain.connect(this.out);
+        bell.start(now);
+        bell.stop(now + 0.46);
+    }
+
     // Danger 0–1 closes the music's low-pass from fully open down to a muffled thud
     setDanger(level) {
         if (!this.ctx || !this.muffle) return;

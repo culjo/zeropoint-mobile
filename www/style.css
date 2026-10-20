@@ -5541,6 +5541,48 @@ input:checked + .toggle-slider:before {
 #modal-victory.visible .win-star.s2 { animation-delay: 0.4s; }
 #modal-victory.visible .win-star.s3 { animation-delay: 0.65s; }
 
+/* Earned stars slam down instead of popping up; game.js times the thump, haptic and ring
+   to the 55% mark (the landing) */
+#modal-victory.visible .win-star:not(.off) {
+    animation-name: winStarStamp;
+    animation-duration: 0.5s;
+    animation-timing-function: cubic-bezier(0.3, 0, 0.4, 1);
+}
+
+@keyframes winStarStamp {
+    0% { transform: scale(2.3) rotate(var(--r, 0deg)); opacity: 0; }
+    55% { transform: scale(0.9) rotate(var(--r, 0deg)); opacity: 1; }
+    78% { transform: scale(1.06) rotate(var(--r, 0deg)); opacity: 1; }
+    100% { transform: scale(1) rotate(var(--r, 0deg)); opacity: 1; }
+}
+
+/* The dust ring a star throws out as it lands */
+#modal-victory .win-star::after {
+    content: '';
+    position: absolute;
+    inset: 12%;
+    border-radius: 50%;
+    border: 3px solid rgba(255, 215, 0, 0.9);
+    opacity: 0;
+    pointer-events: none;
+}
+
+#modal-victory .win-star.stamped::after { animation: winStarRing 0.5s ease-out; }
+
+@keyframes winStarRing {
+    from { transform: scale(0.6); opacity: 0.9; }
+    to { transform: scale(1.9); opacity: 0; }
+}
+
+/* Reduce Effects: stars fade in gently, no slam */
+.reduce-effects #modal-victory.visible .win-star:not(.off) { animation-name: winStarPop; }
+
+/* A lost board greys out while its tiles fall away */
+canvas.board-dead {
+    filter: grayscale(0.85) brightness(0.75);
+    transition: filter 0.6s ease-out;
+}
+
 #modal-victory .win-score-block {
     display: flex;
     flex-direction: column;
