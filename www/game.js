@@ -7961,13 +7961,20 @@
             screenFlash = Math.max(0, screenFlash - 4.5 * dt);
         }
 
-        // Sparks update
+        // Sparks update: oldest go first past the cap; sparks burst out then hang on air drag,
+        // embers drift up slowly
+        if (particles.length > MAX_PARTICLES) particles.splice(0, particles.length - MAX_PARTICLES);
+        const f = dt * 60;
         for (let i = particles.length - 1; i >= 0; i--) {
             const sp = particles[i];
-            sp.x += sp.vx * dt * 60;
-            sp.y += sp.vy * dt * 60;
-            sp.vy += 0.25; // mild gravity
-            sp.alpha -= sp.decay * dt * 60;
+            const kind = PARTICLE_KINDS[sp.kind] || PARTICLE_KINDS.dot;
+            const drag = Math.pow(kind.drag, f);
+            sp.vx *= drag;
+            sp.vy *= drag;
+            sp.x += sp.vx * f;
+            sp.y += sp.vy * f;
+            sp.vy += kind.gravity * f;
+            sp.alpha -= sp.decay * f;
             if (sp.alpha <= 0) {
                 particles.splice(i, 1);
             }
@@ -9412,13 +9419,15 @@
         // 1. Cross Laser Beams (Tier 3)
         for (const beam of laserBeams) {
             ctx.save();
-            ctx.globalAlpha = Math.max(0, beam.alpha);
-            ctx.shadowColor = beam.color || '#00f2fe';
-            ctx.shadowBlur = 24;
+            const beamAlpha = Math.max(0, beam.alpha);
+            ctx.globalCompositeOperation = 'lighter';
 
             if (beam.type === 'horizontal') {
                 const by = boardOffsetY + beam.row * cellH + cellH / 2;
                 ctx.fillStyle = beam.color || '#00f2fe';
+                ctx.globalAlpha = beamAlpha * 0.25;
+                ctx.fillRect(0, by - beam.width * 1.4, w, beam.width * 2.8);
+                ctx.globalAlpha = beamAlpha;
                 ctx.fillRect(0, by - beam.width / 2, w, beam.width);
 
                 ctx.fillStyle = '#ffffff';
@@ -9426,6 +9435,9 @@
             } else if (beam.type === 'vertical') {
                 const bx = boardOffsetX + beam.col * cellW + cellW / 2;
                 ctx.fillStyle = beam.color || '#00f2fe';
+                ctx.globalAlpha = beamAlpha * 0.25;
+                ctx.fillRect(bx - beam.width * 1.4, boardOffsetY, beam.width * 2.8, h - boardOffsetY);
+                ctx.globalAlpha = beamAlpha;
                 ctx.fillRect(bx - beam.width / 2, boardOffsetY, beam.width, h - boardOffsetY);
 
                 ctx.fillStyle = '#ffffff';
@@ -9434,29 +9446,45 @@
             ctx.restore();
         }
 
-        // 2. Shockwaves
+        // 2. Shockwaves: a soft colored band under a thin white ring, added light instead of blur
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
         for (const sw of shockwaves) {
-            ctx.save();
+            const a = Math.max(0, sw.alpha);
             ctx.beginPath();
             ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
-            ctx.strokeStyle = `rgba(255, 255, 255, ${sw.alpha})`;
-            ctx.lineWidth = 3;
-            ctx.shadowColor = sw.color;
-            ctx.shadowBlur = 15;
+            ctx.globalAlpha = a * 0.35;
+            ctx.strokeStyle = sw.color || '#ffffff';
+            ctx.lineWidth = 10;
             ctx.stroke();
-            ctx.restore();
+            ctx.globalAlpha = a;
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
         }
+        ctx.restore();
 
-        // 3. Sparks
+        // 3. Sparks (streaks along their motion) and embers / trail dots (glow sprites)
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.lineCap = 'round';
         for (const sp of particles) {
-            ctx.save();
-            ctx.fillStyle = sp.color;
-            ctx.globalAlpha = sp.alpha;
-            ctx.beginPath();
-            ctx.arc(sp.x, sp.y, sp.size, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
+            ctx.globalAlpha = Math.max(0, Math.min(1, sp.alpha));
+            const size = sp.size || 2.5;
+            if (sp.kind === 'spark') {
+                const tail = SPARK_TAIL_FRAMES;
+                ctx.strokeStyle = sp.color;
+                ctx.lineWidth = size * 0.9;
+                ctx.beginPath();
+                ctx.moveTo(sp.x, sp.y);
+                ctx.lineTo(sp.x - sp.vx * tail, sp.y - sp.vy * tail);
+                ctx.stroke();
+            } else {
+                const r = size * 2.6;
+                ctx.drawImage(glowSprite(sp.color), sp.x - r, sp.y - r, r * 2, r * 2);
+            }
         }
+        ctx.restore();
 
         // 4. Screen Flash (Tier 4 / 5)
         if (screenFlash > 0) {
@@ -9562,19 +9590,69 @@
         ctx.restore();
     }
 
+    // Particle behaviour by kind; drag and gravity are per 60fps frame
+    const PARTICLE_KINDS = {
+        spark: { drag: 0.92, gravity: 0.18 },   // fast streaks that burst out then hang
+        ember: { drag: 0.97, gravity: -0.025 }, // slow glowing motes that drift up
+        dot: { drag: 1, gravity: 0.25 }         // trail sparks from merges and collapses
+    };
+    const MAX_PARTICLES = 400;
+    const SPARK_TAIL_FRAMES = 2.4; // streak length in frames of motion
+    const EMBER_SHARE = 0.25;      // share of each burst that becomes slow embers
+
+    // One soft radial glow per color, drawn once and reused instead of shadowBlur
+    const glowSprites = new Map();
+    function glowSprite(color) {
+        let spr = glowSprites.get(color);
+        if (spr) return spr;
+        const size = 64;
+        spr = document.createElement('canvas');
+        spr.width = spr.height = size;
+        const g = spr.getContext('2d');
+        // The canvas normalises any CSS colour (#888, names, rgb()) to #rrggbb for opaque ones
+        g.fillStyle = color;
+        const hex = /^#[0-9a-f]{6}$/i.test(g.fillStyle) ? g.fillStyle : '#ffffff';
+        const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+        grad.addColorStop(0, 'rgba(255,255,255,1)');
+        grad.addColorStop(0.18, hex);
+        grad.addColorStop(0.45, tierRgba(hex, 0.35));
+        grad.addColorStop(1, tierRgba(hex, 0));
+        g.fillStyle = grad;
+        g.fillRect(0, 0, size, size);
+        glowSprites.set(color, spr);
+        return spr;
+    }
+
     function createSparks(x, y, color, count = 12) {
-        for (let i = 0; i < count; i++) {
+        const embers = Math.round(count * EMBER_SHARE);
+        for (let i = 0; i < count - embers; i++) {
             const angle = Math.random() * Math.PI * 2;
-            const speed = 2 + Math.random() * 5;
+            const speed = 3 + Math.random() * 7;
             particles.push({
+                kind: 'spark',
                 x: x,
                 y: y,
                 vx: Math.cos(angle) * speed,
                 vy: Math.sin(angle) * speed,
-                size: 2 + Math.random() * 3,
+                size: 1.5 + Math.random() * 2,
                 color: color,
                 alpha: 1,
-                decay: 0.02 + Math.random() * 0.03
+                decay: 0.025 + Math.random() * 0.03
+            });
+        }
+        for (let i = 0; i < embers; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 0.6 + Math.random() * 1.6;
+            particles.push({
+                kind: 'ember',
+                x: x + (Math.random() - 0.5) * cellW * 0.4,
+                y: y + (Math.random() - 0.5) * cellH * 0.4,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 0.4,
+                size: 1.5 + Math.random() * 2,
+                color: color,
+                alpha: 0.9,
+                decay: 0.009 + Math.random() * 0.008
             });
         }
     }
