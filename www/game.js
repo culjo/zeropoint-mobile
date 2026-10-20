@@ -647,6 +647,7 @@
     let screenFlash = 0;
     let screenFlashColor = '#ffffff';
     let floatingTexts = [];
+    let comboCounter = null;   // the single on-board ×N that follows a cascade
     let shakeTrauma = 0;       // 0–1; hits add to it, it drains over time, shake grows with its square
     let shakeKickX = 0;        // one-off shove away from a blast, springs back on its own
     let shakeKickY = 0;
@@ -1606,6 +1607,7 @@
         activeMergeAnimations = [];
         activeZeroPointCollapses = [];
         floatingTexts = [];
+        comboCounter = null;
         activeProjectile = null;
         isProcessing = false;
         isSwapModeActive = false;
@@ -2727,6 +2729,7 @@
         activeZeroPointCollapses = [];
         screenFlash = 0;
         floatingTexts = [];
+        comboCounter = null;
         activeProjectile = null;
         overdriveCharge = 0;
         isOverdriveReady = false;
@@ -3663,13 +3666,10 @@
 
         damageNullCoreForBlast(r, c, r2, c2, tier, { x, y });
 
-        // Float equation text & tier banner
+        // Equation on every blast; tier names only for the big ones; the cascade gets one counter
         addFloatingText(equationText, x, y - 14, '#ffffff', 1.05);
-        if (combo > 1) {
-            addFloatingText(`${bannerText} (CASCADE ${combo}x!)`, x, y + 20, bannerColor, bannerScale);
-        } else {
-            addFloatingText(bannerText, x, y + 20, bannerColor, bannerScale);
-        }
+        if (tier >= 3) addFloatingText(bannerText, x, y + 20, bannerColor, bannerScale);
+        if (combo > 1) bumpComboCounter(combo, x, y);
 
         // Tier-scaled score bonus (Base 10 for Tier 1)
         // Tiers follow the tide, so score is scaled back up: bigger numbers, bigger points
@@ -7854,11 +7854,14 @@
                 if (!isDebugMode() || currentScreen !== 'game') return;
                 checkAdventureObjective('goal', n, false);
             },
-            // Fire a blast of the given magnitude mid-board to feel the hit-stop (8 = Supernova)
-            blast(magnitude = 8) {
+            // Fire a blast of the given magnitude to check effects (8 = Supernova); comboN previews the counter
+            blast(magnitude = 8, comboN = null, col = null) {
                 if (!isDebugMode() || currentScreen !== 'game') return;
-                const r = Math.floor(ROWS / 2), c = Math.floor(COLS / 2);
+                const r = Math.floor(ROWS / 2), c = col == null ? Math.floor(COLS / 2) : col;
+                const keep = combo;
+                if (comboN) combo = comboN;
                 triggerZeroPointBlast(r, c, `${magnitude} + (-${magnitude}) = 0!`, 0, magnitude, r, c);
+                combo = keep;
             },
             // Turn hit-stop off/on to compare the feel
             hitStop(on = true) {
@@ -7970,14 +7973,27 @@
             }
         }
 
-        // Floating texts update
+        // Floating texts update: rise with an ease-out, hold, then fade
         for (let i = floatingTexts.length - 1; i >= 0; i--) {
             const ft = floatingTexts[i];
-            ft.y -= 25 * dt;
-            ft.alpha -= 1.2 * dt;
-            if (ft.alpha <= 0) {
+            ft.age += dt;
+            const p = Math.min(1, ft.age / FLOAT_TEXT_LIFE);
+            ft.y = ft.y0 - FLOAT_TEXT_RISE * (1 - Math.pow(1 - p, 3));
+            ft.alpha = p < FLOAT_TEXT_HOLD ? 1 : 1 - (p - FLOAT_TEXT_HOLD) / (1 - FLOAT_TEXT_HOLD);
+            if (p >= 1) {
                 floatingTexts.splice(i, 1);
             }
+        }
+
+        if (comboCounter) {
+            const cc = comboCounter;
+            cc.age += dt;
+            cc.punch *= Math.exp(-COMBO_PUNCH_DECAY * dt);
+            // Glide toward the latest blast instead of jumping
+            const k = 1 - Math.exp(-COMBO_FOLLOW * dt);
+            cc.x += (cc.tx - cc.x) * k;
+            cc.y += (cc.ty - cc.y) * k;
+            if (cc.age > COMBO_SHOW + COMBO_FADE) comboCounter = null;
         }
 
         // Active Merge Animations update
@@ -8074,8 +8090,9 @@
         // 6. Draw Shockwaves & Sparks
         drawEffects();
 
-        // 7. Draw Floating Texts
+        // 7. Draw Floating Texts, then the cascade's combo counter on top
         drawFloatingTexts();
+        drawComboCounter();
 
         ctx.restore();
     }
@@ -9453,6 +9470,14 @@
 
     const FLOAT_TEXT_BASE_PX = 12;
     const FLOAT_TEXT_SCALE_SPREAD = 0.4; // compresses the 1.0–1.65 scales to roughly 12–15px
+    const FLOAT_TEXT_LIFE = 0.9;   // seconds on screen
+    const FLOAT_TEXT_RISE = 28;    // px risen over its life, eased out
+    const FLOAT_TEXT_HOLD = 0.55;  // share of its life at full opacity before fading
+    const FLOAT_TEXT_POP = 0.14;   // seconds for the pop-in overshoot
+    const COMBO_SHOW = 0.9;        // seconds the counter stays after its last bump
+    const COMBO_FADE = 0.3;
+    const COMBO_PUNCH_DECAY = 9;   // how fast the bump punch settles (per second)
+    const COMBO_FOLLOW = 14;       // how fast it glides to the newest blast (per second)
 
     function drawFloatingTexts() {
         const boardLeft = boardOffsetX;
@@ -9472,13 +9497,69 @@
             }
             const half = w / 2;
             const x = boardW > 0 ? Math.min(Math.max(ft.x, boardLeft + 8 + half), boardLeft + boardW - 8 - half) : ft.x;
+            const pop = popScale(ft.age || 0);
+            ctx.translate(x, ft.y);
+            ctx.scale(pop, pop);
             ctx.fillStyle = ft.color;
             ctx.textAlign = 'center';
             ctx.shadowColor = ft.color;
             ctx.shadowBlur = 6;
-            ctx.fillText(ft.text, x, ft.y);
+            ctx.fillText(ft.text, 0, 0);
             ctx.restore();
         }
+    }
+
+    // Overshoot pop: 0.6 → ~1.15 → 1 over the first FLOAT_TEXT_POP seconds
+    function popScale(age) {
+        const t = Math.min(1, age / FLOAT_TEXT_POP);
+        const c = 2.2; // back-ease overshoot strength
+        const e = 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2);
+        return 0.6 + 0.4 * e;
+    }
+
+    // Combo color climbs with the chain: cyan, then gold, then purple
+    function comboColor(n) {
+        return n >= 6 ? '#c471ed' : n >= 4 ? '#ffd700' : '#00f2fe';
+    }
+
+    function bumpComboCounter(n, x, y) {
+        const ty = y - cellH * 0.95; // sits above the blast so it doesn't cover the equation
+        if (!comboCounter) comboCounter = { n, x, y: ty, tx: x, ty, age: 0, punch: 1 };
+        const cc = comboCounter;
+        cc.n = Math.max(cc.n, n);
+        cc.tx = x;
+        cc.ty = ty;
+        cc.age = 0;
+        cc.punch = 1;
+    }
+
+    function drawComboCounter() {
+        const cc = comboCounter;
+        if (!cc) return;
+        const alpha = cc.age < COMBO_SHOW ? 1 : Math.max(0, 1 - (cc.age - COMBO_SHOW) / COMBO_FADE);
+        const size = Math.min(34, 22 + (cc.n - 2) * 3);
+        const scale = 1 + 0.45 * cc.punch;
+        const color = comboColor(cc.n);
+        const boardW = COLS * cellW;
+        const half = size * 1.2;
+        const x = Math.min(Math.max(cc.x, boardOffsetX + half), boardOffsetX + boardW - half);
+        const y = Math.max(cc.y, boardOffsetY + size);
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(x, y);
+        ctx.scale(scale, scale);
+        ctx.textAlign = 'center';
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 10 + 10 * cc.punch;
+        ctx.fillStyle = color;
+        ctx.font = `900 ${size}px 'Lato', 'Inter', sans-serif`;
+        ctx.fillText(`×${cc.n}`, 0, 0);
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = alpha * 0.85;
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `900 9px 'Lato', 'Inter', sans-serif`;
+        ctx.fillText('COMBO', 0, 11);
+        ctx.restore();
     }
 
     function createSparks(x, y, color, count = 12) {
@@ -9505,7 +9586,9 @@
             y: y,
             color: color,
             alpha: 1,
-            scale: scale
+            scale: scale,
+            y0: y,
+            age: 0
         });
     }
 
