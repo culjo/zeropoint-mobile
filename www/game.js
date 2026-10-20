@@ -5968,6 +5968,9 @@
         }
         if (btnTouchSwap) {
             btnTouchSwap.classList.toggle('swap-max', swapTokens >= maxSwapTokens && !isSwapModeActive);
+            if (MAIN_GAMEPLAY) btnTouchSwap.setAttribute('aria-label', swapTokens >= maxSwapTokens
+                ? `Swaps full (${swapTokens}). Slide a tile onto its neighbour to swap`
+                : `${swapTokens} board swaps left. Slide a tile onto its neighbour to swap`);
         }
         if (btnSwapToken) {
             if (swapTokens > 0) {
