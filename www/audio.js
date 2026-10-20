@@ -1,5 +1,12 @@
 // Audio Engine using Web Audio API (procedural sound design, zero external assets)
 
+// Soundtrack rotation (track ids from music.js): every app open and every new game
+// moves to the next track. Boss levels draw from the upbeat set instead.
+const BGM_ROTATION = ['lattice', 'drift', 'cascade', 'prism', 'coffee', 'nebula', 'afterglow'];
+const BGM_BOSS = ['overclock', 'neonrun'];
+const BGM_MIN_PLAY = 45; // seconds a track plays before a new game rotates it
+
+
 // Cascade ladder: each merge or blast in one turn climbs a C major pentatonic scale
 const CASCADE_SCALE = [0, 2, 4, 7, 9]; // semitones above the root: C D E G A
 const CASCADE_ROOT_HZ = 261.63;        // C4
@@ -18,6 +25,8 @@ class SoundFX {
         this.initialized = false;
         this.noiseBuffer = null;
         this.cascadeStep = 0;
+        this.music = null;
+        this.bgmTrack = null;
     }
 
     // Start of a turn: the next merge or blast plays the root again
@@ -545,61 +554,62 @@ class SoundFX {
         } catch (e) {}
     }
 
+    // Ambient soundtrack lives in music.js; the track comes from rotateBGM / playBGMTrack
     startBGM() {
-        if (this.muted || !this.ctx || this.bgmNodes) return;
+        if (this.muted || !this.ctx || !window.AmbientMusic) return;
+        if (!this.music) this.music = new AmbientMusic(this.ctx);
+        if (this.music.playing) return;
+        if (!this.bgmTrack) this.rotateBGM();
         this.resume();
         try {
-            const now = this.ctx.currentTime;
-            const masterBgmGain = this.ctx.createGain();
-            masterBgmGain.gain.setValueAtTime(0.001, now);
-            masterBgmGain.gain.exponentialRampToValueAtTime(0.045, now + 2); // Soft 2s fade in
-
-            const filter = this.ctx.createBiquadFilter();
-            filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(320, now);
-
-            // Ambient chord frequencies: C2 (65.41), G2 (98.00), C3 (130.81), Eb3 (155.56)
-            const freqs = [65.41, 98.00, 130.81, 155.56];
-            const oscs = [];
-
-            freqs.forEach((f, i) => {
-                const osc = this.ctx.createOscillator();
-                osc.type = i % 2 === 0 ? 'sine' : 'triangle';
-                osc.frequency.setValueAtTime(f, now);
-                // Subtle detune for rich analog drone texture
-                osc.detune.setValueAtTime((i - 1.5) * 4, now);
-                osc.connect(filter);
-                osc.start(now);
-                oscs.push(osc);
-            });
-
-            filter.connect(masterBgmGain);
-            masterBgmGain.connect(this.ctx.destination);
-
-            this.bgmNodes = {
-                gain: masterBgmGain,
-                filter: filter,
-                oscs: oscs
-            };
+            this.music.start(this.bgmTrack, { volume: 0.5, fadeIn: 3 });
         } catch (e) {
             console.warn("Could not start BGM", e);
         }
     }
 
+    // Next track in the rotation (or the boss set). A track that only just started is kept,
+    // so opening the app and tapping Play straight away doesn't cut the first track short.
+    rotateBGM(boss = false) {
+        const current = this.bgmTrack;
+        const m = this.music;
+        const fresh = m && m.playing && this.ctx.currentTime - m.startedAt < BGM_MIN_PLAY;
+        if (current && BGM_BOSS.includes(current) === boss && fresh) return;
+        const list = boss ? BGM_BOSS : BGM_ROTATION;
+        const key = boss ? 'nullfall_bgm_boss_next' : 'nullfall_bgm_next';
+        let i = 0;
+        try { i = (parseInt(localStorage.getItem(key), 10) || 0) % list.length; } catch (e) {}
+        try { localStorage.setItem(key, String((i + 1) % list.length)); } catch (e) {}
+        this.playBGMTrack(list[i]);
+    }
+
+    onBossTrack() {
+        return BGM_BOSS.includes(this.bgmTrack);
+    }
+
+    // Switch track; crossfades if music is playing, otherwise it's used on the next start
+    playBGMTrack(trackId) {
+        if (trackId === this.bgmTrack && this.music && this.music.playing) return;
+        this.bgmTrack = trackId;
+        if (this.music && this.music.playing) this.music.start(trackId, { volume: 0.5, fadeIn: 2 });
+    }
+
+    // Dev tools: play any track now, even with music or sound switched off
+    previewBGM(trackId) {
+        this.init();
+        if (!this.ctx || !window.AmbientMusic) return;
+        if (!this.music) this.music = new AmbientMusic(this.ctx);
+        this.resume();
+        this.bgmTrack = trackId;
+        this.music.start(trackId, { volume: 0.5, fadeIn: 1 });
+    }
+
+    playingBGM() {
+        return this.music && this.music.playing ? this.music.trackId : null;
+    }
+
     stopBGM() {
-        if (!this.bgmNodes || !this.ctx) return;
-        try {
-            const now = this.ctx.currentTime;
-            const nodes = this.bgmNodes;
-            this.bgmNodes = null;
-            nodes.gain.gain.setValueAtTime(nodes.gain.gain.value, now);
-            nodes.gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
-            setTimeout(() => {
-                try {
-                    nodes.oscs.forEach(o => o.stop());
-                } catch (e) {}
-            }, 850);
-        } catch (e) {}
+        if (this.music) this.music.stop(0.8);
     }
 
     toggleBGM(enable) {

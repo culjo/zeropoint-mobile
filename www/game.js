@@ -395,8 +395,8 @@
             levelFails: {},        // node id -> { noHold, noSwap } fails without using the tool
             settings: {
                 sfx: true,
-                bgm: false, // ambient music off by default until the new soundtrack lands
-                bgmOffMigrated: true,
+                bgm: true,
+                bgmOnMigrated: true,
                 vibration: true,
                 shake: 'high'
             }
@@ -406,10 +406,11 @@
             const raw = localStorage.getItem('zeropoint_career');
             if (raw) {
                 const parsed = JSON.parse(raw);
-                // One-time: switch ambient music off for existing saves (players can turn it back on)
-                if (parsed.settings && !parsed.settings.bgmOffMigrated) {
-                    parsed.settings.bgm = false;
-                    parsed.settings.bgmOffMigrated = true;
+                // One-time: the soundtrack has landed, so switch music back on for existing saves
+                // (an earlier one-time step forced it off while it was a placeholder drone)
+                if (parsed.settings && !parsed.settings.bgmOnMigrated) {
+                    parsed.settings.bgm = true;
+                    parsed.settings.bgmOnMigrated = true;
                 }
                 // One-time: Adventure moved to fixed level data and drops-left stars, so
                 // old node progress no longer matches. Wipe it (Classic, Challenges and settings stay).
@@ -676,6 +677,7 @@
     function showScreen(screenId) {
         if (screenId !== 'game' && firstPlay) fpTeardown();
         if (screenId !== 'game') hideObjectiveIntro();
+        if (screenId !== 'game' && sfx && sfx.onBossTrack()) sfx.rotateBGM(false); // leaving a boss
         currentScreen = screenId;
         const screens = [screenHome, screenAdventureNodes, screenChallenges, screenAdventureMap, screenGame, screenCodex];
         screens.forEach(s => {
@@ -1135,6 +1137,11 @@
         if (nodeBestDrops) nodeBestDrops.textContent = nodeData && nodeData.bestDrops ? `${nodeData.bestDrops} moves` : '-';
 
         modalNodePreview.classList.add('visible');
+    }
+
+    function isBossLevel() {
+        const lvl = activeAdventureLevel;
+        return gameMode === 'adventure' && !isTutorial && !!lvl && (!!lvl.isBoss || /boss/i.test(lvl.sector || ''));
     }
 
     function startNodeLevel(config) {
@@ -2208,6 +2215,9 @@
         if (btnSound) btnSound.addEventListener('click', toggleSound);
         if (btnHomeSound) btnHomeSound.addEventListener('click', toggleSound);
 
+        // Each app open starts on the next soundtrack in the rotation
+        if (sfx) sfx.rotateBGM();
+
         const initAudioOnGesture = () => {
             sfx.init();
             if (career.settings && career.settings.bgm && !sfx.muted) {
@@ -2489,7 +2499,7 @@
                         unlockedLevel: 1,
                         levelStars: {},
                         levelHighScores: {},
-                        settings: { sfx: true, bgm: false, bgmOffMigrated: true, vibration: true, shake: 'high' }
+                        settings: { sfx: true, bgm: true, bgmOnMigrated: true, vibration: true, shake: 'high' }
                     };
                     saveCareerData();
                     updateCareerDisplays();
@@ -2665,6 +2675,8 @@
     }
 
     function startNewGame() {
+        // Every new game moves the soundtrack on; boss levels get the upbeat tracks
+        if (sfx) sfx.rotateBGM(isBossLevel());
         // Main gameplay: Classic uses the new header (BEST · score · pause, overdrive row below);
         // Adventure and Challenges keep the original layout
         if (MAIN_GAMEPLAY && screenGame) {
@@ -7600,6 +7612,10 @@
                 </div>
                 <p class="dev-note">Cross Laser 60ms, Supernova 90ms, Hyperspace 120ms.</p>
 
+                <h3 class="dev-section">Music</h3>
+                <div class="dev-seg dev-music" id="dev-music" role="radiogroup" aria-label="Music track"></div>
+                <p class="dev-note" id="dev-music-note"></p>
+
                 <h3 class="dev-section">Levels</h3>
                 ${devRowHTML('level-editor', 'Level editor', 'Paint a board, play-test it, export to levels.js')}
                 <div class="dev-jump">
@@ -7644,6 +7660,14 @@
                 if (sfx) sfx.playMove();
                 setHitStopEnabled(hitStopSeg.dataset.hitStop === 'on');
                 renderDevTools();
+                return;
+            }
+            const musicChip = e.target.closest('[data-music]');
+            if (musicChip) {
+                const id = musicChip.dataset.music;
+                if (id === 'stop') sfx.stopBGM();
+                else sfx.previewBGM(id);
+                setTimeout(renderDevMusic, 0);
                 return;
             }
             const sectorPill = e.target.closest('[data-jump-sector]');
@@ -7717,6 +7741,24 @@
         const info = devRoot.querySelector('#dev-info');
         if (info) info.innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
         renderDevJump();
+        renderDevMusic();
+    }
+
+    // Music: a chip per track (plays it now, even with music switched off) and Stop
+    function renderDevMusic() {
+        const box = devRoot && devRoot.querySelector('#dev-music');
+        if (!box || !sfx || typeof AmbientMusic === 'undefined') return;
+        const tracks = AmbientMusic.tracks;
+        const playing = sfx.playingBGM();
+        const tagLabel = { ambient: 'Ambient', lofi: 'Lo-fi', upbeat: 'Upbeat · boss' };
+        box.innerHTML = Object.keys(tracks).map((id) => {
+            const t = tracks[id];
+            const on = id === playing;
+            return `<button type="button" role="radio" aria-checked="${on}" class="${on ? 'is-on' : ''}" data-music="${id}">`
+                + `<strong>${t.name}</strong><span>${tagLabel[t.tag] || t.tag} · ${t.bpm} bpm</span></button>`;
+        }).join('') + `<button type="button" class="dev-music-stop" data-music="stop"><strong>Stop</strong><span>${playing ? 'Silence music' : 'Nothing playing'}</span></button>`;
+        const note = devRoot.querySelector('#dev-music-note');
+        if (note) note.textContent = 'Plays straight away, even with music off. The rotation picks up again on the next game.';
     }
 
     // Jump to node: sector tabs + a chip per node (main path, bonus rifts and the boss)

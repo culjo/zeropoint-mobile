@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nullfall Music Lab</title>
+<style>
+    :root { --bg: #070a14; --card: #10162a; --line: #1f2945; --text: #e6ecff; --muted: #8a96b8; --cyan: #00f2fe; --violet: #c471ed; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: radial-gradient(circle at 50% -20%, #1a1440 0%, var(--bg) 60%); color: var(--text); font: 15px/1.5 system-ui, -apple-system, sans-serif; min-height: 100vh; }
+    main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+    h1 { margin: 0 0 4px; font-size: 26px; letter-spacing: 0.04em; }
+    p.lead { margin: 0 0 24px; color: var(--muted); }
+    h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--violet); margin: 28px 0 10px; }
+    .bar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; color: var(--muted); font-size: 13px; }
+    .bar input { flex: 1; accent-color: var(--cyan); }
+    .track { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; margin-bottom: 12px; display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center; transition: border-color .2s, box-shadow .2s; }
+    .track.on { border-color: var(--cyan); box-shadow: 0 0 24px rgba(0, 242, 254, 0.15); }
+    .play { width: 48px; height: 48px; border-radius: 50%; border: 0; cursor: pointer; background: linear-gradient(135deg, var(--cyan), var(--violet)); color: #050814; font-size: 18px; font-weight: 700; }
+    .name { font-weight: 700; font-size: 17px; }
+    .name small { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 8px; }
+    .mood { color: var(--muted); font-size: 13px; }
+    .chords { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+    .chords span { font-size: 11px; padding: 2px 8px; border-radius: 99px; background: #18203a; color: var(--muted); transition: all .3s; }
+    .chords span.now { background: rgba(0, 242, 254, 0.18); color: var(--cyan); }
+    .dl { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px; white-space: nowrap; }
+    .dl:hover { color: var(--text); border-color: var(--muted); }
+    .dl:disabled { opacity: .5; cursor: wait; }
+    @media (max-width: 520px) { .track { grid-template-columns: auto 1fr; } .dl { grid-column: 2; justify-self: start; } }
+</style>
+</head>
+<body>
+<main>
+    <h1>Nullfall Music Lab</h1>
+    <p class="lead">Procedural tracks, generated live with Web Audio and no audio files. Each one loops endlessly and never repeats exactly. Pick one to ship as the in-game soundtrack.</p>
+    <div class="bar">Volume <input id="vol" type="range" min="0" max="1" step="0.01" value="0.6"></div>
+    <div id="list"></div>
+</main>
+<script>document.write('<script src="../www/music.js?' + Date.now() + '"><\/script>');</script>
+<script>
+    let ctx = null, music = null, playingId = null;
+    const vol = document.getElementById('vol');
+    const list = document.getElementById('list');
+    const tracks = AmbientMusic.tracks;
+
+    const GROUPS = [['ambient', 'Ambient'], ['lofi', 'Lo-fi'], ['upbeat', 'Upbeat · boss levels']];
+    GROUPS.forEach(([tag, title]) => {
+        const h = document.createElement('h2');
+        h.textContent = title;
+        list.appendChild(h);
+        Object.keys(tracks).filter(id => tracks[id].tag === tag).forEach(addTrack);
+    });
+
+    function addTrack(id) {
+        const t = tracks[id];
+        const el = document.createElement('div');
+        el.className = 'track';
+        el.id = 'track-' + id;
+        el.innerHTML = `
+            <button class="play" aria-label="Play ${t.name}">▶</button>
+            <div>
+                <div class="name">${t.name}<small>${t.bpm} bpm</small></div>
+                <div class="mood">${t.mood}</div>
+                <div class="chords">${t.labels.map(c => `<span>${c}</span>`).join('')}</div>
+            </div>
+            <button class="dl">Download 90s WAV</button>`;
+        el.querySelector('.play').onclick = () => toggle(id);
+        el.querySelector('.dl').onclick = e => download(id, e.target);
+        list.appendChild(el);
+    }
+
+    function toggle(id) {
+        if (!ctx) { ctx = new (window.AudioContext || window.webkitAudioContext)(); music = new AmbientMusic(ctx); }
+        ctx.resume();
+        const was = playingId;
+        if (was) { music.stop(1); setUI(was, false); playingId = null; }
+        if (was === id) return;
+        music.start(id, { volume: +vol.value, fadeIn: 2 });
+        playingId = id;
+        setUI(id, true);
+    }
+
+    function setUI(id, on) {
+        const el = document.getElementById('track-' + id);
+        el.classList.toggle('on', on);
+        el.querySelector('.play').textContent = on ? '■' : '▶';
+        if (!on) el.querySelectorAll('.chords span').forEach(s => s.classList.remove('now'));
+    }
+
+    vol.oninput = () => music && music.setVolume(+vol.value);
+
+    setInterval(() => {
+        if (!playingId) return;
+        const i = music.currentChordIndex();
+        document.querySelectorAll(`#track-${playingId} .chords span`).forEach((s, j) => s.classList.toggle('now', j === i));
+    }, 200);
+
+    async function renderTrack(id, seconds = 90, rate = 44100) {
+        const off = new OfflineAudioContext(2, seconds * rate, rate);
+        const m = new AmbientMusic(off);
+        m.start(id, { volume: 0.6, fadeIn: 2, manual: true });
+        m.scheduleUntil(seconds - 4);
+        m.fadeOutAt(seconds - 5, 4.5);
+        return off.startRendering();
+    }
+
+    async function download(id, btn) {
+        btn.disabled = true;
+        btn.textContent = 'Rendering…';
+        try {
+            const buf = await renderTrack(id);
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(toWav(buf));
+            a.download = `nullfall-${id}.wav`;
+            a.click();
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Download 90s WAV';
+        }
+    }
+
+    function toWav(buf) {
+        const ch = buf.numberOfChannels, len = buf.length, rate = buf.sampleRate;
+        const out = new DataView(new ArrayBuffer(44 + len * ch * 2));
+        const str = (o, s) => [...s].forEach((c, i) => out.setUint8(o + i, c.charCodeAt(0)));
+        str(0, 'RIFF'); out.setUint32(4, 36 + len * ch * 2, true); str(8, 'WAVEfmt ');
+        out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, ch, true);
+        out.setUint32(24, rate, true); out.setUint32(28, rate * ch * 2, true);
+        out.setUint16(32, ch * 2, true); out.setUint16(34, 16, true);
+        str(36, 'data'); out.setUint32(40, len * ch * 2, true);
+        const data = [...Array(ch)].map((_, c) => buf.getChannelData(c));
+        let o = 44;
+        for (let i = 0; i < len; i++) for (let c = 0; c < ch; c++) {
+            const s = Math.max(-1, Math.min(1, data[c][i]));
+            out.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7fff, true); o += 2;
+        }
+        return new Blob([out], { type: 'audio/wav' });
+    }
+
+    window.renderTrack = renderTrack;
+    window.toWav = toWav;
+</script>
+</body>
+</html>
