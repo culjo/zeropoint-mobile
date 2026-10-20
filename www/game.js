@@ -6344,6 +6344,14 @@
             const r = el.getBoundingClientRect();
             return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
         };
+        // Hold catches drops in a padded area around the box (less on top, so the board keeps its
+        // bottom row); the first play's hold step pads it more
+        const isOverHold = (x, y) => {
+            if (!btnTouchHold) return false;
+            const r = btnTouchHold.getBoundingClientRect();
+            const pad = firstPlay && firstPlay.kind === 'hold' ? 40 : 28;
+            return x >= r.left - pad && x <= r.right + pad && y >= r.top - 16 && y <= r.bottom + pad;
+        };
 
         // The ghost eases toward its target each frame, so it can tilt with its speed,
         // lean toward the column under it and glide home when a drag goes nowhere
@@ -6475,7 +6483,7 @@
             const p = canvasPoint(clientX, clientY - LIFT);
             d.ghostY = p.y;
             const fpHoldOnly = firstPlay && firstPlay.kind === 'hold';
-            d.overHold = d.source === 'tray' && (!firstPlay || fpHoldOnly) && isOver(btnTouchHold, clientX, clientY);
+            d.overHold = d.source === 'tray' && (!firstPlay || fpHoldOnly) && isOverHold(clientX, clientY);
             const overBoard = !d.overHold && !fpHoldOnly
                 && p.x >= boardOffsetX && p.x < boardOffsetX + cellW * COLS
                 && p.y >= 0 && p.y < boardOffsetY + cellH * ROWS;
