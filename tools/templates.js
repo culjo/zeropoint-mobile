@@ -35,6 +35,8 @@ function shuffle(rng, list) {
  * opts: height [min, max] · fill (chance a column reaches full height) · values (Tide-0 magnitudes)
  *       dm (cores) · statics (# walls) · risers (Riser orbs on column tops) · stars (star cells)
  *       mustHave: { value, count } numbers that must appear (Collect)
+ *       dense (cores that become 4 HP dense cores) · webs (webbed orbs hanging one cell above a column top)
+ *       links (entangled pairs) · sealed (sealed columns, written to out.sealed)
  */
 function buildBoard(rng, opts) {
     const values = opts.values || [1, 2, 3, 4];
@@ -87,10 +89,46 @@ function buildBoard(rng, opts) {
         .slice(0, opts.dm || 0).forEach(([r, c]) => { cells[r][c] = 'D'; });
     shuffle(rng, filled.filter(([r, c]) => r <= 1 && isNum(r, c))).slice(0, opts.statics || 0).forEach(([r, c]) => { cells[r][c] = '#'; });
 
+    // Dense cores: some of the cores get armour
+    // (each step only draws from the rng when asked for, so older slots generate the same boards)
+    if (opts.dense) shuffle(rng, filled.filter(([r, c]) => cells[r][c] === 'D')).slice(0, opts.dense || 0).forEach(([r, c]) => { cells[r][c] = 'H'; });
+
     // Risers sit on column tops
     const tops = [];
     for (let c = 0; c < COLS; c++) if (heights[c] > 0 && isNum(heights[c] - 1, c)) tops.push(c);
     shuffle(rng, tops).slice(0, opts.risers || 0).forEach((c) => { cells[heights[c] - 1][c] = `${cells[heights[c] - 1][c]}R`; });
+
+    // Entangled pairs: number orbs anywhere in the stack (paired in reading order)
+    const marks = {};
+    const mark = (r, c, m) => { marks[`${r},${c}`] = m; };
+    if (opts.links) shuffle(rng, filled.filter(([r, c]) => isNum(r, c) && !String(cells[r][c]).endsWith('R'))).slice(0, 2 * (opts.links || 0)).forEach(([r, c]) => mark(r, c, 'E'));
+
+    // Webbed orbs hang one empty cell above a column top (rows 2–4), away from the walls
+    if (opts.webs) shuffle(rng, [...Array(COLS).keys()]).filter((c) => heights[c] + 1 <= 4).slice(0, opts.webs || 0).forEach((c) => {
+        const r = heights[c] + 1;
+        let v = null;
+        for (let tries = 0; tries < 30 && v === null; tries++) {
+            const cand = pick(rng, values) * (rng.next() < 0.5 ? 1 : -1);
+            if (!reacts(cand, numberAt(r, c - 1)) && !reacts(cand, numberAt(r, c + 1))) v = cand;
+        }
+        if (v === null) return;
+        cells[r][c] = v;
+        mark(r, c, 'W');
+    });
+
+    // Sealed columns: one tall enough that a shorter open neighbour lets a drop land beside its tiles
+    if (opts.sealed && opts.out) {
+        const top = (c) => { let h = 0; for (let r = 0; r < ROWS; r++) if (cells[r][c] !== null) h = r + 1; return h; };
+        const sealed = [];
+        shuffle(rng, [...Array(COLS).keys()]).forEach((c) => {
+            if (sealed.length >= opts.sealed || top(c) < 2) return;
+            if (sealed.some((x) => Math.abs(x - c) <= 1)) return;
+            const side = [c - 1, c + 1].filter((n) => n >= 0 && n < COLS);
+            const hasNum = Array.from({ length: top(c) }, (_, r) => r).some((r) => isNum(r, c) && side.some((n) => top(n) <= r));
+            if (hasNum) sealed.push(c);
+        });
+        opts.out.sealed = sealed.sort((a, b) => a - b);
+    }
 
     // Stars: 1–3 rows above a column top, never above rowFromBottom 5
     const stars = [];
@@ -98,7 +136,9 @@ function buildBoard(rng, opts) {
     for (let i = 0; i < (opts.stars || 0); i++) {
         const c = cols[i % COLS];
         let r = heights[c] + Math.min(i < 2 ? 0 : randInt(rng, 0, 2), 5);
-        while (r <= 5 && (cells[r][c] !== null || stars.some((s) => s.r === r && s.c === c))) r++;
+        // (never in a gap under a webbed orb: that's a handcrafted puzzle, too slow with rising rows)
+        const webAbove = (rr) => Object.keys(marks).some((k) => marks[k] === 'W' && Number(k.split(',')[1]) === c && Number(k.split(',')[0]) > rr);
+        while (r <= 5 && (cells[r][c] !== null || stars.some((s) => s.r === r && s.c === c) || webAbove(r))) r++;
         if (r > 5) continue;
         stars.push({ r, c });
         cells[r][c] = '*';
@@ -109,9 +149,17 @@ function buildBoard(rng, opts) {
     for (let r = 0; r < ROWS; r++) if (cells[r].some((x) => x !== null)) topRow = r;
     const rows = [];
     for (let r = topRow; r >= 0; r--) {
-        rows.push(cells[r].map((x) => (x === null ? '.' : (typeof x === 'number' ? (x > 0 ? `+${x}` : `${x}`) : String(x).replace(/^(\d)/, '+$1')))).join(' '));
+        rows.push(cells[r].map((x, c) => (x === null ? '.' : (typeof x === 'number' ? `${x > 0 ? `+${x}` : `${x}`}${marks[`${r},${c}`] || ''}` : String(x).replace(/^(\d)/, '+$1')))).join(' '));
     }
     return rows;
+}
+
+// The board plus any late board elements the slot asks for (GDD §5.2): webs, links, sealed
+// columns and dense cores. A sealed column also lands in the level data.
+function boardFor(rng, s, opts) {
+    const out = {};
+    const board = buildBoard(rng, { ...opts, webs: s.webs, links: s.links, sealed: s.sealed, dense: s.dense, out });
+    return out.sealed && out.sealed.length ? { board, sealed: out.sealed } : { board };
 }
 
 // slot -> level data (drops is set by the generator)
@@ -120,35 +168,35 @@ const TEMPLATES = {
         build: (rng, s) => ({
             title: s.title, goal: s.goal, rise: s.rise || 0, risers: s.risers,
             pool: POOL_STD,
-            board: buildBoard(rng, { height: [1, 3], fill: 0.75, statics: s.statics || 0, risers: (s.risers && s.risers.start) ? 0 : 0 })
+            ...boardFor(rng, s, { height: [1, 3], fill: 0.75, statics: s.statics || 0, risers: (s.risers && s.risers.start) ? 0 : 0 })
         })
     },
     collect: {
         build: (rng, s) => ({
             title: s.title, goal: s.goal, rise: s.rise || 0, risers: s.risers,
             pool: { ...POOL_STD, favor: s.favor },
-            board: buildBoard(rng, { height: [2, 3], fill: 0.8, statics: s.statics || 0, mustHave: { value: s.favor, count: 3 } })
+            ...boardFor(rng, s, { height: [2, 3], fill: 0.8, statics: s.statics || 0, mustHave: { value: s.favor, count: 3 } })
         })
     },
     cores: {
         build: (rng, s) => ({
             title: s.title, goal: s.goal, rise: s.rise || 0, risers: s.risers,
             pool: POOL_STD,
-            board: buildBoard(rng, { height: [2, 3], fill: 0.85, dm: s.rise ? Math.max(3, s.goal.target - 3) : s.goal.target + 1 })
+            ...boardFor(rng, s, { height: [2, 3], fill: 0.85, dm: s.rise ? Math.max(3, s.goal.target - 3) : s.goal.target + 1 })
         })
     },
     stars: {
         build: (rng, s) => ({
             title: s.title, goal: s.goal, rise: s.rise || 0, risers: s.risers,
             pool: POOL_STD,
-            board: buildBoard(rng, { height: [1, 3], fill: 0.7, stars: s.goal.target })
+            ...boardFor(rng, s, { height: [1, 3], fill: 0.7, stars: s.goal.target })
         })
     },
     risers: {
         build: (rng, s) => ({
             title: s.title, goal: s.goal, risers: s.risers,
             pool: POOL_STD,
-            board: buildBoard(rng, { height: [1, 2], fill: 0.75, risers: s.boardRisers || 1 })
+            ...boardFor(rng, s, { height: [1, 2], fill: 0.75, risers: s.boardRisers || 1 })
         })
     },
     survive: {
@@ -158,7 +206,7 @@ const TEMPLATES = {
             return {
                 title: s.title, goal: s.goal, rise: s.rise, risers: s.risers,
                 pool: POOL_STD,
-                board: buildBoard(rng, { height: [h, Math.min(5, h + 1)], fill: 0.85 })
+                ...boardFor(rng, s, { height: [h, Math.min(5, h + 1)], fill: 0.85 })
             };
         }
     },
@@ -251,25 +299,45 @@ const LATE_SECTORS = {
     }
 };
 
+// Board elements by sector (GDD §5.2): webbed orbs from Sector 4, dense cores from 5 (core levels
+// only), sealed columns from 6, entangled pairs from 8. Slots that take an element rotate through
+// the unlocked ones, newest first, plus the old 0 walls. One element per level.
+function elementsFor(k) {
+    const list = ['webs'];
+    if (k >= 2) list.unshift('sealed');
+    if (k >= 4) list.unshift('links');
+    return list.concat('statics');
+}
+
+function elementFields(element, k) {
+    if (element === 'webs') return { webs: k >= 4 ? 3 : 2 };
+    if (element === 'sealed') return { sealed: k >= 6 ? 2 : 1 };
+    if (element === 'links') return { links: k >= 6 ? 2 : 1 };
+    return { statics: 2 };
+}
+
 // One generated slot: goal size and obstacle from the sector (k), the node's place (p) and
-// how many of this goal the sector has had so far (n, so repeats swap their obstacle)
-function lateSlot(goal, title, k, p, n, scale) {
+// how many of this goal the sector has had so far (n, so repeats swap their obstacle).
+// `element` is the board element for slots that take one (see elementsFor).
+function lateSlot(goal, title, k, p, n, scale, element) {
     const alt = n % 2 === 1;
+    const el = elementFields(element, k);
     if (goal === 'zero_out') {
-        return { template: 'zero_out', title, goal: zeroOut(24 + k + Math.round(4 * p)), ...(alt ? { rise: 5 } : { statics: 2 }) };
+        return { template: 'zero_out', title, goal: zeroOut(24 + k + Math.round(4 * p)), ...(alt ? { rise: 5 } : el) };
     }
     if (goal === 'collect') {
         const favor = [2, 3, 1, 4][(k + n) % 4];
-        return { template: 'collect', title, goal: collect(10 + Math.floor(k / 3) + Math.round(2 * p), favor * scale), favor, ...(alt ? { risers: { start: 1 } } : { statics: 2 }) };
+        return { template: 'collect', title, goal: collect(10 + Math.floor(k / 3) + Math.round(2 * p), favor * scale), favor, ...(alt ? { risers: { start: 1 } } : el) };
     }
     if (goal === 'cores') {
-        return { template: 'cores', title, goal: breakCores(Math.min(12, 8 + Math.floor(k / 3) + Math.round(2 * p))), ...(alt ? { risers: { start: 2 } } : { rise: 5 }) };
+        const target = Math.min(12, 8 + Math.floor(k / 3) + Math.round(2 * p));
+        return { template: 'cores', title, goal: breakCores(target), ...(k >= 1 ? { dense: Math.ceil(target / 4) } : {}), ...(alt ? { risers: { start: 2 } } : { rise: 5 }) };
     }
     if (goal === 'stars') {
-        return { template: 'stars', title, goal: catchStars(6 + Math.round(2 * p)), ...(alt ? { risers: { start: 1 } } : { rise: 5 }) };
+        return { template: 'stars', title, goal: catchStars(6 + Math.round(2 * p)), ...(alt ? { risers: { start: 1 } } : { rise: 5, ...el }) };
     }
     if (goal === 'risers') {
-        return { template: 'risers', title, goal: clearRisers(5 + Math.floor(k / 2) + Math.round(p)), boardRisers: 2, risers: { every: Math.max(4, 5 - Math.floor(k / 3)), max: k >= 3 ? 3 : 2 } };
+        return { template: 'risers', title, goal: clearRisers(5 + Math.floor(k / 2) + Math.round(p)), boardRisers: 2, risers: { every: Math.max(4, 5 - Math.floor(k / 3)), max: k >= 3 ? 3 : 2 }, ...(alt ? el : {}) };
     }
     // survive: no budget to tune, so pressure comes from faster rows later on and Risers that keep coming
     return { template: 'survive', title, goal: survive(18 + k + Math.round(4 * p)), rise: p >= 0.5 ? 3 : 4, risers: { every: 6, max: k >= 3 ? 2 : 1 } };
@@ -281,11 +349,17 @@ Object.keys(LATE_SECTORS).forEach((key) => {
     const k = sector - 4;
     const scale = Math.pow(2, NodeGenerator.sectorTide(sector));
     const seen = {};
+    const elements = elementsFor(k);
+    let e = 0;
     plan.goals.forEach((goal, i) => {
+        const id = `${sector}-${i + 2}`;
+        if (NodeGenerator.HANDCRAFTED[id]) return; // element intros and showcases (levels.js)
         const p = plan.goals.length > 1 ? i / (plan.goals.length - 1) : 0;
         const n = seen[goal] || 0;
         seen[goal] = n + 1;
-        SLOTS[`${sector}-${i + 2}`] = lateSlot(goal, plan.titles[i], k, p, n, scale);
+        const slot = lateSlot(goal, plan.titles[i], k, p, n, scale, elements[e % elements.length]);
+        if (slot.webs || slot.sealed || slot.links || slot.statics) e++;
+        SLOTS[id] = slot;
     });
     plan.bonus.forEach((title, i) => {
         SLOTS[`${sector}-bonus-${i + 1}`] = { template: 'big_orb', title, goal: bigOrb(8 * scale) };

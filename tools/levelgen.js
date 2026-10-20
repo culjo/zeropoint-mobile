@@ -128,6 +128,8 @@ ${body}
 
 function main() {
     const levels = { ...NodeGenerator.GENERATED };
+    // A slot that is now handcrafted (levels.js) drops its old generated entry
+    Object.keys(levels).forEach((id) => { if (NodeGenerator.HANDCRAFTED[id] && !SLOTS[id]) delete levels[id]; });
     Object.keys(SLOTS).forEach((id) => {
         if ((ONLY && id !== ONLY) || !inSectors(id)) return;
         const t0 = Date.now();

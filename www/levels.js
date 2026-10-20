@@ -12,7 +12,11 @@
 //   board    rows top to bottom, aligned to the bottom of the 6×8 board.
 //            Tokens: .  empty   +3 / -3  number orb   +3R  Riser   D  Dark Matter core
 //                    N  Null Core cell (4 make the 2×2 core)   #  static block (fixed, unbreakable)
-//                    *  star in an empty cell (never the top row)
+//                    *  star in an empty cell (never the top row)   H  dense core (4 HP)
+//                    +3W  webbed orb (ignores gravity until a blast beside it or a merge snaps the web)
+//                    +3E  entangled orb: E orbs pair up in reading order (1st with 2nd, 3rd with 4th);
+//                         clearing one pops its twin
+//   sealed   [columns] (0–5) that take no drops until a tile inside is cleared, merged or broken
 //   pool     { values: [magnitudes], specials: chance of a special orb, favor?: magnitude dealt twice as often,
 //              pairBias?: chance to deal a match for a column top (default 0.2, Big Orb 0.45) }
 //            Values, favor and board numbers are written at Tide 0; the loader doubles them per tide step
@@ -127,6 +131,90 @@
             '-1 +3 #  #  -3 +1',
             '+2 -1 +4 -4 +1 -2'
         ],
+        // ----- Late board elements (GDD §5.2) -----
+        // 4-2: two webbed orbs hang over gaps
+        webIntro: [
+            '.  +2W .  .  -3W .',
+            '.  .  +3 .  .  +2',
+            '+2 -3 +1 -2 +3 -1'
+        ],
+        // 4-8: two of the six stars sit under webs
+        webStars: [
+            '.  +3W .  .  -2W .',
+            '*  *  .  *  *  .',
+            '+1 -2 .  *  +4 *',
+            '-3 +4 +2 -1 -3 +2'
+        ],
+        // 5-2: two dense cores and two normal ones, opposites beside them
+        denseIntro: [
+            '+1 H  +3 -2 H  -1',
+            '-2 +3 D  D  -3 +2'
+        ],
+        // 5-7: a Riser climbs into a web and sticks; reach it from the side
+        webRisers: [
+            '.  +2W .  .  +3W .',
+            '.  .  .  .  .  .',
+            '-1 +3R -2 +1 +4 -3R'
+        ],
+        // 6-2: column 3 is sealed (sealed: [2]); its +2 can be blasted from column 4
+        sealIntro: [
+            '-4 .  +2 .  .  -2',
+            '+1 -3 +4 -2 +3 -1'
+        ],
+        // 6-8: cores locked in two sealed columns (sealed: [1, 4])
+        sealCores: [
+            '.  D  .  .  H  .',
+            '+2 -3 D  D  +1 -2',
+            '-1 H  +3 -4 D  +4'
+        ],
+        // 7-6: stars above a sealed column (sealed: [3]) and under a web
+        sealStars: [
+            '.  +3W .  *  .  .',
+            '.  *  .  *  *  .',
+            '*  .  .  +1 .  *',
+            '-2 -4 +1 +3 -1 +2'
+        ],
+        // 8-2: one twin on top, the other under a wall
+        linkIntro: [
+            '-1 #  +2E .  +3 .',
+            '+2 +3E -4 +1 -2 +4'
+        ],
+        // 8-9: three pairs, two of them reaching under walls
+        linkChain: [
+            '.  .  +1E .  .  .',
+            '+3E #  -2 .  #  -1E',
+            '-2 +4E +3 .  +1E -4',
+            '+1 -3 +4E -1 +2 +3'
+        ],
+        // 9-5: twins in a sealed column (sealed: [0]) and under the stack
+        linkSeal: [
+            '+2E .  .  .  .  .',
+            '-3 +1 .  +2E -4 +2E',
+            '+4 -2E +3 -1 +2 -3'
+        ],
+        // 10-7: a web, a seal (sealed: [3]), a pair and a dense core
+        allElements: [
+            '.  -2W .  .  .  .',
+            '.  .  .  +3E .  .',
+            '+1E .  -3 +2 H  .',
+            '-2 +4 +1 -4 +3 -1'
+        ],
+        // Late bosses: the Null Core with a touch of the sector's element
+        nullCoreSealed: [
+            '.  +2 .  .  .  -1',
+            '+2 +1 N  N  -3 +2',
+            '-1 +3 N  N  +1 -3'
+        ],
+        nullCoreLinked: [
+            '.  +2E .  .  -3 .',
+            '+2 +1 N  N  -1 -2',
+            '-1 +3 N  N  -3 +1E'
+        ],
+        nullCoreWebbed: [
+            '.  +2E .  .  -3W .',
+            '+2 +1 N  N  .  -2',
+            '-1 +3 N  N  -3 +1E'
+        ],
         // Big Orb: matching pairs already in reach
         pairs: [
             '+1 .  .  .  .  +2',
@@ -198,34 +286,58 @@
         '3-7': { title: 'Relativistic Shear', goal: clearRisers(6), drops: 19, board: B.risers3, pool: POOL_STD, risers: { every: 5, max: 3 } },
         '3-13': { title: 'The Zero Point Core', goal: nullCore(16), drops: 28, board: B.nullCore, pool: POOL_STD, rise: 5, risers: { every: 6, max: 2 } },
 
-        // ===== Sectors 4–10: handcrafted opener and boss; the rest is generated =====
+        // ===== Sectors 4–10: handcrafted opener, element intro (node 2 in 4, 5, 6, 8), one showcase
+        // and the boss; the rest is generated =====
         // ===== Sector 4: Cosmic Web (Tide 3) =====
         '4-1': { title: 'Thread of Light', goal: zeroOut(20), drops: 23, board: B.threeRows, pool: POOL_STD },
+        '4-2': {
+            title: 'Strand Weaver', goal: zeroOut(18), drops: 17, board: B.webIntro, pool: POOL_STD,
+            guide: { orb: -2, col: 1, line: 'Drop −2 on the webbed +2.', why: 'Webs hold orbs in the air. A blast beside one or a merge snaps the web.' }
+        },
+        '4-8': { title: 'Silk Horizon', goal: catchStars(6), drops: 10, board: B.webStars, pool: POOL_STD },
         '4-12': { title: 'The Weaver Core', goal: nullCore(16), drops: 28, board: B.nullCore, pool: POOL_STD, rise: 5, risers: { every: 7, max: 2 } },
 
         // ===== Sector 5: Pulsar Fields (Tide 3) =====
         '5-1': { title: 'First Beacon', goal: catchStars(5), drops: 10, board: B.stars5, pool: POOL_STD },
+        '5-2': {
+            title: 'Beacon Sweep', goal: breakCores(4), drops: 18, board: B.denseIntro, pool: POOL_STD,
+            guide: { orb: -1, col: 0, line: 'Drop −1 on the +1 beside the dense core.', why: 'Dense cores wear armour. Each blast knocks off a plate: four hits break one.' }
+        },
+        '5-7': { title: 'Timing Array', goal: clearRisers(5), drops: 19, board: B.webRisers, pool: POOL_STD, risers: { every: 5, max: 3 } },
         '5-11': { title: 'The Clockwork Pulsar', goal: nullCore(16), drops: 28, board: B.nullCore, pool: POOL_STD, rise: 5, risers: { every: 6, max: 2 } },
 
         // ===== Sector 6: Magnetar Reach (Tide 4) =====
         '6-1': { title: 'Magnetic North', goal: breakCores(6), drops: 24, board: B.cores6, pool: POOL_STD },
-        '6-13': { title: 'The Magnetar Heart', goal: nullCore(18), drops: 32, board: B.nullCore, pool: POOL_STD, rise: 6, risers: { every: 6, max: 2 } },
+        '6-2': {
+            title: 'Crust Quake', goal: zeroOut(16), drops: 17, board: B.sealIntro, pool: POOL_STD, sealed: [2],
+            guide: { orb: -2, col: 3, line: 'Drop −2 beside the +2 in the sealed column.', why: 'You can’t drop into a sealed column. Clear a tile inside it to open it for good.' }
+        },
+        '6-8': { title: 'Magnetic Storm', goal: breakCores(6), drops: 21, board: B.sealCores, pool: POOL_STD, sealed: [1, 4] },
+        '6-13': { title: 'The Magnetar Heart', goal: nullCore(18), drops: 32, board: B.nullCoreSealed, pool: POOL_STD, rise: 6, risers: { every: 6, max: 2 }, sealed: [5] },
 
         // ===== Sector 7: Quasar Drift (Tide 4) =====
         '7-1': { title: 'Distant Light', goal: collect(10, 32), drops: 35, board: B.threeRows, pool: { ...POOL_STD, favor: 2 } },
+        '7-6': { title: 'Radio Lobe', goal: catchStars(6), drops: 12, board: B.sealStars, pool: POOL_STD, sealed: [3] },
         '7-11': { title: 'The Quasar Engine', goal: nullCore(18), drops: 30, board: B.nullCore, pool: POOL_STD, rise: 6, risers: { every: 5, max: 3 } },
 
         // ===== Sector 8: Void Expanse (Tide 5) =====
         '8-1': { title: 'Edge of Nothing', goal: zeroOut(22), drops: 26, board: B.wallsWide, pool: POOL_STD },
-        '8-14': { title: 'The Void Warden', goal: nullCore(18), drops: 27, board: B.nullCore, pool: POOL_STD, rise: 6, risers: { every: 4, max: 2 } },
+        '8-2': {
+            title: 'Empty Reach', goal: zeroOut(18), drops: 20, board: B.linkIntro, pool: POOL_STD,
+            guide: { orb: -2, col: 2, line: 'Drop −2 on the linked +2.', why: 'Entangled orbs share a fate: clear one and its twin pops too, even under a wall.' }
+        },
+        '8-9': { title: 'Bootes Gap', goal: zeroOut(26), drops: 23, board: B.linkChain, pool: POOL_STD },
+        '8-14': { title: 'The Void Warden', goal: nullCore(18), drops: 27, board: B.nullCoreLinked, pool: POOL_STD, rise: 6, risers: { every: 4, max: 2 } },
 
         // ===== Sector 9: Entropy Shoals (Tide 5) =====
         '9-1': { title: 'Arrow of Time', goal: clearRisers(3), drops: 12, board: B.risers2, pool: POOL_STD, risers: { every: 6, max: 1 } },
-        '9-10': { title: 'The Entropy Core', goal: nullCore(18), drops: 28, board: B.nullCore, pool: POOL_STD, rise: 6, risers: { start: 1, every: 6, max: 3 } },
+        '9-5': { title: 'Faded Star', goal: collect(12, 64), drops: 28, board: B.linkSeal, pool: { ...POOL_STD, favor: 2 }, sealed: [0] },
+        '9-10': { title: 'The Entropy Core', goal: nullCore(18), drops: 29, board: B.nullCore, pool: POOL_STD, rise: 6, risers: { start: 1, every: 6, max: 3 } },
 
         // ===== Sector 10: Nullfall (Tide 6) =====
         '10-1': { title: 'The Last Sector', goal: zeroOut(24), drops: 30, board: B.wallsWide, pool: POOL_STD },
-        '10-14': { title: 'Nullfall', goal: nullCore(20), drops: 31, board: B.nullCore, pool: POOL_STD, rise: 6, risers: { every: 4, max: 2 } }
+        '10-7': { title: 'Fallen Light', goal: zeroOut(28), drops: 30, board: B.allElements, pool: POOL_STD, sealed: [3] },
+        '10-14': { title: 'Nullfall', goal: nullCore(20), drops: 33, board: B.nullCoreWebbed, pool: POOL_STD, rise: 6, risers: { every: 4, max: 2 } }
     };
 
     return { LEVELS };
