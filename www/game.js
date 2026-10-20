@@ -223,6 +223,7 @@
     const settingSfxToggle = document.getElementById('setting-sfx-toggle');
     const settingBgmToggle = document.getElementById('setting-bgm-toggle');
     const settingVibrationToggle = document.getElementById('setting-vibration-toggle');
+    const settingReduceEffectsToggle = document.getElementById('setting-reduce-effects-toggle');
     const settingShakePills = document.querySelectorAll('#setting-shake-pills .qs-pill');
     const btnResetData = document.getElementById('btn-reset-data');
 
@@ -512,6 +513,7 @@
         if (settingSfxToggle && career.settings) settingSfxToggle.checked = !!career.settings.sfx;
         if (settingBgmToggle && career.settings) settingBgmToggle.checked = !!career.settings.bgm;
         if (settingVibrationToggle && career.settings) settingVibrationToggle.checked = career.settings.vibration !== false;
+        syncReduceEffects();
         syncShakePills();
     }
 
@@ -2483,6 +2485,15 @@
             });
         }
 
+        if (settingReduceEffectsToggle) {
+            settingReduceEffectsToggle.addEventListener('change', (e) => {
+                career.settings.reduceEffects = e.target.checked; // an explicit choice now overrides the system
+                saveCareerData();
+                syncReduceEffects();
+                if (sfx) sfx.playMove();
+            });
+        }
+
         settingShakePills.forEach((pill) => {
             pill.addEventListener('click', () => {
                 career.settings.shake = pill.dataset.shake;
@@ -4449,7 +4460,7 @@
         const ringOn = adventureObjectiveCard && adventureObjectiveCard.classList.contains('ring-mode');
         const targetEl = ringOn ? document.getElementById('adv-ring-dial') : advObjProgress;
         const target = targetEl && targetEl.getBoundingClientRect();
-        const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const reduce = prefersReducedMotion();
         if (!host || !target || !target.width || reduce || typeof document.body.animate !== 'function') return false;
 
         const { cur, tgt } = getObjectiveCounts(obj);
@@ -5083,7 +5094,7 @@
 
     function spawnScoreFlyer(pts, x, y) {
         const target = scoreVal && scoreVal.getBoundingClientRect();
-        const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const reduce = prefersReducedMotion();
         if (!target || !target.width || reduce || typeof document.body.animate !== 'function') return false;
 
         const cr = canvas.getBoundingClientRect();
@@ -7298,7 +7309,7 @@
         fpHand.hidden = false;
         if (f === firstPlay) fpShowScrim(f);
         const at = (p) => `translate(${p.x}px, ${p.y}px)`;
-        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        if (prefersReducedMotion()) {
             fpHand.style.transform = at(start);
             return;
         }
@@ -9861,10 +9872,22 @@
     const FLASH_MAX = 0.35;
     const FLASH_REACH = 0.75;      // gradient radius as a share of the screen diagonal
     const FLASH_DECAY = 1.3;       // opacity per second (0.35 clears in about 0.27s)
-    const reducedMotionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+    // A function declaration, so Settings can read it during startup before this line runs
+    function systemReducedMotion() {
+        return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    }
 
+    // Reduce Effects (Settings): follows the system's reduced-motion until the player picks
     function prefersReducedMotion() {
-        return !!(reducedMotionQuery && reducedMotionQuery.matches);
+        const pick = career && career.settings ? career.settings.reduceEffects : null;
+        return typeof pick === 'boolean' ? pick : systemReducedMotion();
+    }
+
+    // Keeps the switch and the page class (for CSS-only animations) in step with the setting
+    function syncReduceEffects() {
+        const on = prefersReducedMotion();
+        if (settingReduceEffectsToggle) settingReduceEffectsToggle.checked = on;
+        document.documentElement.classList.toggle('reduce-effects', on);
     }
 
     // origin (canvas px) is where the glow spreads from; default is the board centre
@@ -9889,7 +9912,7 @@
     }
 
     function triggerHitStop(ms) {
-        if (ms <= 0 || !isHitStopEnabled()) return;
+        if (ms <= 0 || !isHitStopEnabled() || prefersReducedMotion()) return;
         hitStopUntil = Math.max(hitStopUntil, performance.now() + ms);
     }
 

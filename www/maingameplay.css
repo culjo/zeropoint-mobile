@@ -83,9 +83,8 @@
     to { transform: scale(1); opacity: 1; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-    #screen-game .drag-tray .next-orb.dt-slot.dt-pop { animation: none; }
-}
+/* Off under Reduce Effects (Settings), which also follows the system setting until changed */
+.reduce-effects #screen-game .drag-tray .next-orb.dt-slot.dt-pop { animation: none; }
 
 /* Empty tray slot (its orb is being dragged) */
 #screen-game .drag-tray .dt-orbs .next-orb.dt-slot:empty {
