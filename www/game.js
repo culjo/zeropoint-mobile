@@ -3230,13 +3230,23 @@
     // Cascade Pipeline: Gravity -> Adjacency -> Gravity until stable
     // Gravity -> matches until the board is stable. `state` carries the chain across calls
     // so Riser climbs and spawns keep the combo going.
+    // Long cascades speed up: each step runs at 0.88x the pace of the one before, down to 0.6x,
+    // then the chain holds a beat on its last blast before the turn ends
+    const CASCADE_PACE_STEP = 0.88;
+    const CASCADE_PACE_MIN = 0.6;
+    const CASCADE_FINAL_HOLD = 200; // ms, for chains of 2+ steps
+    function cascadePace(chainStep) {
+        return Math.max(CASCADE_PACE_MIN, Math.pow(CASCADE_PACE_STEP, chainStep || 0));
+    }
+
     async function settleBoard(state) {
         const maxChainSteps = 40;
         while (state.chainStep < maxChainSteps) {
+            const pace = cascadePace(state.chainStep);
             // 1. Apply Gravity with smooth downward slide
             const fell = applyGravity();
             if (fell) {
-                await delay(160);
+                await delay(160 * pace);
             }
             checkStarCatches();
 
@@ -3250,11 +3260,12 @@
                 if (isTutorial && tutTurn) tutTurn.chain = Math.max(tutTurn.chain, state.chainStep);
                 if (combo >= 2) classicEvent('combo', combo);
                 updateHUD();
-                await delay(120);
+                await delay(120 * pace);
                 continue; // Re-check gravity and subsequent cascades
             }
 
             // If no fell and no matches, board is in equilibrium!
+            if (state.chainStep >= 2) await delay(CASCADE_FINAL_HOLD);
             break;
         }
     }
@@ -3405,7 +3416,7 @@
                 tileB: { ...tileB },
                 fusedVal,
                 chainStep,
-                duration: MERGE_ANIM_DURATION,
+                duration: MERGE_ANIM_DURATION * cascadePace(chainStep),
                 elapsed: 0,
                 progress: 0,
                 onComplete: () => {
@@ -3467,7 +3478,7 @@
                 tileB: { ...tileB },
                 magnitude,
                 chainStep,
-                duration: COLLAPSE_ANIM_DURATION,
+                duration: COLLAPSE_ANIM_DURATION * cascadePace(chainStep),
                 elapsed: 0,
                 progress: 0,
                 onComplete: () => {
