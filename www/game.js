@@ -9878,9 +9878,10 @@
         });
     }
 
-    // Danger state: as the tallest column nears the line the screen pulses red like a heartbeat,
-    // a light haptic beats with it, and the music goes muffled. It clears as soon as space opens.
-    const DANGER_BY_HEADROOM = [1, 0.7, 0.35]; // free rows above the tallest column: 0, 1, 2
+    // Danger state: once the tallest column is a row from the line the screen pulses red like a
+    // heartbeat, a light haptic beats with it, and the music goes muffled. It clears as soon as
+    // space opens.
+    const DANGER_BY_HEADROOM = [1, 0.7]; // free rows above the tallest column: 0, 1 (2+ is safe)
     const DANGER_EASE = 4;           // per second, toward the target level
     const DANGER_BEAT_SLOW = 1.2;    // seconds between beats at the mild end
     const DANGER_BEAT_FAST = 0.75;   // seconds between beats at critical
