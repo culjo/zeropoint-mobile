@@ -5320,6 +5320,9 @@
         objDisplay = null;
         objFlyersInFlight = 0;
         document.querySelectorAll('.score-fly, .obj-callout').forEach((el) => el.remove());
+        // Dropped chips never land, so the HUD settles on the full score (it stays visible behind result panels)
+        scoreShown = score;
+        setScoreDisplay(score, true);
     }
 
     function resetScoreFlyers() {
