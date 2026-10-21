@@ -1,7 +1,7 @@
 // Nullfall - set-piece search for the showcase autoplay (www/showcase.js)
 // Random-searches stable Classic boards for one drop that sets off a trailer moment, using the
 // autoplay's own rules model, and prints them as SETPIECES entries.
-//   node tools/showcase/setpieces.js [--tries 200000] [--seed 1]
+//   node tools/showcase/setpieces.js [--tries 200000] [--seed 1] [--only cascade,brinkclear]
 
 'use strict';
 
@@ -87,6 +87,16 @@ const SEARCHES = {
         orbs: [1, 2, 4, 8, -1, -2, -4, -8],
         score: (T) => (T.blasts.includes(5) ? 1000 : -1e9) + (S.tileCount(T.g) === 0 ? 2000 : -S.tileCount(T.g) * 200) + T.steps * 120
     },
+    // One row from the red line, and one drop empties the board (BOARD CLEAR)
+    brinkclear: {
+        board: () => randomBoard(4, 7, BIG, 0),
+        values: BIG, dm: 0,
+        orbs: [1, 2, 4, 8, -1, -2, -4, -8],
+        score: (T, g) => {
+            if (Math.max(...S.heights(g)) < 7) return -1e9;
+            return (S.tileCount(T.g) === 0 ? 5000 : -S.tileCount(T.g) * 150) + T.steps * 60;
+        }
+    },
     // One row from the red line, and one drop pulls it back
     brink: {
         board: () => randomBoard(5, 7, SMALL, 0.12),
@@ -101,7 +111,8 @@ const SEARCHES = {
 };
 
 const out = {};
-Object.entries(SEARCHES).forEach(([name, cfg]) => {
+const only = args.indexOf('--only') >= 0 ? args[args.indexOf('--only') + 1].split(',') : null;
+Object.entries(SEARCHES).filter(([name]) => !only || only.includes(name)).forEach(([name, cfg]) => {
     // Hill-climb from many random calm boards: re-roll a tile, keep it if the best drop got no worse
     let best = null;
     const restarts = Math.max(1, Math.round(TRIES / 2000));

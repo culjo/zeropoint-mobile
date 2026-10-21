@@ -10,6 +10,8 @@
 //       Cold open (a whole set-piece run), then the most intense turns from the runs in the order
 //       they happened, then an end card. --by orb takes the turn each new orb size first appears instead;
 //       --by save takes turns that start near the red line and pull the board back.
+//   node tools/showcase/cut.js edl <plan.json> [--out file.mp4]
+//       Segments from any captures in order, with optional captions and title cards (see the edl branch).
 //   node tools/showcase/cut.js boss <name> [--hits 2] [--out file.mp4]
 //       A Boss Run take: map and launch taps, the biggest core hits, the kill and the victory stars.
 
@@ -70,13 +72,25 @@ function turns(name) {
     return out;
 }
 
+// drawtext needs ':' and quotes escaped
+const escText = (t) => t.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/'/g, '\u2019');
+
+// A caption over the board's upper third for the first `secs` seconds, fading in and out
+function captionFilter(text, secs) {
+    const a = `if(lt(t,0.15),0,if(lt(t,0.4),(t-0.15)/0.25,if(lt(t,${secs - 0.25}),1,max(0,(${secs}-t)/0.25))))`;
+    return `drawtext=fontfile='${fontFile()}':text='${escText(text)}':fontcolor=white:fontsize=66:`
+        + `box=1:boxcolor=0x0b0e18@0.72:boxborderw=26:x=(w-tw)/2:y=h*0.30:alpha='${a}'`;
+}
+
 // One clip per segment, normalised to 1080×2260 @ 60 fps with short audio fades so cuts don't click
-function clip(src, startMs, endMs, file) {
+function clip(src, startMs, endMs, file, caption = null) {
     const d = (endMs - startMs) / 1000;
     const fade = Math.min(0.06, d / 4);
+    const capSecs = caption ? Math.min(d, caption.secs || d) : 0;
     ffmpeg([
         '-ss', sec(startMs), '-t', d.toFixed(3), '-i', src,
-        '-vf', `scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=0x0b0e18,fps=${FPS},format=yuv420p`,
+        '-vf', `scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=0x0b0e18,fps=${FPS}`
+            + (caption ? `,${captionFilter(caption.text, capSecs)}` : '') + ',format=yuv420p',
         '-af', `aresample=48000,afade=t=in:d=${fade},afade=t=out:st=${(d - fade).toFixed(3)}:d=${fade}`,
         '-c:v', 'libx264', '-preset', 'slow', '-crf', '16', '-c:a', 'aac', '-b:a', '256k', file
     ]);
@@ -186,6 +200,18 @@ if (cmd === 'raw') {
     files.push(end);
     concat(files, out);
     console.log(`→ ${out} (${parts.length} clips)`);
+} else if (cmd === 'edl') {
+    // An edit list: [{ "name": capture, "start": ms, "end": ms, "caption": "TEXT", "captionSecs": 2.5 } | { "card": "TITLE", "sub": "…", "secs": 4 }]
+    const plan = JSON.parse(fs.readFileSync(args[1], 'utf8'));
+    const files = plan.map((p, i) => {
+        const f = path.join(work, `edl-${String(i).padStart(2, '0')}.mp4`);
+        if (p.card) card(p.card, p.sub || '', p.secs || 3, f);
+        else clip(video(p.name), p.start, p.end, f, p.caption ? { text: p.caption, secs: p.captionSecs } : null);
+        return f;
+    });
+    const out = arg('out', path.join(CAPS, `${path.basename(args[1], '.json')}.mp4`));
+    concat(files, out);
+    console.log(`→ ${out} (${plan.length} segments)`);
 } else if (cmd === 'boss') {
     // Boss Run: the map and launch taps, the biggest core hits, then the kill into the victory stars
     const name = args[1];

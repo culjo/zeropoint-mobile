@@ -485,6 +485,23 @@
             },
             moves: [drop(5, 1)]
         },
+        // Seven high, one row from the red line: one −2 sets off 18 steps (Supernovas, Cross Lasers,
+        // a Hyperspace finish) and leaves the board empty: BOARD CLEAR
+        brinkclear: {
+            stage: {
+                rows: [
+                    ['.', '.', '.', '.', -4, '.'],
+                    ['.', -2, '.', '.', 8, '.'],
+                    ['.', 4, -1, 16, 3, '.'],
+                    [-4, 3, 16, -8, 16, -2],
+                    [3, -1, -8, -2, 1, -4],
+                    [-2, -3, 4, -16, -2, 8],
+                    [-3, 8, -16, -3, 1, 16]
+                ],
+                tray: [-2, 3], rise: 3, swaps: 1
+            },
+            moves: [drop(5)]
+        },
         // Seven high, one row from the red line: an 18-step chain pulls it back to three
         brink: {
             stage: {
