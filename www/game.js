@@ -3121,7 +3121,10 @@
     }
 
     // Orb Generator
+    let showcaseDeals = []; // scripted tray orbs for a staged showcase board (debug mode only)
+
     function generateOrb() {
+        if (showcaseDeals.length) return showcaseDeals.shift();
         // Dynamic spawn pool mutators from procedural node rules
         const poolType = (gameMode === 'adventure' && activeAdventureLevel && activeAdventureLevel.rules && activeAdventureLevel.rules.spawnPoolType) || 'standard';
         // Adventure nodes deal from the level's own pool (levels.js)
@@ -8306,6 +8309,110 @@
             openDevTools();
         });
     }
+
+    // ---------- Showcase autoplay hooks (showcase.js, debug mode only) ----------
+    // Reads the board for the autoplay and stages set-piece boards for trailer capture.
+    // Every call is a no-op outside debug mode.
+    function showcaseTile(tok) {
+        if (tok == null || tok === '.' || tok === 0) return null;
+        if (typeof tok === 'number') return createTile(tok);
+        if (tok === 'D') return createTile(0, 'dark_matter');
+        if (tok === 'H') { const t = createTile(0, 'dark_matter'); t.hp = 4; t.dense = true; return t; }
+        return createTile(parseInt(tok, 10));
+    }
+    function showcaseOrb(spec) {
+        if (spec == null) return null;
+        if (typeof spec === 'number') return numberOrb(spec);
+        const sub = FRENZY_SPECIALS.find((s) => s.subType === spec);
+        if (sub) return { ...sub };
+        const o = makeSpecialOrb();
+        o.subType = spec;
+        o.label = spec === 'invert' ? '±' : spec === 'div2' ? '÷2' : spec === 'mul2' ? '×2' : '0';
+        return o;
+    }
+    window.NullfallShowcaseHooks = {
+        enabled: () => isDebugMode(),
+        // Silence first-time cards and tips so a capture never stops on a modal
+        quiet() {
+            if (!isDebugMode() || !career) return;
+            CONCEPTS.forEach((k) => { career.seenConcepts[k.id] = true; });
+            career.discoveriesNew = {};
+            career.seenOverdriveTip = true;
+            career.tutorialDone = true;
+            career.usedHold = true;
+            career.usedSwap = true;
+            saveCareerData();
+            pendingJit = [];
+        },
+        state() {
+            if (!isDebugMode()) return null;
+            const busy = isProcessing || !!activeProjectile || isGameOver || isPaused || !!conceptOpen
+                || currentScreen !== 'game' || !!activeDrag || !!boardSwapDrag || hitStopUntil > performance.now();
+            return {
+                busy, isGameOver, isPaused, screen: currentScreen, mode: gameMode,
+                grid: grid.map((row) => row.map((t) => t && {
+                    type: t.type, value: t.value, hp: t.hp, riser: !!t.riser, web: !!t.web, link: t.link || null
+                })),
+                tray: dragTray.map((o) => o && { ...o }),
+                hold: heldOrb && { ...heldOrb },
+                canHold, swapTokens, sealed: sealedCols.slice(),
+                tideUnit: OrbBag.tideScale(currentTide()),
+                overdrive: overdriveCharge, combo, score, movesUntilRise,
+                heat: classicHeat, drops: classicDrops
+            };
+        },
+        // Screen rects the autoplay drags between (client px)
+        geometry() {
+            if (!isDebugMode()) return null;
+            const rect = canvas.getBoundingClientRect();
+            const slot = (el) => { const r = el && el.getBoundingClientRect(); return r && { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
+            return {
+                cell: (r, c) => ({ x: rect.left + boardOffsetX + (c + 0.5) * cellW, y: rect.top + boardOffsetY + (r + 0.5) * cellH }),
+                cellW, cellH,
+                tray: dragTraySlots.map(slot),
+                hold: slot(btnTouchHold)
+            };
+        },
+        // best: the BEST score to show (staged runs push it up; a capture wants a believable one)
+        startClassic(opts = {}) {
+            if (!isDebugMode()) return;
+            this.quiet();
+            if (opts.best != null) { career.highScore = opts.best; saveCareerData(); }
+            startClassicMode();
+        },
+        // Stage a Classic board: { rows: [[tok × 6] × 8] (top to bottom), tray: [spec, spec], hold, deals: [spec…],
+        // overdrive, swaps, heat, combo }. tok: number, 'D' Dark Matter, 'H' dense core, '.' empty.
+        // spec: number or a special/super-weapon subType. Deals are handed out before the normal tray.
+        stage(cfg) {
+            if (!isDebugMode()) return;
+            this.quiet();
+            showcaseDeals = [];
+            if (cfg.best != null) { career.highScore = cfg.best; saveCareerData(); }
+            startClassicMode();
+            if (cfg.heat) {
+                classicHeat = cfg.heat;
+                classicTide = Math.min(CLASSIC_TIDE_MAX, cfg.heat);
+                classicDrops = cfg.heat * CLASSIC_TIDE_EVERY;
+                movesUntilRise = classicRisePeriod();
+                orbDealerKey = null;
+            }
+            if (cfg.rows) {
+                grid = Array(ROWS).fill(null).map(() => Array(COLS).fill(null));
+                cfg.rows.forEach((row, i) => {
+                    const r = ROWS - cfg.rows.length + i;
+                    row.forEach((tok, c) => { grid[r][c] = showcaseTile(tok); });
+                });
+            }
+            if (cfg.tray) dragTray = cfg.tray.map((s) => showcaseOrb(s) || generateOrb());
+            heldOrb = showcaseOrb(cfg.hold);
+            showcaseDeals = (cfg.deals || []).map(showcaseOrb);
+            if (cfg.overdrive != null) overdriveCharge = cfg.overdrive;
+            if (cfg.swaps != null) swapTokens = cfg.swaps;
+            if (cfg.rise != null) movesUntilRise = cfg.rise;
+            if (cfg.score != null) { score = cfg.score; setScoreDisplay(score, true); }
+            updateHUD();
+        }
+    };
 
     // Main Game Loop (60 FPS)
     let lastTime = performance.now();
