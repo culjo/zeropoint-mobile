@@ -7056,3 +7056,6 @@ canvas.board-dead {
 /* Node sheet chips with a rule icon (rising rows, Risers, sealed columns) */
 .node-chip-icon { display: inline-flex; align-items: center; gap: 5px; }
 .node-chip-icon .pause-glyph-icon, .node-modifier-pill .pause-glyph-icon { display: inline-block; vertical-align: -0.12em; }
+
+/* Node map: horizontal swipes change sector (game.js), so the browser keeps only vertical panning */
+#screen-adventure-nodes .adv-map-viewport { touch-action: pan-y; }

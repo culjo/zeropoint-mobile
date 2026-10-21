@@ -2326,6 +2326,45 @@
 
         // Adventure Constellation Map Buttons
         if (btnAdvNodesBack) btnAdvNodesBack.addEventListener('click', () => showScreen('home'));
+        // Swipe the node map left / right to change sector
+        if (advMapViewport) {
+            let sw = null;
+            let swallowClick = false;
+            advMapViewport.addEventListener('pointerdown', (e) => {
+                if (!e.isPrimary) return;
+                sw = { x: e.clientX, y: e.clientY, t: performance.now() };
+            });
+            const endSwipe = (e) => {
+                if (!sw || !e.isPrimary) return;
+                const dx = e.clientX - sw.x;
+                const dy = e.clientY - sw.y;
+                const quick = performance.now() - sw.t < 700;
+                sw = null;
+                if (!quick || Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+                const sectorCount = typeof NodeGenerator !== 'undefined' ? NodeGenerator.SECTOR_METADATA.length : 1;
+                const next = currentViewingSector + (dx < 0 ? 1 : -1);
+                swallowClick = true;
+                setTimeout(() => { swallowClick = false; }, 0);
+                if (next < 1 || next > sectorCount) return;
+                sfx.playMove();
+                triggerHaptic('tick');
+                renderAdventureNodeMap(next);
+                const layer = advMapViewport.querySelector('.adv-map-canvas-container') || advMapViewport;
+                if (layer.animate && !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+                    layer.animate([
+                        { transform: `translateX(${dx < 0 ? 40 : -40}px)`, opacity: 0.2 },
+                        { transform: 'translateX(0)', opacity: 1 }
+                    ], { duration: 220, easing: 'ease-out' });
+                }
+            };
+            advMapViewport.addEventListener('pointerup', endSwipe);
+            advMapViewport.addEventListener('pointercancel', () => { sw = null; });
+            // The click that ends a swipe shouldn't open a node
+            advMapViewport.addEventListener('click', (e) => {
+                if (swallowClick) { e.stopPropagation(); e.preventDefault(); }
+            }, true);
+        }
+
         if (btnPrevSector) btnPrevSector.addEventListener('click', () => {
             if (currentViewingSector > 1) {
                 sfx.playMove();
