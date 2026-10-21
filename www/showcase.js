@@ -22,12 +22,13 @@
         return 5;
     }
 
-    // Board copy: number { n: value }, Dark Matter { d: hp }, fixed tile { x: 1 }; anchored tiles keep { a: 1 }
+    // Board copy: number { n: value }, Dark Matter { d: hp }, fixed tile { x: 1 }; anchored tiles keep { a: 1 },
+    // Risers { rs: 1 } and webs { w: 1 } on top of that
     function fromState(st) {
         return st.grid.map((row) => row.map((t) => {
             if (!t) return null;
             const a = t.riser || t.web ? 1 : 0;
-            if (t.type === 'number') return { n: t.value, a, link: t.link };
+            if (t.type === 'number') return { n: t.value, a, rs: t.riser ? 1 : 0, w: t.web ? 1 : 0, link: t.link };
             if (t.type === 'dark_matter') return { d: t.hp, a };
             return { x: 1, a: 1 };
         }));
@@ -43,14 +44,14 @@
     }
 
     function makeTurn(g, unit) {
-        return { g, unit, steps: 0, blasts: [], merges: 0, cleared: 0, dmHits: 0, bestOrb: 0, charge: 0 };
+        return { g, unit, steps: 0, blasts: [], merges: 0, cleared: 0, dmHits: 0, bestOrb: 0, charge: 0, lost: false, risersBefore: riserRows(g).length };
     }
 
     function damageDM(T, r, c, dmg) {
         if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return;
         const t = T.g[r][c];
         if (!t) return;
-        if (t.a && t.n != null) { t.a = 0; return; } // a web snaps
+        if (t.w) { t.w = 0; t.a = t.rs ? 1 : 0; return; } // a web snaps
         if (t.d == null) return;
         t.d -= dmg;
         T.dmHits++;
@@ -110,7 +111,8 @@
                 const b = g[r2][c2];
                 if (!num(b) || a.n !== b.n) continue;
                 g[r][c] = null;
-                g[r2][c2] = { n: a.n * 2, a: 0 };
+                const rs = a.rs || b.rs ? 1 : 0; // a merged Riser keeps climbing
+                g[r2][c2] = { n: a.n * 2, a: rs, rs };
                 T.merges++;
                 T.charge += 2;
                 T.bestOrb = Math.max(T.bestOrb, Math.abs(a.n * 2));
@@ -177,13 +179,40 @@
             if (land < 0) return null;
             T.g[land][col] = { n: orb.value, a: 0 };
         }
-        return settle(T);
+        settle(T);
+        climb(T);
+        return T;
+    }
+
+    // Rows of the Risers on the board, top first
+    function riserRows(g) {
+        const out = [];
+        g.forEach((row, r) => row.forEach((t) => { if (t && t.rs) out.push(r); }));
+        return out;
+    }
+
+    // After a drop every Riser climbs a row, swapping with the tile above (walls and webs stop it);
+    // one reaching the red line ends the run
+    function climb(T) {
+        const g = T.g;
+        let moved = false;
+        for (let r = 1; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+            const t = g[r][c];
+            if (!t || !t.rs) continue;
+            const above = g[r - 1][c];
+            if (above && (above.x || above.w)) continue;
+            g[r - 1][c] = t;
+            g[r][c] = above || null;
+            moved = true;
+        }
+        if (moved) settle(T);
+        for (let c = 0; c < COLS; c++) if (g[0][c] && g[0][c].rs) T.lost = true;
     }
 
     function simulateSwap(g, unit, r1, c1, r2, c2) {
         const a = g[r1][c1];
         const b = g[r2][c2];
-        if (!a || (a && (a.x || a.a)) || (b && (b.x || b.a))) return null;
+        if (!a || a.x || a.w || (b && (b.x || b.w))) return null; // walls and webs stay put; Risers can be swapped
         const T = makeTurn(cloneBoard(g), unit);
         T.g[r1][c1] = b ? { ...b } : null;
         T.g[r2][c2] = { ...a };
@@ -221,7 +250,7 @@
                 T.blasts.forEach((t) => { s += TIER_WEIGHT[t]; });
                 s += T.merges * 12 + T.dmHits * 8 + T.cleared * 4;
                 if (!T.blasts.length) s -= 30 + ctx.combo * 25; // breaking the combo hurts
-                s += safety(T.g, ctx);
+                s += safety(T.g, ctx, T);
                 return s;
             },
             lookahead: 0.6
@@ -234,7 +263,7 @@
                 let s = Math.log2(T.bestOrb + 1) * 70 + T.merges * 30;
                 T.blasts.forEach((t) => { s += t >= 4 ? TIER_WEIGHT[t] * 2 : -15; }); // save small orbs to merge
                 s += biggestOnBoard(T.g) * 1.5;
-                s += safety(T.g, ctx);
+                s += safety(T.g, ctx, T);
                 return s;
             },
             lookahead: 0.8
@@ -248,7 +277,7 @@
                 T.blasts.forEach((t) => { s += TIER_WEIGHT[t]; });
                 // Lives near the line but never over it
                 const h = Math.max(...heights(T.g));
-                if (h >= ROWS) s -= 1e5;
+                if (h >= ROWS || T.lost) s -= 1e5;
                 else if (h === ROWS - 1) s -= 600;
                 s += h >= 5 ? 40 : 0;
                 return s;
@@ -257,16 +286,20 @@
         }
     };
 
-    function safety(g, ctx) {
+    function safety(g, ctx, T) {
         let s = 0;
+        if (T && T.lost) return -1e6;
+        // A Riser n rows from the line breaches in n drops: clear it before it gets close
+        riserRows(g).forEach((r) => { s -= r <= 1 ? 4000 : r <= 3 ? 1400 / r : 260 / r; });
+        if (T) s += (T.risersBefore - riserRows(g).length) * 320;
         const hs = heights(g);
         const rising = ctx.movesUntilRise <= 1 ? 1 : 0;
+        // Back off from 5 high: rising rows come every 2–5 drops and are mostly Dark Matter at high Heat
         hs.forEach((h0) => {
             const h = h0 + rising;
             if (h >= ROWS) s -= 1e5;
-            else if (h >= 6) s -= (h - 5) * (h - 5) * 140;
-            else if (h >= 5) s -= 50;
-            s -= h * 2;
+            else if (h >= 5) s -= (h - 4) * (h - 4) * 160;
+            s -= h * 4;
         });
         return s;
     }
@@ -309,17 +342,33 @@
             }
         });
 
-        // A swap that sets off a chain is worth a token
+        // A swap is a free move (the drop still follows): spend a token on a 3+ chain,
+        // or on clearing a Riser that is 4 rows or less from the line
         if (st.swapTokens > 0) {
+            const nearRiser = riserRows(g).some((r) => r <= 4);
+            let bestSwap = null;
             for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
                 for (const [r2, c2] of [[r, c + 1], [r + 1, c]]) {
                     if (r2 >= ROWS || c2 >= COLS) continue;
-                    const T = simulateSwap(g, unit, r, c, r2, c2) || simulateSwap(g, unit, r2, c2, r, c);
-                    if (!T || T.steps < 2) continue;
-                    const v = style.score(T, ctx) + 40;
-                    if (best && v > best.v * 1.15) best = { kind: 'swap', r1: r, c1: c, r2, c2, v, turn: T };
+                    const T = simulateSwap(g, unit, r, c, r2, c2);
+                    if (!T) continue;
+                    const clearsRiser = riserRows(T.g).length < T.risersBefore;
+                    if (T.steps < 3 && !(clearsRiser && nearRiser)) continue;
+                    const v = style.score(T, ctx);
+                    if (!bestSwap || v > bestSwap.v) bestSwap = { kind: 'swap', r1: r, c1: c, r2, c2, v, turn: T };
                 }
             }
+            if (bestSwap) return bestSwap;
+        }
+
+        // Keep a Riser's opposite in Hold for when it can reach it (the game's own tip)
+        if (best && best.kind === 'drop' && st.canHold && !st.hold && best.turn && best.turn.risersBefore
+            && riserRows(best.turn.g).length >= best.turn.risersBefore) {
+            const riserVals = [];
+            g.forEach((row) => row.forEach((t) => { if (t && t.rs) riserVals.push(t.n); }));
+            const keep = st.tray.findIndex((o, i) => o && o.type === 'number' && riserVals.includes(-o.value)
+                && !(best.source === 'tray' && best.slot === i));
+            if (keep >= 0) return { kind: 'hold', slot: keep };
         }
 
         // Nothing good to do with a tray orb and Hold is free: park the worse one
@@ -528,8 +577,13 @@
             const after = await waitIdle(H, 60000);
             if (!after) break;
             const T = action.turn;
+            const risersOf = (x) => { const out = []; x.grid.forEach((row, r) => row.forEach((t, c) => { if (t && t.riser) out.push([r, c, t.value]); })); return out; };
             note('turn', {
                 action: action.kind,
+                at: action.kind === 'drop' ? [action.source, action.slot, action.col] : action.kind === 'swap' ? [action.r1, action.c1, action.r2, action.c2] : [action.slot],
+                tray: before.tray.map((o) => o && (o.subType || o.value)).concat([before.hold && (before.hold.subType || before.hold.value)]),
+                risersBefore: risersOf(before),
+                risers: risersOf(after),
                 combo: after.combo,
                 gain: after.score - before.score,
                 steps: T ? T.steps : null,
@@ -591,7 +645,7 @@
 
     const api = {
         ROWS, COLS, STYLES, SETPIECES,
-        fromState, cloneBoard, simulateDrop, simulateSwap, settle, makeTurn, landingRow, heights, tileCount, tierOf,
+        fromState, cloneBoard, simulateDrop, simulateSwap, settle, climb, riserRows, makeTurn, landingRow, heights, tileCount, tierOf,
         chooseAction, play, stop, runner, startRecording, stopRecording, capture,
         showMarker(on) { ensureMarker(); if (marker) marker.classList.toggle('hidden-marker', !on); }
     };
