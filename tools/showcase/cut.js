@@ -10,6 +10,8 @@
 //       Cold open (a whole set-piece run), then the most intense turns from the runs in the order
 //       they happened, then an end card. --by orb takes the turn each new orb size first appears instead;
 //       --by save takes turns that start near the red line and pull the board back.
+//   node tools/showcase/cut.js boss <name> [--hits 2] [--out file.mp4]
+//       A Boss Run take: map and launch taps, the biggest core hits, the kill and the victory stars.
 
 'use strict';
 
@@ -184,6 +186,42 @@ if (cmd === 'raw') {
     files.push(end);
     concat(files, out);
     console.log(`→ ${out} (${parts.length} clips)`);
+} else if (cmd === 'boss') {
+    // Boss Run: the map and launch taps, the biggest core hits, then the kill into the victory stars
+    const name = args[1];
+    const { log } = load(name);
+    const at = (kind) => (log.find((e) => e.kind === kind) || {}).t;
+    const won = log.find((e) => e.kind === 'victory');
+    if (!won) throw new Error(`${name}: no victory in this take`);
+    const hits = [];
+    let hp = null;
+    let prev = at('fight');
+    log.filter((e) => e.kind === 'turn').forEach((e) => {
+        if (hp != null && e.coreHp != null && e.coreHp < hp) hits.push({ start: prev, end: e.t, dmg: hp - e.coreHp, kill: e.coreHp === 0 || e.t >= won.t });
+        if (e.coreHp != null) hp = e.coreHp;
+        prev = e.t;
+    });
+    const last = log.filter((e) => e.kind === 'turn').pop();
+    const killStart = log.filter((e) => e.kind === 'turn' && e.t < last.t).pop();
+    const keep = Number(arg('hits', 2));
+    const mid = hits.filter((h) => h.end < (killStart ? killStart.t : last.t))
+        .sort((a, b) => b.dmg - a.dmg).slice(0, keep).sort((a, b) => a.start - b.start);
+    const parts = [
+        { start: at('map') - 200, end: at('intro') + 900 },
+        ...mid.map((h) => ({ start: h.start, end: h.end + 600 })),
+        { start: killStart ? killStart.t : at('fight'), end: won.t + Number(arg('stars-ms', 5000)) }
+    ];
+    const files = parts.map((p, i) => {
+        const f = path.join(work, `boss-${String(i).padStart(2, '0')}.mp4`);
+        clip(video(name), p.start, p.end, f);
+        return f;
+    });
+    const end = path.join(work, 'end-card.mp4');
+    card(arg('title', 'NULLFALL'), arg('sub', 'Puzzle Cascade'), 3, end);
+    files.push(end);
+    const out = arg('out', path.join(CAPS, `${name}-reel.mp4`));
+    concat(files, out);
+    console.log(`→ ${out} (${parts.length} clips; hits ${mid.map((h) => h.dmg).join(', ')})`);
 } else {
     console.log('usage: cut.js raw <name> | rank <name…> | reel --open <name> --runs <a,b> --seconds 55');
 }

@@ -4,7 +4,7 @@
 // Needs the capture server running (node tools/showcase/server.js). Runs headless at 2.5× by
 // default; --headless 0 shows the window (keep it uncovered: Chrome stops painting covered windows).
 //   node tools/showcase/capture.js --name chaser-01 --style chaser [--setpiece cascade] [--turns 200]
-//        [--best 0] [--heat 0] [--minutes 6] [--marker 1]
+//        [--best 0] [--heat 0] [--minutes 6] [--marker 1] [--boss 10 --sector 1]
 
 'use strict';
 
@@ -35,6 +35,8 @@ const playOpts = {
     stopAfterScript: arg('stop-after-script') === '1'
 };
 if (arg('heat')) playOpts.stage = { heat: Number(arg('heat')) };
+// Boss Run: --boss 10 [--sector 1] taps from the home screen through the map into that boss
+if (arg('boss')) Object.assign(playOpts, { boss: Number(arg('boss')), sector: Number(arg('sector', 1)) });
 const MINUTES = Number(arg('minutes', 6));
 const MARKER = arg('marker', '1') !== '0';
 

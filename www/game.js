@@ -8346,12 +8346,19 @@
         },
         state() {
             if (!isDebugMode()) return null;
-            const busy = isProcessing || !!activeProjectile || isGameOver || isPaused || !!conceptOpen
+            const intro = document.getElementById('obj-intro');
+            const introOpen = !!(intro && !intro.hidden);
+            const busy = isProcessing || !!activeProjectile || isGameOver || isPaused || !!conceptOpen || introOpen
                 || currentScreen !== 'game' || !!activeDrag || !!boardSwapDrag || hitStopUntil > performance.now();
             return {
                 busy, isGameOver, isPaused, screen: currentScreen, mode: gameMode,
+                introOpen,
+                won: gameMode === 'adventure' && adventureObjectiveMet,
+                goal: gameMode === 'adventure' && activeAdventureLevel ? { ...(activeAdventureLevel.goal || {}), progress: adventureProgress } : null,
+                dropsLeft: gameMode === 'adventure' ? getDropsLeft() : null,
                 grid: grid.map((row) => row.map((t) => t && {
-                    type: t.type, value: t.value, hp: t.hp, riser: !!t.riser, web: !!t.web, link: t.link || null
+                    type: t.type, value: t.value, hp: t.hp, riser: !!t.riser, web: !!t.web, link: t.link || null,
+                    coreHp: t.core ? t.core.hp : null
                 })),
                 tray: dragTray.map((o) => o && { ...o }),
                 hold: heldOrb && { ...heldOrb },
@@ -8379,6 +8386,23 @@
             this.quiet();
             if (opts.best != null) { career.highScore = opts.best; saveCareerData(); }
             startClassicMode();
+        },
+        // Stage Adventure progress for the map: every node of a sector before its boss cleared, with
+        // the given stars (cycled), the boss unlocked. Staged save data, for capture only.
+        stageProgress(sectorNum, stars = [3]) {
+            if (!isDebugMode() || typeof NodeGenerator === 'undefined') return;
+            this.quiet();
+            const layout = NodeGenerator.SECTOR_LAYOUTS[sectorNum - 1] || [];
+            const set = new Set(career.unlockedNodes || ['1-1']);
+            if (!career.adventureNodes) career.adventureNodes = {};
+            layout.forEach((n, i) => {
+                set.add(n.id);
+                if (n.type === 'boss') return;
+                career.adventureNodes[n.id] = { cleared: true, stars: stars[i % stars.length], bestScore: 0, bestDrops: 0 };
+            });
+            career.unlockedNodes = [...set];
+            career.firstPlayDone = true;
+            saveCareerData();
         },
         // Stage a Classic board: { rows: [[tok × 6] × 8] (top to bottom), tray: [spec, spec], hold, deals: [spec…],
         // overdrive, swaps, heat, combo }. tok: number, 'D' Dark Matter, 'H' dense core, '.' empty.

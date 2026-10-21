@@ -25,17 +25,23 @@
     // Board copy: number { n: value }, Dark Matter { d: hp }, fixed tile { x: 1 }; anchored tiles keep { a: 1 },
     // Risers { rs: 1 } and webs { w: 1 } on top of that
     function fromState(st) {
-        return st.grid.map((row) => row.map((t) => {
+        let coreHp = 0;
+        const g = st.grid.map((row) => row.map((t) => {
             if (!t) return null;
+            if (t.type === 'null_core') { coreHp = t.coreHp || 0; return { x: 1, a: 1, core: 1 }; }
             const a = t.riser || t.web ? 1 : 0;
             if (t.type === 'number') return { n: t.value, a, rs: t.riser ? 1 : 0, w: t.web ? 1 : 0, link: t.link };
             if (t.type === 'dark_matter') return { d: t.hp, a };
             return { x: 1, a: 1 };
         }));
+        g.coreHp = coreHp; // the Null Core's HP rides on the board copy
+        return g;
     }
 
     function cloneBoard(g) {
-        return g.map((row) => row.map((t) => t && { ...t }));
+        const out = g.map((row) => row.map((t) => t && { ...t }));
+        out.coreHp = g.coreHp || 0;
+        return out;
     }
 
     function landingRow(g, col) {
@@ -44,7 +50,7 @@
     }
 
     function makeTurn(g, unit) {
-        return { g, unit, steps: 0, blasts: [], merges: 0, cleared: 0, dmHits: 0, bestOrb: 0, charge: 0, lost: false, risersBefore: riserRows(g).length, heightBefore: Math.max(...heights(g)) };
+        return { g, unit, steps: 0, blasts: [], merges: 0, cleared: 0, dmHits: 0, bestOrb: 0, charge: 0, lost: false, coreDmg: 0, risersBefore: riserRows(g).length, heightBefore: Math.max(...heights(g)) };
     }
 
     function damageDM(T, r, c, dmg) {
@@ -72,6 +78,42 @@
         }
     }
 
+    // ---------- Null Core (boss): one hit per blast, 3 for a Cross Laser through it, a crater over it or Hyperspace ----------
+    function coreCells(g) {
+        const out = [];
+        g.forEach((row, r) => row.forEach((t, c) => { if (t && t.core) out.push([r, c]); }));
+        return out;
+    }
+
+    function hitCore(T, dmg) {
+        if (!T.g.coreHp || dmg <= 0) return;
+        const d = Math.min(dmg, T.g.coreHp);
+        T.g.coreHp -= d;
+        T.coreDmg += d;
+        if (T.g.coreHp <= 0) coreCells(T.g).forEach(([r, c]) => { T.g[r][c] = null; }); // it collapses
+    }
+
+    function coreBlast(T, r, c, r2, c2, tier) {
+        let dmg = 0;
+        coreCells(T.g).forEach(([cr, cc]) => {
+            const adj = [[r, c], [r2, c2]].some(([br, bc]) => Math.abs(br - cr) + Math.abs(bc - cc) === 1);
+            if (tier === 3 && (cr === r || cr === r2 || cc === c || cc === c2)) dmg = Math.max(dmg, 3);
+            else if (tier === 4 && cr >= Math.min(r, r2) - 1 && cr <= Math.max(r, r2) + 1 && cc >= Math.min(c, c2) - 1 && cc <= Math.max(c, c2) + 1) dmg = Math.max(dmg, 3);
+            else if (tier >= 5) dmg = Math.max(dmg, 3);
+            else if (adj) dmg = Math.max(dmg, 1);
+        });
+        hitCore(T, dmg);
+    }
+
+    function coreArea(T, r1, r2, c1, c2, dmgIn, dmgNear) {
+        let dmg = 0;
+        coreCells(T.g).forEach(([r, c]) => {
+            if (r >= r1 && r <= r2 && c >= c1 && c <= c2) dmg = Math.max(dmg, dmgIn);
+            else if ((r >= r1 - 1 && r <= r2 + 1 && c >= c1 && c <= c2) || (c >= c1 - 1 && c <= c2 + 1 && r >= r1 && r <= r2)) dmg = Math.max(dmg, dmgNear);
+        });
+        hitCore(T, dmg);
+    }
+
     function blast(T, r, c, r2, c2, m) {
         T.g[r][c] = null;
         T.g[r2][c2] = null;
@@ -91,6 +133,7 @@
                 if (t && !t.x) { T.g[rr][cc] = null; T.cleared++; }
             }
         }
+        coreBlast(T, r, c, r2, c2, tier);
         T.charge += [0, 2, 4, 7, 12, 18][tier];
     }
 
@@ -148,6 +191,11 @@
     function special(T, sub, col, row) {
         const g = T.g;
         const target = row >= 0 && row < ROWS ? g[row][col] : null;
+        if (sub === 'blackhole') coreArea(T, 0, ROWS - 1, col, col, 3, 1);
+        else if (sub === 'supernova_core' || sub === 'antimatter_nuke') {
+            const er = Math.max(0, Math.min(ROWS - 1, row >= 0 ? row : ROWS - 1));
+            coreArea(T, er - 1, er + 1, col - 1, col + 1, 3, 1);
+        } else if (sub === 'zero') coreArea(T, row - 1, row + 1, col - 1, col + 1, 1, 1);
         if (sub === 'blackhole') {
             for (let r = 0; r < ROWS; r++) if (g[r][col] && !g[r][col].x) { g[r][col] = null; T.cleared++; }
             for (let r = 0; r < ROWS; r++) { damageDM(T, r, col - 1, 1); damageDM(T, r, col + 1, 1); }
@@ -290,6 +338,28 @@
             },
             lookahead: 0.5
         }
+    };
+
+    STYLES.boss = {
+        label: 'Boss Run',
+        think: [300, 600],
+        drag: [320, 460],
+        score(T, ctx) {
+            if (T.lost) return -1e6;
+            let s = T.coreDmg * 600 + (T.g.coreHp <= 0 && T.coreDmg ? 1e5 : 0);
+            s += T.steps * T.steps * 25 + T.merges * 8 + T.cleared * 3;
+            T.blasts.forEach((t) => { s += TIER_WEIGHT[t] * 0.6; });
+            // Set up the next hit: number orbs touching the core
+            const near = new Set();
+            coreCells(T.g).forEach(([r, c]) => [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]].forEach(([nr, nc]) => {
+                const t = T.g[nr] && T.g[nr][nc];
+                if (t && t.n != null && !t.core) near.add(`${nr},${nc}`);
+            }));
+            s += near.size * 15;
+            s += safety(T.g, ctx, T);
+            return s;
+        },
+        lookahead: 0.6
     };
 
     function safety(g, ctx, T) {
@@ -533,6 +603,23 @@
         await drag(from, to, rand(style.drag), el);
     }
 
+    // A finger tap on an element: marker, pointer events, then the click the game listens for
+    async function tap(el, hold = 120) {
+        if (typeof el === 'string') el = document.querySelector(el);
+        if (!el) throw new Error('tap: no element');
+        const r = el.getBoundingClientRect();
+        const x = r.left + r.width / 2 + (Math.random() - 0.5) * Math.min(12, r.width / 4);
+        const y = r.top + r.height / 2 + (Math.random() - 0.5) * Math.min(8, r.height / 4);
+        ensureMarker();
+        moveMarker(x, y);
+        marker.classList.add('down');
+        pointer('pointerdown', x, y, el);
+        await sleep(hold);
+        pointer('pointerup', x, y, el);
+        el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
+        marker.classList.remove('down');
+    }
+
     // ---------- the run ----------
     const runner = { on: false, log: [], t0: 0, style: 'chaser' };
 
@@ -567,7 +654,7 @@
         let lastOD = H.state().overdrive;
         while (runner.on && turns < maxTurns) {
             const st = await waitIdle(H);
-            if (!st || st.isGameOver) { note('gameover', { score: st && st.score }); break; }
+            if (!st || st.isGameOver) { note(st && st.won ? 'victory' : 'gameover', { score: st && st.score }); break; }
             if (lastOD >= 60 && st.overdrive < lastOD && st.tray.some((o) => o && ['blackhole', 'supernova_core', 'antimatter_nuke'].includes(o.subType))) {
                 note('overdrive', {});
             }
@@ -596,6 +683,7 @@
                 tiers: T ? T.blasts : null,
                 cleared: T ? T.cleared : null,
                 tiles: tileCount(fromState(after)),
+                coreHp: after.grid.flat().reduce((m, t) => (t && t.coreHp != null ? t.coreHp : m), null),
                 maxOrb: Math.max(0, ...after.grid.flat().filter((t) => t && t.type === 'number').map((t) => Math.abs(t.value))),
                 maxHeight: Math.max(...heights(fromState(after)))
             });
@@ -608,6 +696,40 @@
     }
 
     function stop() { runner.on = false; }
+
+    // Boss Run: home → Adventure map (sector staged as cleared) → boss node → launch → intro → fight
+    async function bossRun(opts = {}) {
+        const H = root.NullfallShowcaseHooks;
+        const sector = opts.sector || 1;
+        const t0 = opts.t0 || performance.now();
+        const flow = [];
+        const mark = (kind) => flow.push({ t: Math.round(performance.now() - t0), kind });
+        H.stageProgress(sector, opts.stars || [3, 3, 2, 3, 3, 3, 2, 3, 3, 3, 3]);
+        await sleep(opts.lead != null ? opts.lead : 1200);
+        mark('home');
+        await tap('#card-play-adventure');
+        await sleep(400);
+        // The map opens on the newest sector; step to the one we want if it didn't
+        for (let i = 0; i < 12; i++) {
+            const node = document.querySelector(`.cnode[data-node-id="${sector}-${opts.boss}"]`);
+            if (node) break;
+            await tap(document.getElementById('btn-next-sector'));
+            await sleep(500);
+        }
+        mark('map');
+        await sleep(1600); // let the map (cleared nodes, stars) read
+        await tap(`.cnode[data-node-id="${sector}-${opts.boss}"]`);
+        await sleep(1100);
+        mark('sheet');
+        await tap('#btn-node-sheet-launch');
+        await sleep(1900); // the intro card: goal and star targets
+        mark('intro');
+        await tap('#obj-intro');
+        await sleep(700);
+        mark('fight');
+        const log = await play({ style: 'boss', keepBoard: true, lead: 200, t0 });
+        return flow.concat(log).sort((a, b) => a.t - b.t);
+    }
 
     // ---------- capture: record this tab (video + game audio) and upload it to tools/showcase/server.js ----------
     // Needs a user gesture (or Chrome's --auto-accept-this-tab-capture) for the tab-capture prompt.
@@ -643,7 +765,9 @@
     // Record one run: the log's times line up with the video (t = ms from the first frame)
     async function capture(name, playOpts = {}) {
         const info = await startRecording(playOpts);
-        const log = await play({ ...playOpts, t0: rec.t0 });
+        const log = playOpts.boss
+            ? await bossRun({ ...playOpts, t0: rec.t0 })
+            : await play({ ...playOpts, t0: rec.t0 });
         await sleep(playOpts.tail != null ? playOpts.tail : 2500);
         const saved = await stopRecording(`${name}.webm`);
         await fetch(`/__capture?name=${encodeURIComponent(name)}.json`, { method: 'POST', body: JSON.stringify({ info, log }, null, 1) });
@@ -653,7 +777,7 @@
     const api = {
         ROWS, COLS, STYLES, SETPIECES,
         fromState, cloneBoard, simulateDrop, simulateSwap, settle, climb, riserRows, makeTurn, landingRow, heights, tileCount, tierOf,
-        chooseAction, play, stop, runner, startRecording, stopRecording, capture,
+        chooseAction, play, stop, runner, bossRun, tap, startRecording, stopRecording, capture,
         showMarker(on) { ensureMarker(); if (marker) marker.classList.toggle('hidden-marker', !on); }
     };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
