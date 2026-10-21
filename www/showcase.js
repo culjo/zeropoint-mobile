@@ -44,7 +44,7 @@
     }
 
     function makeTurn(g, unit) {
-        return { g, unit, steps: 0, blasts: [], merges: 0, cleared: 0, dmHits: 0, bestOrb: 0, charge: 0, lost: false, risersBefore: riserRows(g).length };
+        return { g, unit, steps: 0, blasts: [], merges: 0, cleared: 0, dmHits: 0, bestOrb: 0, charge: 0, lost: false, risersBefore: riserRows(g).length, heightBefore: Math.max(...heights(g)) };
     }
 
     function damageDM(T, r, c, dmg) {
@@ -277,11 +277,15 @@
             score(T, ctx) {
                 let s = T.steps * T.steps * 30 + T.cleared * 10;
                 T.blasts.forEach((t) => { s += TIER_WEIGHT[t]; });
-                // Lives near the line but never over it
-                const h = Math.max(...heights(T.g));
+                // Lives near the line but never over it (a due rising row lifts everything one)
+                const h = Math.max(...heights(T.g)) + (ctx.movesUntilRise <= 1 ? 1 : 0);
                 if (h >= ROWS || T.lost) s -= 1e5;
-                else if (h === ROWS - 1) s -= 600;
-                s += h >= 5 ? 40 : 0;
+                else if (h === ROWS - 1) s -= 900;
+                // Climb toward the line, then pull back hard once it's close: the save is the shot
+                if (T.heightBefore >= 6) s += (T.heightBefore - h) * 450;
+                else s += h >= 5 ? 60 : h * 10;
+                riserRows(T.g).forEach((r) => { s -= r <= 1 ? 4000 : r <= 3 ? 1400 / r : 260 / r; });
+                s += (T.risersBefore - riserRows(T.g).length) * 320;
                 return s;
             },
             lookahead: 0.5
