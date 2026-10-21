@@ -6,9 +6,9 @@
 //       The whole run as H.264/AAC 60 fps: trims the lead-in, ends after game over.
 //   node tools/showcase/cut.js rank <name…>
 //       Lists each run's turns by intensity (combo × score gain).
-//   node tools/showcase/cut.js reel --open <name> --runs <name,name> --seconds 55 [--out file.mp4]
+//   node tools/showcase/cut.js reel --open <name> --runs <name,name> --seconds 55 [--by orb] [--out file.mp4]
 //       Cold open (a whole set-piece run), then the most intense turns from the runs in the order
-//       they happened, then an end card.
+//       they happened, then an end card. --by orb takes the turn each new orb size first appears instead.
 
 'use strict';
 
@@ -47,11 +47,14 @@ function turns(name) {
     const out = [];
     let prev = log.find((e) => e.kind === 'start').t;
     let prevCombo = 1;
+    let bestOrb = 0;
     log.forEach((e) => {
         if (e.kind !== 'turn') return;
+        const firstOrb = (e.maxOrb || 0) > bestOrb; // biggest orb of the run so far
+        bestOrb = Math.max(bestOrb, e.maxOrb || 0);
         const gain = Math.max(0, e.gain || 0);
         out.push({
-            name, start: prev, end: e.t, combo: e.combo, gain, action: e.action,
+            name, start: prev, end: e.t, combo: e.combo, gain, action: e.action, maxOrb: e.maxOrb || 0, firstOrb,
             // Long chains and combos kept alive across turns both count
             heat: gain * Math.max(1, e.combo - prevCombo + 1) + (e.combo >= 6 ? e.combo * 400 : 0)
         });
@@ -132,13 +135,26 @@ if (cmd === 'raw') {
         .filter((t) => t.action === 'drop' || t.action === 'swap');
     let budget = seconds * 1000 - parts.reduce((a, p) => a + p.end - p.start, 0);
     const chosen = [];
-    pool.slice().sort((a, b) => b.heat - a.heat).forEach((t) => {
-        const len = t.end - t.start + 500;
-        if (len > budget || t.heat <= 0) return;
-        chosen.push({ ...t, end: t.end + 500 });
-        budget -= len;
-    });
-    chosen.sort((a, b) => (a.name === b.name ? a.start - b.start : a.name < b.name ? -1 : 1));
+    if (arg('by') === 'orb') {
+        // Build Bigger: the turn each new orb size first appears (its tier callout), smallest first,
+        // taking each size from whichever run reached it soonest
+        const sizes = [...new Set(pool.map((t) => t.maxOrb).filter((m) => m >= 8 && (m & (m - 1)) === 0))].sort((a, b) => a - b); // tier sizes only (Nova 8, Star 16, …)
+        sizes.forEach((m) => {
+            const t = pool.filter((x) => x.maxOrb === m && x.firstOrb).sort((a, b) => a.end - a.start - (b.end - b.start))[0];
+            const len = t ? t.end - t.start + 1400 : 0;
+            if (!t || len > budget) return;
+            chosen.push({ ...t, end: t.end + 1400 });
+            budget -= len;
+        });
+    } else {
+        pool.slice().sort((a, b) => b.heat - a.heat).forEach((t) => {
+            const len = t.end - t.start + 500;
+            if (len > budget || t.heat <= 0) return;
+            chosen.push({ ...t, end: t.end + 500 });
+            budget -= len;
+        });
+    }
+    if (arg('by') !== 'orb') chosen.sort((a, b) => (a.name === b.name ? a.start - b.start : a.name < b.name ? -1 : 1));
     parts.push(...chosen);
     const files = parts.map((p, i) => {
         const f = path.join(work, `part-${String(i).padStart(2, '0')}.mp4`);

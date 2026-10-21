@@ -261,7 +261,9 @@
             drag: [360, 520],
             score(T, ctx) {
                 let s = Math.log2(T.bestOrb + 1) * 70 + T.merges * 30;
-                T.blasts.forEach((t) => { s += t >= 4 ? TIER_WEIGHT[t] * 2 : -15; }); // save small orbs to merge
+                // Save small orbs for merging while there's room; once the stack is tall, any blast helps
+                const roomy = Math.max(...heights(T.g)) <= 4;
+                T.blasts.forEach((t) => { s += t >= 4 ? TIER_WEIGHT[t] * 2 : roomy ? -15 : TIER_WEIGHT[t]; });
                 s += biggestOnBoard(T.g) * 1.5;
                 s += safety(T.g, ctx, T);
                 return s;
@@ -590,6 +592,7 @@
                 tiers: T ? T.blasts : null,
                 cleared: T ? T.cleared : null,
                 tiles: tileCount(fromState(after)),
+                maxOrb: Math.max(0, ...after.grid.flat().filter((t) => t && t.type === 'number').map((t) => Math.abs(t.value))),
                 maxHeight: Math.max(...heights(fromState(after)))
             });
             if (action.kind !== 'hold') turns++;
