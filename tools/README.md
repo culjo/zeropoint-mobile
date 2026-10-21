@@ -4,7 +4,7 @@ All run in Node from the repo root; nothing here ships in the app.
 
 | Command | What it does |
 |---|---|
-| `npm run playtest` | The bot plays every Adventure level 200 times and prints win rate, stars and losses. Add `-- --level 2-7`, `-- --sector 2`, `-- --games 500` or `-- --json`. |
+| `npm run playtest` | The bot plays every Adventure level 200 times and prints win rate, stars and losses. Add `-- --level 2-7`, `-- --sector 2`, `-- --games 500` or `-- --json`. `-- --details` also prints each level's config as played (goal, drops, tide, pool, stars, rules, board); with `--json` it adds a `config` object per level. |
 | `npm run levelgen` | Regenerates every generated slot into `www/levelsGenerated.js`. `-- --slot 2-7` for one slot, `-- --sectors 4-10` for a range of sectors (also limits `--tune-hand`). |
 | `npm run levelgen -- --slot none --tune-hand` | Prints bot-tuned drop budgets for handcrafted levels; add `--apply` to write them into `www/levels.js`. |
 
