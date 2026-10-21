@@ -2151,6 +2151,33 @@
         };
     }
 
+    // Pause screen: goal glyphs drawn as icons (symbol characters can render as emoji on iOS)
+    const PAUSE_GLYPH_SVG = {
+        '★': '<path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z" fill="currentColor"/>',
+        '✓': '<path d="M4.5 12.5 9.5 17.5 19.5 6.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>',
+        '◈': '<path d="M12 2.5 21.5 12 12 21.5 2.5 12z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><path d="M12 8 16 12 12 16 8 12z" fill="currentColor"/>',
+        '◆': '<path d="M12 2.5 21.5 12 12 21.5 2.5 12z" fill="currentColor"/>',
+        '○': '<circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2.6"/>',
+        '◎': '<circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2.4"/><circle cx="12" cy="12" r="3.8" fill="none" stroke="currentColor" stroke-width="2.4"/>',
+        '◉': '<circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2.4"/><circle cx="12" cy="12" r="4" fill="currentColor"/>',
+        '▲': '<path d="M12 4 21 19.5H3z" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>',
+        '⏳': '<path d="M6.5 3h11M6.5 21h11M7.5 3c0 5 9 5 9 9s-9 4-9 9M16.5 3c0 5-9 5-9 9s9 4 9 9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+        '✚': '<path d="M12 3v18M3 12h18" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>',
+        'ϟ': '<path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="currentColor"/>',
+        '⇄': '<path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
+        '↑': '<path d="M12 20V4M5.5 10.5 12 4l6.5 6.5" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>',
+        '⊕': '<circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
+        '✹': '<path d="M12 1.5l2.1 5.4 4.9-3.3-1.4 5.7 5.9.5-4.6 3.7 4.1 4.3-5.9.3.6 5.9-4.6-3.6-3.4 4.9-1.2-5.8-5.6 1.9 2.7-5.3-5.5-2.3 5.6-1.9-1.5-5.7 5.1 3z" fill="currentColor"/>',
+        '×': '<path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>'
+    };
+
+    function pauseGlyphHtml(glyph) {
+        const g = String(glyph);
+        const svg = PAUSE_GLYPH_SVG[g.replace(/️/g, '')];
+        if (svg) return `<svg class="pause-glyph-icon" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true">${svg}</svg>`;
+        return g.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    }
+
     function renderPauseScreen() {
         if (!modalPause) return;
         const m = getPauseModel();
@@ -2179,7 +2206,7 @@
                 const a = (-90 + (i - (n - 1) / 2) * 36) * Math.PI / 180;
                 const x = 50 + 50 * Math.cos(a);
                 const y = 50 + 50 * Math.sin(a);
-                return `<span class="pause-orb is-${g.state}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%">${g.glyph}</span>`;
+                return `<span class="pause-orb is-${g.state}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%">${pauseGlyphHtml(g.glyph)}</span>`;
             }).join('');
         }
 
@@ -2190,7 +2217,7 @@
                 row.className = `pause-goal is-${g.state}`;
                 const glyph = document.createElement('span');
                 glyph.className = 'pause-goal-glyph';
-                glyph.textContent = g.glyph;
+                glyph.innerHTML = pauseGlyphHtml(g.glyph);
                 const label = document.createElement('span');
                 label.className = 'pause-goal-label';
                 label.textContent = g.label;
@@ -5371,7 +5398,7 @@
         if (MAIN_GAMEPLAY) dragTray[0] = { ...special };
         else currentOrb = { ...special };
 
-        addFloatingText(`🔥 OVERDRIVE: ${special.label}! 🔥`, canvas.width / (2 * dpr), boardOffsetY + cellH * 3, '#ffd700', 1.5);
+        addFloatingText(`🔥 OVERDRIVE: ${special.label}!`, canvas.width / (2 * dpr), boardOffsetY + cellH * 3, '#ffd700', 1.5);
         checkAdventureObjective('activate_frenzy', 1);
         updateHUD();
         maybeShowOverdriveTip();
@@ -8668,7 +8695,7 @@
                     ctx.fillStyle = '#ffd700';
                     ctx.font = '900 11px Inter, sans-serif';
                     ctx.textAlign = 'center';
-                    ctx.fillText('⚫ VORTEX (CRUSH COLUMN!)', centerX, boardOffsetY + 16);
+                    fillPopupText('⚫ VORTEX (CRUSH COLUMN!)', centerX, boardOffsetY + 16);
 
                     const targetGhostRow = hasTop ? topRow : (landingRow >= 0 ? landingRow : 0);
                     const ghostY = boardOffsetY + targetGhostRow * cellH + cellH / 2;
@@ -8709,7 +8736,7 @@
                     ctx.font = '900 11px Inter, sans-serif';
                     ctx.textAlign = 'center';
                     const ghostY = boardOffsetY + targetR * cellH + cellH / 2;
-                    ctx.fillText(textLabel, centerX, ghostY - cellH / 2 - 4);
+                    fillPopupText(textLabel, centerX, ghostY - cellH / 2 - 4);
 
                     drawLandingCellReticle(boardOffsetX + col * cellW, boardOffsetY + targetR * cellH, cellW, cellH, sub);
                     ctx.globalAlpha = 0.20;
@@ -8734,7 +8761,7 @@
                     ctx.shadowBlur = 8;
                     const specialLabel = sub === 'invert' ? '➜ ± INVERT' :
                                          sub === 'div2' ? '➜ ÷2 DIVIDE' : '➜ ×2 AMPLIFY';
-                    ctx.fillText(specialLabel, centerX, ghostY - cellH / 2 - 4);
+                    fillPopupText(specialLabel, centerX, ghostY - cellH / 2 - 4);
 
                     ctx.globalAlpha = 0.20;
                     drawTileGraphic(centerX, ghostY, cellW - 10, cellH - 10, currentOrb.label, 'special', 0, true);
@@ -8809,7 +8836,7 @@
                     ctx.fillStyle = previewColor;
                     ctx.font = '900 11px Inter, sans-serif';
                     ctx.textAlign = 'center';
-                    ctx.fillText(previewLabel, centerX, ghostY - cellH / 2 - 4);
+                    fillPopupText(previewLabel, centerX, ghostY - cellH / 2 - 4);
                 } else if (willSynthesize) {
                     const synthColor = orbVal > 0 ? '#00f2fe' : '#ff4e50';
                     ctx.shadowColor = synthColor;
@@ -8824,7 +8851,7 @@
                     ctx.shadowColor = synthColor;
                     ctx.shadowBlur = 8;
                     const nextVal = (orbVal * 2 > 0 ? '+' : '') + (orbVal * 2);
-                    ctx.fillText(`✨ MERGE (➜ ${nextVal})`, centerX, ghostY - cellH / 2 - 4);
+                    fillPopupText(`✨ MERGE (➜ ${nextVal})`, centerX, ghostY - cellH / 2 - 4);
                 }
 
                 // Render subtle low-opacity ghost tile (opacity 0.2)
@@ -9897,6 +9924,72 @@
     const COMBO_PUNCH_DECAY = 9;   // how fast the bump punch settles (per second)
     const COMBO_FOLLOW = 14;       // how fast it glides to the newest blast (per second)
 
+    // ---------- Popup icons: drawn in place of emoji in board texts ----------
+    // [svg path in a 24px box, fill or stroke]
+    const POPUP_ICONS = {
+        bolt: ['M13 2 4 14h7l-1 8 9-12h-7z', 'fill'],
+        vortex: ['M12 12a1.6 1.6 0 1 1 1.6 1.6M12 12a4.2 4.2 0 1 0 4.2-4.2M12 12a7 7 0 1 1-7-7', 'stroke'],
+        nova: ['M12 2l2.3 7.7L22 12l-7.7 2.3L12 22l-2.3-7.7L2 12l7.7-2.3z', 'fill'],
+        blast: ['M12 1.5l2.1 5.4 4.9-3.3-1.4 5.7 5.9.5-4.6 3.7 4.1 4.3-5.9.3.6 5.9-4.6-3.6-3.4 4.9-1.2-5.8-5.6 1.9 2.7-5.3-5.5-2.3 5.6-1.9-1.5-5.7 5.1 3z', 'fill'],
+        lock: ['M7.5 11V8a4.5 4.5 0 0 1 9 0v3M5 11h14v10H5z', 'stroke'],
+        unlock: ['M7.5 11V8a4.5 4.5 0 0 1 8.7-1.6M5 11h14v10H5z', 'stroke'],
+        flame: ['M12 2c.8 3.6 5.5 5.6 5.5 11.2a5.5 5.5 0 0 1-11 0c0-2.8 1.6-4.6 2.6-6.4.2 1.9 1 3 2.1 3.2-.3-2.8-.1-5.6.8-8z', 'fill'],
+        check: ['M4 12.5 9.5 18 20 6', 'stroke'],
+        arrow: ['M4 12h15M13 6l6 6-6 6', 'stroke']
+    };
+    const POPUP_ICON_FOR = { '⚡': 'bolt', '⚫': 'vortex', '\u{1F31F}': 'nova', '✨': 'nova', '\u{1F4A5}': 'blast',
+        '\u{1F512}': 'lock', '\u{1F513}': 'unlock', '\u{1F525}': 'flame', '✓': 'check', '➜': 'arrow' };
+    const POPUP_EMOJI = /[☀-➿⭐\u{1F300}-\u{1FAFF}]️?/gu;
+    const popupPaths = {};
+
+    // '⚡ SHOCKWAVE!' -> { icon: 'bolt', text: 'SHOCKWAVE!' }; other emoji in the text are dropped
+    function splitPopupIcon(raw) {
+        const m = String(raw).match(/^\s*([☀-➿⭐\u{1F300}-\u{1FAFF}])️?\s*/u);
+        const icon = m ? (POPUP_ICON_FOR[m[1]] || null) : null;
+        const text = (m ? raw.slice(m[0].length) : String(raw)).replace(/➜/g, '→')
+            .replace(POPUP_EMOJI, '').replace(/\s{2,}/g, ' ').trim();
+        return { icon, text };
+    }
+
+    function drawPopupIcon(name, x, y, size) {
+        const def = POPUP_ICONS[name];
+        if (!def) return;
+        if (!popupPaths[name]) popupPaths[name] = new Path2D(def[0]);
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(size / 24, size / 24);
+        if (def[1] === 'fill') {
+            ctx.fill(popupPaths[name]);
+        } else {
+            ctx.strokeStyle = ctx.fillStyle;
+            ctx.lineWidth = 2.6;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.stroke(popupPaths[name]);
+        }
+        ctx.restore();
+    }
+
+    // Width of a split popup at the current font, icon included
+    function popupWidth(p, fontPx) {
+        return ctx.measureText(p.text).width + (p.icon ? fontPx * 1.2 : 0);
+    }
+
+    // fillText for centred popup text: draws an icon for a leading emoji instead of the emoji
+    function fillPopupText(raw, x, y, split) {
+        const p = split || splitPopupIcon(raw);
+        if (!p.icon) { ctx.fillText(p.text, x, y); return; }
+        const fontPx = parseFloat((ctx.font.match(/(\d+(?:\.\d+)?)px/) || [0, 12])[1]);
+        const iconSize = fontPx * 0.95;
+        const total = popupWidth(p, fontPx);
+        const left = x - total / 2;
+        drawPopupIcon(p.icon, left, y - fontPx * 0.36 - iconSize / 2, iconSize);
+        const align = ctx.textAlign;
+        ctx.textAlign = 'left';
+        ctx.fillText(p.text, left + fontPx * 1.2, y);
+        ctx.textAlign = align;
+    }
+
     function drawFloatingTexts() {
         const boardLeft = boardOffsetX;
         const boardW = COLS * cellW;
@@ -9907,11 +10000,12 @@
             let size = FLOAT_TEXT_BASE_PX * (1 + ((ft.scale || 1) - 1) * FLOAT_TEXT_SCALE_SPREAD);
             ctx.font = `900 ${size}px 'Lato', 'Inter', sans-serif`;
             // Shrink long banners to fit inside the board instead of clipping at the edge
-            let w = ctx.measureText(ft.text).width;
+            if (!ft.split) ft.split = splitPopupIcon(ft.text);
+            let w = popupWidth(ft.split, size);
             if (w > maxW && w > 0) {
                 size = Math.max(9, size * (maxW / w));
                 ctx.font = `900 ${size}px 'Lato', 'Inter', sans-serif`;
-                w = ctx.measureText(ft.text).width;
+                w = popupWidth(ft.split, size);
             }
             const half = w / 2;
             const x = boardW > 0 ? Math.min(Math.max(ft.x, boardLeft + 8 + half), boardLeft + boardW - 8 - half) : ft.x;
@@ -9922,7 +10016,7 @@
             ctx.textAlign = 'center';
             ctx.shadowColor = ft.color;
             ctx.shadowBlur = 6;
-            ctx.fillText(ft.text, 0, 0);
+            fillPopupText(ft.text, 0, 0, ft.split);
             ctx.restore();
         }
     }

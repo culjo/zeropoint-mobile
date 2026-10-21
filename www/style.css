@@ -7048,3 +7048,7 @@ canvas.board-dead {
 .le-all-flags { font-size: 11px; color: #8892b0; }
 .le-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .le-out { width: 100%; box-sizing: border-box; border-radius: 10px; border: 1px solid #2a3148; background: #0f1320; color: #c3cadf; font-family: ui-monospace, Menlo, monospace; font-size: 11px; padding: 10px; }
+
+/* Pause goal icons (game.js pauseGlyphHtml): sized by the glyph's font-size, coloured by it */
+.pause-glyph-icon { display: block; flex-shrink: 0; }
+.pause-goal-glyph .pause-glyph-icon { margin: 0 auto; }
