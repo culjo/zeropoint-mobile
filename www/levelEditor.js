@@ -262,7 +262,7 @@
                 <div class="le-brushes" data-brushes></div>
                 <div class="le-row">
                     <label class="le-field"><span>Orb value (Tide 0)</span><input data-value type="number" step="1"></label>
-                    <p class="le-note">Tap a cell to paint. Board numbers are Tide 0: Sector 2 doubles them, Sector 3 ×4.</p>
+                    <p class="le-note">Tap a cell to paint. Board numbers are Tide 0, doubled per Tide step: Sectors 2-3 ×2/×4, 4-5 ×8, 6-7 ×16, 8-9 ×32, 10 ×64.</p>
                 </div>
                 <div class="le-grid" data-grid></div>
                 <div class="le-form">

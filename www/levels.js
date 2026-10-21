@@ -20,7 +20,7 @@
 //   pool     { values: [magnitudes], specials: chance of a special orb, favor?: magnitude dealt twice as often,
 //              pairBias?: chance to deal a match for a column top (default 0.2, Big Orb 0.45) }
 //            Values, favor and board numbers are written at Tide 0; the loader doubles them per tide step
-//            (Sector 1 = Tide 0, Sector 2 = Tide 1, Sector 3 = Tide 2; override with `tide`).
+//            (Sectors 1-3 = Tide 0-2, 4-5 = Tide 3, 6-7 = Tide 4, 8-9 = Tide 5, 10 = Tide 6; override with `tide`).
 //            Collect `number` is the real number shown, so it must be in the doubled pool.
 //   rise     a rising row every N drops (0 or missing = none)
 //   risers   { start, every, max }  Risers added at the start, then one every `every` drops
