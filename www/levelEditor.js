@@ -135,7 +135,7 @@
         if (!o) return '';
         const { cfg } = o;
         const rules = [`${cfg.maxDrops} drops`, `Tide ${cfg.rules.pool.tide} · pool ${cfg.rules.pool.values.join(', ')}`]
-            .concat(cfg.rules.modifiers.map((m) => `${m.icon} ${m.label}`));
+            .concat(cfg.rules.modifiers.map((m) => m.label));
         const tags = [sourceOf(state.id)];
         if (cfg.isBoss) tags.push('boss');
         if (cfg.isBonus) tags.push('bonus');
@@ -161,7 +161,8 @@
             const o = objective(id, data);
             if (!o) return `<button type="button" class="le-all-row" data-load="${id}"><span class="le-all-id">${id}</span><span class="le-warn">No level data</span></button>`;
             const { cfg } = o;
-            const flags = [`${cfg.maxDrops} drops`].concat(cfg.rules.modifiers.map((m) => m.icon));
+            const MOD_TAG = { '⏳': 'rise', '▲': 'risers', '🔒': 'sealed' };
+            const flags = [`${cfg.maxDrops} drops`].concat(cfg.rules.modifiers.map((m) => MOD_TAG[m.icon] || m.label));
             if (cfg.guide) flags.push('guide');
             if (cfg.temp) flags.push('stand-in');
             if (!NodeGenerator.HANDCRAFTED[id]) flags.push('gen');

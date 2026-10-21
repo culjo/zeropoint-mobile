@@ -1087,7 +1087,7 @@
         if (nodeSheetChips) {
             const chips = [];
             if (config.maxDrops) chips.push(`<span class="node-chip">↓ ${config.maxDrops} moves</span>`);
-            (config.rules?.modifiers || []).forEach(m => chips.push(`<span class="node-chip">${m.icon} ${m.label}</span>`));
+            (config.rules?.modifiers || []).forEach(m => chips.push(`<span class="node-chip node-chip-icon">${pauseGlyphHtml(m.icon)}${m.label}</span>`));
             if (config.stars) chips.push(config.stars.kind === 'headroom'
                 ? `<span class="node-chip">★★ ${config.stars.two} free rows · ★★★ ${config.stars.three}</span>`
                 : `<span class="node-chip">★★ ${config.stars.two} left · ★★★ ${config.stars.three} left</span>`);
@@ -1135,7 +1135,7 @@
                 mods.forEach(m => {
                     const pill = document.createElement('span');
                     pill.className = 'node-modifier-pill';
-                    pill.innerHTML = `${m.icon} ${m.label}`;
+                    pill.innerHTML = `${pauseGlyphHtml(m.icon)} ${m.label}`;
                     nodePreviewModifiers.appendChild(pill);
                 });
             }
@@ -2168,7 +2168,8 @@
         '↑': '<path d="M12 20V4M5.5 10.5 12 4l6.5 6.5" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>',
         '⊕': '<circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
         '✹': '<path d="M12 1.5l2.1 5.4 4.9-3.3-1.4 5.7 5.9.5-4.6 3.7 4.1 4.3-5.9.3.6 5.9-4.6-3.6-3.4 4.9-1.2-5.8-5.6 1.9 2.7-5.3-5.5-2.3 5.6-1.9-1.5-5.7 5.1 3z" fill="currentColor"/>',
-        '×': '<path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>'
+        '×': '<path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>',
+        '🔒': '<path d="M7.5 11V8a4.5 4.5 0 0 1 9 0v3M5 11h14v10H5z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/>'
     };
 
     function pauseGlyphHtml(glyph) {

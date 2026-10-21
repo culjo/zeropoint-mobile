@@ -7052,3 +7052,7 @@ canvas.board-dead {
 /* Pause goal icons (game.js pauseGlyphHtml): sized by the glyph's font-size, coloured by it */
 .pause-glyph-icon { display: block; flex-shrink: 0; }
 .pause-goal-glyph .pause-glyph-icon { margin: 0 auto; }
+
+/* Node sheet chips with a rule icon (rising rows, Risers, sealed columns) */
+.node-chip-icon { display: inline-flex; align-items: center; gap: 5px; }
+.node-chip-icon .pause-glyph-icon, .node-modifier-pill .pause-glyph-icon { display: inline-block; vertical-align: -0.12em; }
