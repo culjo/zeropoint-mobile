@@ -8,6 +8,8 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // Local plugins register before the bridge starts
+        registerPlugin(GameServicesPlugin.class);
         super.onCreate(savedInstanceState);
         // Full screen: hidden bars peek in on swipe, then hide again
         WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView())

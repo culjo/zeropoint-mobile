@@ -467,6 +467,30 @@
         updateCareerDisplays();
     }
 
+    // ---------- Game Center / Play Games (gameServices.js) ----------
+    // Debug mode stages fake bests for captures, so nothing is sent from it
+    function gameServicesOn() {
+        return typeof NullfallGameServices !== 'undefined' && !isDebugMode();
+    }
+
+    function gameServicesReady(board) {
+        return gameServicesOn() && NullfallGameServices.canShow(board);
+    }
+
+    function submitClassicScore(value) {
+        if (gameServicesOn()) NullfallGameServices.submitScore('classic', value);
+    }
+
+    // Sign in at launch (Apple asks for it early); once in, send the saved best
+    // so a best set offline, or before this update, still reaches the leaderboard
+    function startGameServices() {
+        if (!gameServicesOn()) return;
+        NullfallGameServices.onSignInChange((signedIn) => {
+            if (signedIn) submitClassicScore(career.highScore || 0);
+        });
+        NullfallGameServices.signIn();
+    }
+
     function getTotalStars() {
         if (!career || !career.levelStars) return 0;
         let total = 0;
@@ -2693,6 +2717,13 @@
             });
         }
 
+        const btnGoRanks = document.getElementById('btn-go-ranks');
+        if (btnGoRanks) {
+            btnGoRanks.addEventListener('click', () => {
+                if (typeof NullfallGameServices !== 'undefined') NullfallGameServices.showLeaderboard('classic');
+            });
+        }
+
         const btnGoMap = document.getElementById('btn-go-map');
         if (btnGoMap) {
             btnGoMap.addEventListener('click', () => {
@@ -2756,6 +2787,7 @@
             openDevTools();
         }
 
+        startGameServices();
         showScreen('home');
         if (shouldOfferTutorial()) showTutWelcome();
         if (document.fonts && document.fonts.ready) {
@@ -4977,6 +5009,9 @@
         if (goCascade) goCascade.textContent = `${maxCombo}x`;
         if (goZeroes) goZeroes.textContent = totalZeroPoints;
         if (btnGoMap) btnGoMap.hidden = !isAdventureRun || isTutorial || !!(activeAdventureLevel && activeAdventureLevel.isGraduation);
+        const btnGoRanks = document.getElementById('btn-go-ranks');
+        if (btnGoRanks) btnGoRanks.hidden = isAdventureRun || !gameServicesReady('classic');
+        if (gameMode === 'classic' && !isAdventureRun && !firstPlay) submitClassicScore(score);
         renderBreachWhy(isAdventureRun && !isTutorial, outOfDrops, /riser/i.test(message));
         showRunOrb('go-orb');
 
