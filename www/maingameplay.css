@@ -1795,3 +1795,39 @@
 @media (prefers-reduced-motion: reduce) {
     #screen-game .mission-status-strip #adventure-objective-card:active { transform: none; }
 }
+
+/* Tablets (iPad portrait): the phone column left the board width-bound at ~80px cells with empty
+   height above it. Widen the game column so the board fills the height (cells ~110px; canvas text
+   grows with them, textScale in game.js) and size the HUD, bounty strip and tray up to match.
+   Plain sizes, not CSS zoom: WebKit reports unzoomed rects for zoomed elements, which would
+   break the tray's Hold drop and the score and goal flyers. */
+@media (min-width: 700px) and (min-height: 900px) {
+    #screen-game.screen-view { max-width: 820px; }
+    #screen-game #app { max-width: 720px; }
+
+    #screen-game .game-header #best-label { font-size: 12px; }
+    #screen-game .game-header #best-val { font-size: 25px; }
+    #screen-game .game-header #score-val { font-size: 46px; }
+    #screen-game .game-header #combo-val { font-size: 16px; }
+    #screen-game .game-header .hud-od-label { font-size: 12px; }
+    #screen-game .game-header #overdrive-percent { font-size: 13px; }
+    #screen-game .mission-status-strip .cs-kicker { font-size: 12px; }
+    #screen-game .mission-status-strip .cs-desc { font-size: 17px; }
+    #screen-game .mission-status-strip .cs-progress { font-size: 20px; }
+    #screen-game .rise-status-label,
+    #screen-game .counter-ring { font-size: 14px; }
+    #screen-game .rise-status-icon { width: 16px; height: 16px; }
+
+    #screen-game .drag-tray { height: 116px; border-radius: 30px; padding: 0 18px; }
+    #screen-game .dt-divider { height: 76px; margin: 0 12px; }
+    #screen-game .dt-orbs { gap: 20px; }
+    #screen-game .dt-hold,
+    #screen-game .dt-orb-btn,
+    #screen-game .dt-swap { min-width: 78px; min-height: 78px; }
+    #screen-game .drag-tray .next-orb.dt-slot,
+    #screen-game .drag-tray .dt-swap-slot { width: 78px; height: 78px; border-radius: 21px; }
+    #screen-game .drag-tray .next-orb.dt-slot .queue-orb-label { font-size: 32px !important; }
+    #screen-game .dt-hold-label { font-size: 14px; }
+    #screen-game .drag-tray .dt-swap-slot svg { width: 30px; height: 30px; }
+    #screen-game .drag-tray .dt-swap-slot .swap-token-text { min-width: 28px; height: 28px; border-radius: 14px; font-size: 15px; top: -9px; right: -9px; }
+}

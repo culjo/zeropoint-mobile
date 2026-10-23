@@ -751,6 +751,7 @@
     // Rendering Metrics
     let cellW = 0;
     let cellH = 0;
+    let textScale = 1;   // canvas text grows with the board past phone-sized cells (tablets)
     let boardOffsetX = 0;
     let boardOffsetY = 0;
     let dpr = window.devicePixelRatio || 1;
@@ -2859,6 +2860,7 @@
         const cell = Math.min(rect.width / COLS, rect.height / (ROWS + (MAIN_GAMEPLAY ? 1.3 : 2.2)));
         cellW = cell;
         cellH = cell;
+        textScale = Math.max(1, cell / 76);
         boardOffsetX = (rect.width - cell * COLS) / 2;
         boardOffsetY = rect.height - cell * (ROWS + 1);
         if (riseStatusBar) riseStatusBar.style.height = `${cell}px`;
@@ -8775,7 +8777,7 @@
         ctx.stroke();
 
         ctx.fillStyle = 'rgba(255, 42, 95, 0.7)';
-        ctx.font = '800 10px Inter, sans-serif';
+        ctx.font = `800 ${Math.round(10 * textScale)}px Inter, sans-serif`;
         ctx.textAlign = 'right';
         ctx.fillText('CRITICAL THRESHOLD', w - 8, dangerY - 4);
         ctx.restore();
@@ -9949,13 +9951,8 @@
         // Use Lato for clean, unambiguous numbers and distinct ± and ÷ glyphs
         const isSpecialOp = (label === '±' || (label && label.startsWith('÷')));
         const weight = isSpecialOp ? '700' : '900';
-        if (label.length > 5) {
-            ctx.font = `${weight} 0.82rem 'Lato', 'Inter', sans-serif`;
-        } else if (label.length > 2) {
-            ctx.font = `${weight} 1.05rem 'Lato', 'Inter', sans-serif`;
-        } else {
-            ctx.font = `${weight} 1.25rem 'Lato', 'Inter', sans-serif`;
-        }
+        const rem = label.length > 5 ? 0.82 : (label.length > 2 ? 1.05 : 1.25);
+        ctx.font = `${weight} ${(rem * textScale).toFixed(3)}rem 'Lato', 'Inter', sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         if (numberShadow) {
@@ -10264,7 +10261,7 @@
         for (const ft of floatingTexts) {
             ctx.save();
             ctx.globalAlpha = Math.max(0, ft.alpha);
-            let size = FLOAT_TEXT_BASE_PX * (1 + ((ft.scale || 1) - 1) * FLOAT_TEXT_SCALE_SPREAD);
+            let size = FLOAT_TEXT_BASE_PX * textScale * (1 + ((ft.scale || 1) - 1) * FLOAT_TEXT_SCALE_SPREAD);
             ctx.font = `900 ${size}px 'Lato', 'Inter', sans-serif`;
             // Shrink long banners to fit inside the board instead of clipping at the edge
             if (!ft.split) ft.split = splitPopupIcon(ft.text);
@@ -10316,7 +10313,7 @@
         const cc = comboCounter;
         if (!cc) return;
         const alpha = cc.age < COMBO_SHOW ? 1 : Math.max(0, 1 - (cc.age - COMBO_SHOW) / COMBO_FADE);
-        const size = Math.min(34, 22 + (cc.n - 2) * 3);
+        const size = Math.min(34, 22 + (cc.n - 2) * 3) * textScale;
         const scale = 1 + 0.45 * cc.punch;
         const color = comboColor(cc.n);
         const boardW = COLS * cellW;
@@ -10336,8 +10333,8 @@
         ctx.shadowBlur = 0;
         ctx.globalAlpha = alpha * 0.85;
         ctx.fillStyle = '#ffffff';
-        ctx.font = `900 9px 'Lato', 'Inter', sans-serif`;
-        ctx.fillText('COMBO', 0, 11);
+        ctx.font = `900 ${Math.round(9 * textScale)}px 'Lato', 'Inter', sans-serif`;
+        ctx.fillText('COMBO', 0, 11 * textScale);
         ctx.restore();
     }
 
