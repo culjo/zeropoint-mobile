@@ -1,6 +1,7 @@
 // Nullfall - store screenshots from showcase stills
 // Renders captioned store images with headless Chrome from a plan of picked stills:
-//   App Store iPhone 6.9" 1290×2796, App Store iPad 13" 2064×2752, Google Play phone 1080×1920
+//   App Store iPhone 6.9" 1290×2796, 6.3" 1206×2622 and 6.1" 1179×2556, App Store iPad 13" 2064×2752,
+//   Google Play phone 1080×1920
 //   and the Google Play feature graphic 1024×500. Output PNGs have no alpha channel (App Store
 //   Connect rejects screenshots with one).
 //   node tools/showcase/storeshots.js captures/store/plan.json [--out captures/store]
@@ -29,6 +30,8 @@ const ICON = `file://${path.join(ROOT, 'resources', 'icon', 'png', 'icon-master.
 
 const SETS = {
     'appstore-iphone-6.9': { w: 1290, h: 2796, still: 'iphone' },
+    'appstore-iphone-6.3': { w: 1206, h: 2622, still: 'iphone' },
+    'appstore-iphone-6.1': { w: 1179, h: 2556, still: 'iphone' },
     'appstore-ipad-13': { w: 2064, h: 2752, still: 'ipad' },
     'googleplay-phone': { w: 1080, h: 1920, still: 'iphone' }
 };
