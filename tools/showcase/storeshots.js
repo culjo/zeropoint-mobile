@@ -9,6 +9,9 @@
 // Plan: { "shots": [{ "id": "01-zero", "title": "Opposites cancel.\n*Hit zero.*",
 //                     "iphone": "<still png>", "ipad": "<still png>" }],
 //         "feature": { "shot": "<still png>", "tagline": "Cancel numbers. Chain blasts." } }
+// Optional "banner": { "shots": [3 stills, centre one second], "tagline": "…" } renders the App Store
+// header (5244×2950, 3840×1646) and search result (5244×2950, 3840×2560, 1920×1280) banners.
+// --only <text> renders just the outputs whose path contains it.
 // *word* in a title is drawn in the accent colour; \n breaks the line. Android uses the iPhone still.
 
 'use strict';
@@ -114,6 +117,62 @@ body { width: ${W}px; height: ${H}px; }
 </body></html>`;
 }
 
+// App Store header and search result banners: icon, name and tagline on the left, three phones
+// fanned out on the right. Everything is sized from the height, so one layout fits every ratio.
+const BANNERS = {
+    'appstore-header-5244x2950': { w: 5244, h: 2950 },
+    'appstore-header-3840x1646': { w: 3840, h: 1646 },
+    'appstore-search-5244x2950': { w: 5244, h: 2950 },
+    'appstore-search-3840x2560': { w: 3840, h: 2560 },
+    'appstore-search-1920x1280': { w: 1920, h: 1280 }
+};
+
+function bannerHtml(size, banner) {
+    const { w: W, h: H } = size;
+    const u = H / 100; // 1% of the height
+    const t = u * Math.min(1, W / H / 2.3); // text unit: the title block shrinks on narrower banners
+    const phones = banner.shots.slice(0, 3);
+    const s = sizeOf(phones[0]);
+    // NULLFALL at 15% of the height is ~75% of the height wide; the three phones (about 2.75
+    // phone widths with the fan) take what is left, capped by the height on wide banners
+    const textRight = W * 0.06 + t * 80;
+    const fanW = W - textRight - Math.max(W * 0.05, u * 8) - u * 4;
+    const phoneH = Math.round(Math.min(H * 0.84, (fanW / 2.75) * s.h / s.w));
+    const phoneW = Math.round(phoneH * s.w / s.h);
+    const gap = Math.round(phoneW * 0.78);
+    const rightEdge = W - Math.max(W * 0.05, u * 8);
+    const centreX = Math.round(rightEdge - phoneW / 2 - gap);
+    const frames = phones.map((p, i) => {
+        const k = i - 1; // left, centre, right
+        const scale = k === 0 ? 1 : 0.86;
+        const x = centreX + k * gap - (phoneW * scale) / 2;
+        const y = (H - phoneH * scale) / 2 + (k === 0 ? 0 : u * 2);
+        return `<div class="phone" style="left:${Math.round(x)}px;top:${Math.round(y)}px;width:${Math.round(phoneW * scale)}px;height:${Math.round(phoneH * scale)}px;`
+            + `transform:rotate(${k * 6}deg);z-index:${k === 0 ? 3 : 2}"><img src="${fileUrl(p)}"></div>`;
+    }).join('');
+    const textW = Math.max(u * 60, centreX - gap - phoneW * 0.5 - u * 6 - W * 0.06);
+    const bezel = Math.round(phoneW * 0.025);
+    return `<!doctype html><html><head><meta charset="utf-8"><style>${BASE_CSS}
+body { width: ${W}px; height: ${H}px; }
+.stars { background-size: ${Math.round(W * 0.2)}px ${Math.round(H * 0.25)}px; }
+.left { position: absolute; left: ${Math.round(W * 0.06)}px; top: 0; bottom: 0; width: ${Math.round(textW)}px;
+  display: flex; flex-direction: column; justify-content: center; }
+.icon { width: ${Math.round(t * 22)}px; height: ${Math.round(t * 22)}px; border-radius: ${Math.round(t * 5)}px;
+  box-shadow: 0 ${Math.round(t * 1.5)}px ${Math.round(t * 6)}px rgba(249, 212, 35, 0.28), 0 0 0 ${Math.max(2, Math.round(u * 0.3))}px rgba(255,255,255,0.08); }
+.name { margin-top: ${Math.round(t * 4.5)}px; font-weight: 900; font-size: ${Math.round(t * 15)}px; line-height: 0.92; letter-spacing: -0.035em; }
+.sub { margin-top: ${Math.round(t * 3)}px; font-weight: 800; font-size: ${Math.round(t * 6.2)}px; line-height: 1.1; letter-spacing: -0.015em; }
+.phone { position: absolute; box-sizing: border-box; border: ${bezel}px solid #1b2133; border-radius: ${Math.round(phoneW * 0.11)}px; overflow: hidden;
+  background: #080a11; transform-origin: 50% 60%;
+  box-shadow: 0 0 0 ${Math.max(2, Math.round(bezel / 3))}px rgba(0, 242, 254, 0.35), 0 ${Math.round(u * 2)}px ${Math.round(u * 7)}px rgba(0,0,0,0.7), 0 0 ${Math.round(u * 10)}px rgba(0, 242, 254, 0.16); }
+.phone img { display: block; width: 100%; height: 100%; }
+.glow { position: absolute; left: ${centreX - phoneW}px; top: ${Math.round(H * 0.15)}px; width: ${phoneW * 2}px; height: ${Math.round(H * 0.7)}px;
+  background: radial-gradient(closest-side, rgba(0, 242, 254, 0.22), transparent); filter: blur(${Math.round(u * 4)}px); }
+</style></head><body><div class="bg"></div><div class="stars"></div><div class="glow"></div>
+<div class="left"><img class="icon" src="${ICON}"><div class="name">NULLFALL</div><div class="sub">${titleHtml(banner.tagline || 'Puzzle Cascade')}</div></div>
+${frames}
+</body></html>`;
+}
+
 async function cdp(wsUrl) {
     const ws = new WebSocket(wsUrl);
     await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
@@ -154,6 +213,16 @@ async function cdp(wsUrl) {
         fs.writeFileSync(html, featureHtml(plan.feature));
         jobs.push({ html, w: 1024, h: 500, out: path.join(OUT, 'googleplay-feature-graphic.png') });
     }
+
+    if (plan.banner) {
+        Object.entries(BANNERS).forEach(([name, size]) => {
+            const html = path.join(htmlDir, `${name}.html`);
+            fs.writeFileSync(html, bannerHtml(size, plan.banner));
+            jobs.push({ html, w: size.w, h: size.h, out: path.join(OUT, 'appstore-banners', `${name}.png`) });
+        });
+    }
+    const only = arg('only');
+    if (only) jobs.splice(0, jobs.length, ...jobs.filter((j) => j.out.includes(only)));
 
     const profile = fs.mkdtempSync(path.join(process.env.TMPDIR || os.tmpdir(), 'nullfall-store-'));
     const chrome = spawn(CHROME, [
