@@ -491,6 +491,47 @@
         NullfallGameServices.signIn();
     }
 
+    // ---------- Analytics (analytics.js) ----------
+    // Debug mode stages saves and fake runs for captures, so nothing is logged from it
+    function analytics() {
+        return typeof NullfallAnalytics !== 'undefined' && !isDebugMode() ? NullfallAnalytics : null;
+    }
+
+    // Level name and mode for the run in progress
+    function runLabel() {
+        const lvl = activeAdventureLevel;
+        if (gameMode === 'classic' || !lvl) return { level: 'classic', mode: 'classic' };
+        if (lvl.isGraduation) return { level: 'graduation', mode: 'tutorial' };
+        if (lvl.isTutorial) return { level: 'academy', mode: 'tutorial' };
+        if (lvl.sectorNum) return { level: String(lvl.id), mode: 'adventure' };
+        return { level: `mission-${lvl.id}`, mode: 'challenge' };
+    }
+
+    // Coached first play, Academy lessons and level-editor play-tests aren't real runs
+    function isTrackedRun() {
+        return !firstPlay && !isTutorial && !(activeAdventureLevel && activeAdventureLevel.editorTest);
+    }
+
+    function trackRunStart() {
+        const a = analytics();
+        if (!a || !isTrackedRun()) return;
+        const { level, mode } = runLabel();
+        a.levelStart(level, mode);
+    }
+
+    function trackRunEnd(success, details) {
+        const a = analytics();
+        if (!a || !isTrackedRun()) return;
+        const { level, mode } = runLabel();
+        a.levelEnd(level, mode, success, details);
+        if (mode === 'classic') a.postScore(details.score, level);
+    }
+
+    // Collection follows debug mode, so turning it on mid-session stops logging straight away
+    function syncAnalyticsEnabled() {
+        if (typeof NullfallAnalytics !== 'undefined') NullfallAnalytics.setEnabled(!isDebugMode());
+    }
+
     function getTotalStars() {
         if (!career || !career.levelStars) return 0;
         let total = 0;
@@ -1612,6 +1653,7 @@
         }
         hideObjectiveIntro();
         hideTutWelcome();
+        if (analytics()) analytics().tutorialBegin('academy');
         gameMode = 'adventure';
         isTutorial = true;
         activeAdventureLevel = ADVENTURE_LEVELS.find(l => l.isTutorial) || ADVENTURE_LEVELS[0];
@@ -1798,6 +1840,7 @@
         hideTutHand();
         hideTutFail();
         if (markSkipped && career && !career.tutorialDone) {
+            if (analytics()) analytics().tutorialSkip('academy');
             career.tutorialSkipped = true;
             saveCareerData();
         }
@@ -2678,6 +2721,7 @@
         on('btn-tut-showme', () => { sfx.playMove(); loadLesson(tutLesson); });
         on('btn-tut-welcome-start', () => { sfx.init(); startTutorialMode(); });
         on('btn-tut-welcome-skip', () => {
+            if (analytics()) analytics().tutorialSkip('academy');
             career.tutorialSkipped = true;
             saveCareerData();
             hideTutWelcome();
@@ -2787,6 +2831,7 @@
             openDevTools();
         }
 
+        syncAnalyticsEnabled();
         startGameServices();
         showScreen('home');
         if (shouldOfferTutorial()) showTutWelcome();
@@ -2821,6 +2866,7 @@
     }
 
     function startNewGame() {
+        trackRunStart();
         // Every new game moves the soundtrack on; boss levels get the upbeat tracks
         if (sfx) sfx.rotateBGM(isBossLevel());
         // Main gameplay: Classic uses the new header (BEST · score · pause, overdrive row below);
@@ -5009,6 +5055,10 @@
         if (goCascade) goCascade.textContent = `${maxCombo}x`;
         if (goZeroes) goZeroes.textContent = totalZeroPoints;
         if (btnGoMap) btnGoMap.hidden = !isAdventureRun || isTutorial || !!(activeAdventureLevel && activeAdventureLevel.isGraduation);
+        const riserBreach = /riser/i.test(message);
+        trackRunEnd(false, isAdventureRun
+            ? { result: outOfDrops ? 'out_of_moves' : riserBreach ? 'riser' : 'overload', score, moves_left: getDropsLeft(), moves_used: dropsUsed }
+            : { result: riserBreach ? 'riser' : 'overload', score, heat: classicHeat, best_orb: runBestOrb, moves_used: classicDrops });
         const btnGoRanks = document.getElementById('btn-go-ranks');
         if (btnGoRanks) btnGoRanks.hidden = isAdventureRun || !gameServicesReady('classic');
         if (gameMode === 'classic' && !isAdventureRun && !firstPlay) submitClassicScore(score);
@@ -5168,6 +5218,7 @@
         const dropsLeft = Math.max(0, maxDrops - dropsUsed);
         const dropBonus = dropsLeft * 20;
         const finalScore = score + dropBonus;
+        trackRunEnd(true, { result: 'cleared', score: finalScore, stars: totalStars, moves_left: dropsLeft, moves_used: dropsUsed });
         score = finalScore;
         scoreFlySession++;
         scoreShown = score;
@@ -5177,6 +5228,8 @@
 
         const isNodeLevel = !!(activeAdventureLevel && activeAdventureLevel.sectorNum);
         if (activeAdventureLevel && activeAdventureLevel.isGraduation) {
+            const a = analytics();
+            if (a && !career.tutorialDone) a.tutorialComplete('academy');
             career.tutorialDone = true;
             career.levelStars[0] = 3;
             career.levelHighScores[GRADUATION_LEVEL.id] = Math.max(career.levelHighScores[GRADUATION_LEVEL.id] || 0, finalScore);
@@ -7007,6 +7060,7 @@
         if (!career[key]) {
             career[key] = true;
             saveCareerData();
+            if (analytics()) analytics().toolFirstUse(tool, runLabel().level);
         }
         if (toolHint && toolHint.tool === tool) hideToolHint();
     }
@@ -7130,6 +7184,7 @@
             ORB_TIERS.forEach((t) => { if (magnitude >= t.size) career.orbTiersMade[t.size] = true; });
             career.discoveriesNew[`tier:${tier.size}`] = true;
             changed = true;
+            if (analytics() && !firstPlay) analytics().orbTier(tier.size, tier.name, runLabel().level);
             const x = pos ? pos.x : canvas.width / (2 * dpr);
             const y = pos ? pos.y : boardOffsetY + cellH * 3;
             const color = tier.color === 'rainbow' ? '#ffffff' : tier.color;
@@ -7479,6 +7534,7 @@
     }
 
     function startFirstPlay(node) {
+        if (analytics()) analytics().tutorialBegin('first_play');
         firstPlay = { step: 0, node };
         gameMode = 'classic';
         isTutorial = false;
@@ -7728,6 +7784,7 @@
     function fpFinish() {
         if (!firstPlay) return;
         const node = firstPlay.node;
+        if (analytics()) analytics().tutorialComplete('first_play');
         career.firstPlayDone = true;
         ['zero_blast', 'merge', 'red_line'].forEach((id) => markConceptSeen(id, true));
         saveCareerData();
@@ -7823,6 +7880,7 @@
             else localStorage.removeItem(DEBUG_MODE_KEY);
         } catch (e) { /* storage unavailable: debug mode just won't persist */ }
         syncLabsUI();
+        syncAnalyticsEnabled();
     }
 
     // The Labs switch and the Settings "Debug mode" row only appear while debug mode is on

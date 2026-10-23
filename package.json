@@ -16,6 +16,7 @@
     "levelgen": "node tools/levelgen.js"
   },
   "dependencies": {
+    "@capacitor-firebase/analytics": "^8.5.2",
     "@capacitor/android": "^8.5.0",
     "@capacitor/cli": "^8.5.0",
     "@capacitor/core": "^8.5.0",
@@ -23,7 +24,8 @@
     "@capacitor/ios": "^8.5.0",
     "@capacitor/local-notifications": "^8.3.1",
     "@capacitor/screen-orientation": "^8.0.0",
-    "@capacitor/status-bar": "^8.0.0"
+    "@capacitor/status-bar": "^8.0.0",
+    "firebase": "^12.19.0"
   },
   "keywords": [
     "zeropoint",

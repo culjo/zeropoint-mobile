@@ -11,6 +11,7 @@ install! 'cocoapods', :disable_input_output_paths => true
 def capacitor_pods
   pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
   pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
+  pod 'CapacitorFirebaseAnalytics', :path => '../../node_modules/@capacitor-firebase/analytics'
   pod 'CapacitorHaptics', :path => '../../node_modules/@capacitor/haptics'
   pod 'CapacitorLocalNotifications', :path => '../../node_modules/@capacitor/local-notifications'
   pod 'CapacitorScreenOrientation', :path => '../../node_modules/@capacitor/screen-orientation'
@@ -20,6 +21,8 @@ end
 target 'App' do
   capacitor_pods
   # Add your Pods here
+  # Firebase Analytics without IDFA, so no App Tracking Transparency prompt is needed
+  pod 'CapacitorFirebaseAnalytics/AnalyticsWithoutAdIdSupport', :path => '../../node_modules/@capacitor-firebase/analytics'
 end
 
 post_install do |installer|
