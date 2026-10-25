@@ -777,6 +777,19 @@
                     <span class="qs-switch" aria-hidden="true"><span class="qs-knob"></span></span>
                 </label>
 
+                <label class="qs-row" for="setting-reminders-toggle" hidden>
+                    <span class="qs-ic" style="color:#7ce38b;background:rgba(124, 227, 139, 0.13)">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
+                    </span>
+                    <span class="qs-text">
+                        <strong>Daily Reminders</strong>
+                        <span>A nudge at your usual play time</span>
+                        <span id="setting-reminders-note" class="qs-note" hidden>Notifications are off for Nullfall. Turn them on in your phone's Settings.</span>
+                    </span>
+                    <input type="checkbox" id="setting-reminders-toggle" class="qs-input" role="switch">
+                    <span class="qs-switch" aria-hidden="true"><span class="qs-knob"></span></span>
+                </label>
+
                 <div class="qs-row qs-row-shake">
                     <span class="qs-ic" style="color:#f9d423;background:rgba(249, 212, 35, 0.14)">≈</span>
                     <span class="qs-text">
@@ -831,6 +844,19 @@
         <!-- ========================================== -->
         <!-- MODAL: GAME OVER (Classic Containment Breach)-->
         <!-- ========================================== -->
+        <!-- Soft ask before the one-time system notification prompt -->
+        <div id="modal-reminders" class="overlay" role="dialog" aria-modal="true" aria-labelledby="reminders-title">
+            <div class="modal-card remind-card">
+                <span class="remind-ic" aria-hidden="true">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
+                </span>
+                <h2 id="reminders-title" class="remind-title">Want a daily nudge?</h2>
+                <p class="remind-body">We'll remind you about your next level at the time you usually play. Never late at night.</p>
+                <button type="button" id="btn-reminders-yes" class="remind-yes">Yes, remind me</button>
+                <button type="button" id="btn-reminders-no" class="remind-no">Not now</button>
+            </div>
+        </div>
+
         <div id="modal-gameover" class="overlay breach-screen" role="dialog" aria-modal="true" aria-labelledby="breach-title">
             <div class="breach-body">
                 <span class="breach-kicker" id="go-kicker">REACTOR OVERLOAD</span>

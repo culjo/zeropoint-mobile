@@ -225,6 +225,9 @@
     const settingVibrationToggle = document.getElementById('setting-vibration-toggle');
     const settingReduceEffectsToggle = document.getElementById('setting-reduce-effects-toggle');
     const settingShakePills = document.querySelectorAll('#setting-shake-pills .qs-pill');
+    const settingRemindersToggle = document.getElementById('setting-reminders-toggle');
+    const settingRemindersNote = document.getElementById('setting-reminders-note');
+    const modalReminders = document.getElementById('modal-reminders');
     const btnResetData = document.getElementById('btn-reset-data');
 
     // Codex Elements
@@ -2386,10 +2389,10 @@
             showScreen('codex');
         });
         if (btnOpenSettings) btnOpenSettings.addEventListener('click', () => {
-            if (modalSettings) modalSettings.classList.add('visible');
+            openSettings();
         });
         if (btnHomeSettings) btnHomeSettings.addEventListener('click', () => {
-            if (modalSettings) modalSettings.classList.add('visible');
+            openSettings();
         });
 
         // Adventure Constellation Map Buttons
@@ -2495,7 +2498,7 @@
             showScreen('codex');
         });
         if (btnPauseSettings) btnPauseSettings.addEventListener('click', () => {
-            if (modalSettings) modalSettings.classList.add('visible');
+            openSettings();
         });
         if (btnPauseQuit) btnPauseQuit.addEventListener('click', () => {
             togglePause(false);
@@ -2630,6 +2633,8 @@
         const systemBars = nativePlugin('SystemBars');
         const hideBars = () => { if (systemBars) systemBars.hide().catch(() => {}); };
         hideBars();
+        noteSessionStart();
+        listenForReminderTaps();
         scheduleReminders();
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
@@ -2637,8 +2642,15 @@
             } else {
                 hideBars();
                 cancelReminders();
+                noteSessionStart();
+                if (modalSettings && modalSettings.classList.contains('visible')) syncRemindersRow();
             }
         });
+
+        if (settingRemindersToggle) settingRemindersToggle.addEventListener('change', onRemindersToggle);
+        const onClick = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
+        onClick('btn-reminders-yes', () => answerReminderNudge(true));
+        onClick('btn-reminders-no', () => answerReminderNudge(false));
 
         if (settingVibrationToggle) {
             settingVibrationToggle.addEventListener('change', (e) => {
@@ -5016,6 +5028,11 @@
             if (!runUsedHold) f.noHold++;
             if (!runUsedSwap) f.noSwap++;
             career.levelFails[activeAdventureLevel.id] = f;
+            // A close fail becomes the next reminder's hook ("You were 1 away")
+            const goal = isGoalLevel(activeAdventureLevel) ? getLevelGoal(activeAdventureLevel) : null;
+            const counts = goal ? getObjectiveCounts(goal) : null;
+            const left = counts ? Math.max(0, counts.tgt - counts.cur) : 0;
+            career.lastFail = left >= 1 && left <= 3 ? { id: activeAdventureLevel.id, left } : null;
             saveCareerData();
         }
         hideToolHint();
@@ -5150,34 +5167,123 @@
         }
     }
 
+    function openSettings() {
+        if (!modalSettings) return;
+        modalSettings.classList.add('visible');
+        syncRemindersRow();
+    }
+
     // ---------- Native helpers: plugins and game reminders ----------
     function nativePlugin(name) {
         const cap = window.Capacitor;
         return cap && cap.isNativePlatform && cap.isNativePlatform() && cap.Plugins ? cap.Plugins[name] || null : null;
     }
 
-    const REMINDERS = [
-        { id: 101, days: 1, title: 'The reactor misses you', body: 'Your board is waiting. Drop in for a quick run.' },
-        { id: 102, days: 3, title: 'Numbers are piling up', body: 'Come back and zero them out before the tide rises.' },
-        { id: 103, days: 7, title: 'New stars to earn', body: 'Pick up where you left off in Nullfall.' }
+    // Days after the last session: daily while the habit forms, then tapering off, then silence
+    const REMINDER_DAYS = [1, 2, 3, 5, 7, 10, 14, 30];
+    const REMINDER_IDS = REMINDER_DAYS.map((d, i) => 101 + i); // 101-103 were the old set, so cancel clears them too
+    const REMINDER_EARLIEST = 10;     // local hour; quiet hours are outside 10:00-21:00
+    const REMINDER_LATEST = 21;
+    const REMINDER_DEFAULT_HOUR = 18.5;
+    const REMINDER_MIN_GAP_MS = 16 * 3600000; // the first one never lands the same evening
+    const REMINDER_WINS_TO_REASK = 3;
+
+    const GENERIC_REMINDERS = [
+        { title: 'The reactor misses you', body: 'Your board is waiting. Drop in for a quick run.' },
+        { title: 'Numbers are piling up', body: 'Come back and zero them out before the tide rises.' },
+        { title: 'New stars to earn', body: 'Pick up where you left off in Nullfall.' }
     ];
 
-    // Asked once, after the first win, so the prompt lands on a good moment
-    async function askReminderPermission() {
-        const notifs = nativePlugin('LocalNotifications');
-        if (!notifs || !career.settings || career.settings.remindersAsked) return;
-        career.settings.remindersAsked = true;
+    // Short wins first while the habit forms; bigger goals once the player has drifted
+    const REMINDER_HOOKS_EARLY = ['nearMiss', 'next', 'orb', 'stars', 'classic'];
+    const REMINDER_HOOKS_LATE = ['stars', 'classic', 'next', 'orb', 'nearMiss'];
+
+    function remindersOn() {
+        return !career.settings || career.settings.reminders !== false;
+    }
+
+    // Local hour of recent session starts, so reminders arrive when this player usually plays
+    function noteSessionStart() {
+        const now = Date.now();
+        if (career.lastSessionAt && now - career.lastSessionAt < 30 * 60000) return;
+        const d = new Date(now);
+        career.lastSessionAt = now;
+        career.sessionHours = [...(career.sessionHours || []), d.getHours() + d.getMinutes() / 60].slice(-10);
         saveCareerData();
-        try {
-            const res = await notifs.requestPermissions();
-            if (res.display === 'granted') scheduleReminders();
-        } catch (e) { /* plugin unavailable */ }
+    }
+
+    // Median play hour, kept inside quiet hours. Small-hours play counts as late evening, not early morning.
+    function preferredReminderHour() {
+        const hours = (career.sessionHours || []).map((h) => (h < 4 ? h + 24 : h)).sort((a, b) => a - b);
+        if (hours.length < 3) return REMINDER_DEFAULT_HOUR;
+        const mid = hours.length >> 1;
+        const median = hours.length % 2 ? hours[mid] : (hours[mid - 1] + hours[mid]) / 2;
+        return Math.min(REMINDER_LATEST, Math.max(REMINDER_EARLIEST, median));
+    }
+
+    // Personal hooks the save can back up right now; missing ones are left out
+    function reminderHooks() {
+        const hooks = {};
+        const nodes = career.adventureNodes || {};
+
+        const fail = career.lastFail && !(nodes[career.lastFail.id] && nodes[career.lastFail.id].cleared) ? career.lastFail : null;
+        if (fail) hooks.nearMiss = { title: `So close on ${fail.id}`, body: `You were ${fail.left} away. One more try?` };
+
+        // Skips the near-miss level, which already has its own reminder
+        const next = [...(career.unlockedNodes || [])].reverse().find((id) => !(nodes[id] && nodes[id].cleared) && !(fail && fail.id === id));
+        if (next) hooks.next = { title: `Level ${next} is ready`, body: 'A fresh board is waiting. Can you zero it out?' };
+
+        const short = Object.keys(nodes).filter((id) => nodes[id].cleared && (nodes[id].stars || 0) < 3).length;
+        if (short) {
+            hooks.stars = {
+                title: 'Stars left to earn',
+                body: `${short} cleared ${short === 1 ? 'level isn\'t' : 'levels aren\'t'} at 3 stars yet. Go back for them.`
+            };
+        }
+
+        if (career.highScore > 0) {
+            hooks.classic = { title: 'Beat your best', body: `Your Classic best is ${career.highScore.toLocaleString()}. Today's the day?` };
+        }
+
+        const nextTier = ORB_TIERS.find((t) => t.size > (career.bestOrb || 0));
+        if (career.bestOrb >= 8 && nextTier) {
+            hooks.orb = { title: `Ready for a ${nextTier.size}?`, body: `Your biggest orb so far is ${career.bestOrb}. Chain one bigger.` };
+        }
+        return hooks;
+    }
+
+    // The whole ladder from `now`: each reminder at the player's hour, each hook used once, generic copy after that
+    function buildReminders(now) {
+        const hooks = reminderHooks();
+        const used = new Set();
+        const hour = preferredReminderHour();
+        let generic = 0;
+        let prevAt = now;
+        return REMINDER_DAYS.map((days, i) => {
+            const at = new Date(now);
+            at.setHours(0, 0, 0, 0);
+            at.setDate(at.getDate() + days);
+            const jitter = Math.round((Math.random() - 0.5) * 20);
+            at.setMinutes(Math.min(REMINDER_LATEST * 60, Math.max(REMINDER_EARLIEST * 60, Math.round(hour * 60) + jitter)));
+            while (at.getTime() - prevAt < (i === 0 ? REMINDER_MIN_GAP_MS : 3600000)) at.setDate(at.getDate() + 1);
+            prevAt = at.getTime();
+
+            const order = days <= 3 ? REMINDER_HOOKS_EARLY : REMINDER_HOOKS_LATE;
+            const hook = order.find((h) => hooks[h] && !used.has(h));
+            if (hook) used.add(hook);
+            const copy = hook ? hooks[hook] : GENERIC_REMINDERS[generic++ % GENERIC_REMINDERS.length];
+            return {
+                id: REMINDER_IDS[i], title: copy.title, body: copy.body,
+                schedule: { at, allowWhileIdle: true },
+                extra: { slot: `d${days}`, hook: hook || 'generic' }
+            };
+        });
     }
 
     async function cancelReminders() {
         const notifs = nativePlugin('LocalNotifications');
         if (!notifs) return;
-        try { await notifs.cancel({ notifications: REMINDERS.map((r) => ({ id: r.id })) }); } catch (e) { /* none pending */ }
+        try { await notifs.cancel({ notifications: REMINDER_IDS.map((id) => ({ id })) }); } catch (e) { /* none pending */ }
     }
 
     // Reminders count from the last time the app was left, so they never fire mid-session
@@ -5185,17 +5291,104 @@
         const notifs = nativePlugin('LocalNotifications');
         if (!notifs) return;
         try {
+            await cancelReminders();
+            if (!remindersOn()) return;
             const perm = await notifs.checkPermissions();
             if (perm.display !== 'granted') return;
-            await cancelReminders();
-            const now = Date.now();
-            await notifs.schedule({
-                notifications: REMINDERS.map((r) => ({
-                    id: r.id, title: r.title, body: r.body,
-                    schedule: { at: new Date(now + r.days * 86400000), allowWhileIdle: true }
-                }))
-            });
+            await notifs.schedule({ notifications: buildReminders(Date.now()) });
         } catch (e) { /* scheduling failed; try again next time */ }
+    }
+
+    // Opening the game from a reminder is logged with its slot and hook, to see which ones bring players back
+    function listenForReminderTaps() {
+        const notifs = nativePlugin('LocalNotifications');
+        if (!notifs || !notifs.addListener) return;
+        notifs.addListener('localNotificationActionPerformed', (e) => {
+            const extra = (e && e.notification && e.notification.extra) || {};
+            const a = analytics();
+            if (a && extra.slot) a.reminderOpen(extra.slot, extra.hook);
+        });
+    }
+
+    // Our own soft prompt goes first, so the one-time system prompt is only used on a yes.
+    // Shown after the first win; a "Not now" gets one more ask a few wins later.
+    async function maybeAskReminders() {
+        const notifs = nativePlugin('LocalNotifications');
+        if (!notifs || !career.settings || !remindersOn() || !isTrackedRun()) return;
+        const nudge = career.reminderNudge || { wins: 0, askAt: 1 };
+        nudge.wins++;
+        career.reminderNudge = nudge;
+        saveCareerData();
+        if (career.settings.remindersAsked || !nudge.askAt || nudge.wins < nudge.askAt) return;
+        try {
+            const perm = await notifs.checkPermissions();
+            if (perm.display === 'granted' || perm.display === 'denied') return;
+        } catch (e) { return; }
+        if (modalReminders) modalReminders.classList.add('visible');
+    }
+
+    async function answerReminderNudge(yes) {
+        if (modalReminders) modalReminders.classList.remove('visible');
+        const nudge = career.reminderNudge || { wins: 0, askAt: 1 };
+        if (!yes) {
+            nudge.askAt = nudge.askAt < REMINDER_WINS_TO_REASK ? nudge.wins + REMINDER_WINS_TO_REASK - 1 : 0; // 0: never again
+            career.reminderNudge = nudge;
+            saveCareerData();
+            return;
+        }
+        career.settings.remindersAsked = true;
+        saveCareerData();
+        const granted = await requestReminderPermission();
+        setRemindersEnabled(granted, 'prompt');
+    }
+
+    // 'granted' | 'denied' | 'prompt' | null (no plugin, e.g. on the web)
+    async function reminderPermission() {
+        const notifs = nativePlugin('LocalNotifications');
+        if (!notifs) return null;
+        try {
+            const perm = await notifs.checkPermissions();
+            return perm.display === 'granted' || perm.display === 'denied' ? perm.display : 'prompt';
+        } catch (e) { return null; }
+    }
+
+    async function requestReminderPermission() {
+        const notifs = nativePlugin('LocalNotifications');
+        if (!notifs) return false;
+        try { return (await notifs.requestPermissions()).display === 'granted'; } catch (e) { return false; }
+    }
+
+    function setRemindersEnabled(on, source) {
+        career.settings.reminders = on;
+        saveCareerData();
+        if (!on) cancelReminders();
+        const a = analytics();
+        if (a) a.remindersSet(on, source);
+    }
+
+    // Settings row: hidden without the plugin; a note explains when the phone has notifications off
+    async function syncRemindersRow() {
+        if (!settingRemindersToggle) return;
+        const row = settingRemindersToggle.closest('.qs-row');
+        const perm = await reminderPermission();
+        if (row) row.hidden = perm === null;
+        settingRemindersToggle.checked = perm !== 'denied' && remindersOn();
+        if (settingRemindersNote) settingRemindersNote.hidden = perm !== 'denied';
+    }
+
+    async function onRemindersToggle(e) {
+        if (!e.target.checked) {
+            setRemindersEnabled(false, 'settings');
+            return;
+        }
+        let perm = await reminderPermission();
+        if (perm === 'prompt') {
+            career.settings.remindersAsked = true;
+            perm = (await requestReminderPermission()) ? 'granted' : 'denied';
+        }
+        // Phone-level off: keep the choice so it takes effect once they allow it there; the note explains
+        if (perm === 'granted') setRemindersEnabled(true, 'settings');
+        syncRemindersRow();
     }
 
     function triggerAdventureVictory() {
@@ -5203,7 +5396,7 @@
         isGameOver = true;
         sfx.playVictory();
         triggerScreenShake(8);
-        setTimeout(askReminderPermission, 1800);
+        setTimeout(maybeAskReminders, 1800);
 
         // Adventure nodes: stars from drops left. Challenges keep their drops + score stars.
         const goalLevel = isGoalLevel(activeAdventureLevel);

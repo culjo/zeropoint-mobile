@@ -52,6 +52,10 @@
         tutorialComplete: (kind) => log('tutorial_complete', { tutorial: kind }),
         tutorialSkip: (kind) => log('tutorial_skip', { tutorial: kind }),
         toolFirstUse: (tool, level) => log('tool_first_use', { tool, level_name: level }),
-        orbTier: (size, name, level) => log('orb_tier_reached', { tier_size: size, tier_name: name, level_name: level })
+        orbTier: (size, name, level) => log('orb_tier_reached', { tier_size: size, tier_name: name, level_name: level }),
+        // slot: d1 … d30 · hook: nearMiss | next | stars | classic | orb | generic
+        reminderOpen: (slot, hook) => log('reminder_open', { slot, hook }),
+        // source: prompt | settings
+        remindersSet: (enabled, source) => log(enabled ? 'reminders_enabled' : 'reminders_disabled', { source })
     };
 }));

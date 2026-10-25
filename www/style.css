@@ -5139,6 +5139,19 @@ input:checked + .toggle-slider:before {
     color: #8892b0;
 }
 
+#modal-settings .qs-row[hidden] {
+    display: none;
+}
+
+#modal-settings .qs-text .qs-note {
+    margin-top: 4px;
+    color: #f9d423;
+}
+
+#modal-settings .qs-text .qs-note[hidden] {
+    display: none;
+}
+
 #modal-settings .qs-row-reset strong {
     color: #ff6b8a;
 }
@@ -5238,6 +5251,74 @@ input:checked + .toggle-slider:before {
 #modal-settings .qs-done:active {
     transform: translateY(5px);
     box-shadow: 0 1px 0 #a8820a, 0 4px 12px rgba(249, 212, 35, 0.25);
+}
+
+/* Reminders soft prompt: sits over the success screen */
+#modal-reminders {
+    z-index: 140;
+}
+
+#modal-reminders .remind-card {
+    max-width: 340px;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+    font-family: 'Inter', sans-serif;
+}
+
+#modal-reminders .remind-ic {
+    display: grid;
+    place-items: center;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    color: #7ce38b;
+    background: rgba(124, 227, 139, 0.13);
+}
+
+#modal-reminders .remind-title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 900;
+    color: #f0f4fc;
+}
+
+#modal-reminders .remind-body {
+    margin: 0 0 6px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.45;
+    color: #8892b0;
+}
+
+#modal-reminders .remind-yes {
+    width: 100%;
+    height: 56px;
+    border-radius: 18px;
+    background: linear-gradient(#ffe45c, #f9d423 55%, #e8b80f);
+    border: 2px solid #fff3a8;
+    box-shadow: 0 5px 0 #a8820a;
+    color: #1a1302;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+#modal-reminders .remind-yes:active {
+    transform: translateY(4px);
+    box-shadow: 0 1px 0 #a8820a;
+}
+
+#modal-reminders .remind-no {
+    height: 40px;
+    border: 0;
+    background: none;
+    color: #8892b0;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
 }
 
 /* ==========================================================
