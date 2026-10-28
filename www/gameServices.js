@@ -14,7 +14,7 @@
     // Leaderboard ids as set up in App Store Connect and the Play Console.
     // The Play Console generates its own ids (CgkI…): paste it in once the leaderboard exists.
     const LEADERBOARDS = {
-        classic: { ios: 'nullfall.classic.highscore', android: 'REPLACE_ME' }
+        classic: { ios: 'nullfall.classic.highscore', android: 'CgkI-qy1neccEAIQAQ' }
     };
 
     let signedIn = false;

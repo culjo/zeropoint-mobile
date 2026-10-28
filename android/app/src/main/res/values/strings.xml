@@ -5,6 +5,6 @@
     <string name="package_name">com.noviac.nullfall</string>
     <string name="custom_url_scheme">com.noviac.nullfall</string>
     <!-- Play Games Services project id (Play Console > Play Games Services > Configuration).
-         Leave as REPLACE_ME to build without Play Games. -->
-    <string name="game_services_project_id" translatable="false">REPLACE_ME</string>
+         Set to REPLACE_ME to build without Play Games. -->
+    <string name="game_services_project_id" translatable="false">989783217786</string>
 </resources>
