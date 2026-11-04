@@ -4003,14 +4003,12 @@
 
         damageNullCoreForBlast(r, c, r2, c2, tier, { x, y });
 
-        // Equation on every blast; tier names only for the big ones; the cascade gets one counter
-        // A Cross Laser gets one short label in place of the equation, so the board stays readable
-        if (tier === 3) {
+        // No equation over the board (players found it noisy); only Cross Laser and up get a
+        // tier name, kept off the board edges; the cascade gets one counter
+        if (tier >= 3) {
             const lx = Math.min(Math.max(x, boardOffsetX + cellW * 1.2), boardOffsetX + (COLS - 1.2) * cellW);
             addFloatingText(bannerText, lx, y - 14, bannerColor, bannerScale);
         }
-        else addFloatingText(equationText, x, y - 14, '#ffffff', 1.05);
-        if (tier >= 4) addFloatingText(bannerText, x, y + 20, bannerColor, bannerScale);
         if (combo > 1) bumpComboCounter(combo, x, y);
 
         // Tier-scaled score bonus (Base 10 for Tier 1)
