@@ -1099,14 +1099,16 @@ canvas {
 
 #screen-game .rise-status-content {
     position: relative;
-    gap: 6px;
+    gap: 7px;
     color: #ff6b8a;
 }
+
+#screen-game .rise-status-icon { width: 15px; height: 15px; }
 
 #screen-game .rise-status-label,
 #screen-game .counter-ring {
     font-family: var(--font-stack);
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 900;
     letter-spacing: 1px;
     text-transform: uppercase;

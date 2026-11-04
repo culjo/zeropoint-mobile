@@ -1815,8 +1815,8 @@
     #screen-game .mission-status-strip .cs-desc { font-size: 17px; }
     #screen-game .mission-status-strip .cs-progress { font-size: 20px; }
     #screen-game .rise-status-label,
-    #screen-game .counter-ring { font-size: 14px; }
-    #screen-game .rise-status-icon { width: 16px; height: 16px; }
+    #screen-game .counter-ring { font-size: 17px; }
+    #screen-game .rise-status-icon { width: 19px; height: 19px; }
 
     #screen-game .drag-tray { height: 116px; border-radius: 30px; padding: 0 18px; }
     #screen-game .dt-divider { height: 76px; margin: 0 12px; }
