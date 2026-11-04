@@ -725,6 +725,7 @@
     let particles = [];
     let shockwaves = [];
     let laserBeams = [];
+    let laserHits = []; // cells a Cross Laser actually damaged, outlined for a moment
     let screenFlash = 0;           // current flash opacity at its centre
     let screenFlashColor = '#ffffff';
     let screenFlashX = null;       // canvas px the flash spreads from; null = board centre
@@ -1697,6 +1698,7 @@
         particles = [];
         shockwaves = [];
         laserBeams = [];
+        laserHits = [];
         activeMergeAnimations = [];
         activeZeroPointCollapses = [];
         floatingTexts = [];
@@ -2930,6 +2932,7 @@
         particles = [];
         shockwaves = [];
         laserBeams = [];
+        laserHits = [];
         activeMergeAnimations = [];
         activeZeroPointCollapses = [];
         screenFlash = 0;
@@ -3941,20 +3944,26 @@
             bannerColor = '#00f2fe';
             bannerScale = 1.25;
         } else if (tier === 3) {
-            // Tier 3: Cross Laser Blast (Magnitude 4-7)
-            triggerScreenShake(16, { x, y });
-            shockwaves.push({ x: x, y: y, radius: 14, maxRadius: cellW * 4.2, alpha: 1, color: '#ffffff' });
-            createSparks(x, y, '#00f2fe', 32);
-            createSparks(x, y, '#ffd700', 20);
+            // Tier 3: Cross Laser (Magnitude 4-7). It only hurts Dark Matter, webs and the core,
+            // so the beams stay on the board and the cells it hit get outlined. A laser with
+            // nothing in its path plays a thin ping instead of the full beams.
+            const hits = laserPathTargets(r, c, r2, c2);
+            const ping = hits.length === 0;
+            triggerScreenShake(ping ? 4 : 8, { x, y });
+            shockwaves.push({ x: x, y: y, radius: 12, maxRadius: cellW * (ping ? 2.2 : 3.2), alpha: 1, color: '#00f2fe' });
+            createSparks(x, y, '#00f2fe', ping ? 10 : 16);
+            if (!ping) createSparks(x, y, '#ffd700', 6);
 
-            // Radiant Cross Laser Beams
-            laserBeams.push({ type: 'horizontal', row: r, alpha: 1.0, width: 20, color: '#00f2fe' });
-            if (r2 !== r) laserBeams.push({ type: 'horizontal', row: r2, alpha: 1.0, width: 20, color: '#00f2fe' });
-            laserBeams.push({ type: 'vertical', col: c, alpha: 1.0, width: 20, color: '#00f2fe' });
-            if (c2 !== c) laserBeams.push({ type: 'vertical', col: c2, alpha: 1.0, width: 20, color: '#00f2fe' });
+            const beam = ping ? { alpha: 0.55, width: 3, ping: true } : { alpha: 1.0, width: 8 };
+            const beamOf = (props) => Object.assign({ color: '#00f2fe' }, beam, props);
+            laserBeams.push(beamOf({ type: 'horizontal', row: r }));
+            if (r2 !== r) laserBeams.push(beamOf({ type: 'horizontal', row: r2 }));
+            laserBeams.push(beamOf({ type: 'vertical', col: c }));
+            if (c2 !== c) laserBeams.push(beamOf({ type: 'vertical', col: c2 }));
+            hits.forEach(([hr, hc]) => laserHits.push({ r: hr, c: hc, alpha: 1 }));
 
             damageLaserPath(r, c, r2, c2);
-            bannerText = '⚡ CROSS LASER BLAST!';
+            bannerText = 'CROSS LASER';
             bannerColor = '#00f2fe';
             bannerScale = 1.35;
         } else if (tier === 4) {
@@ -3990,13 +3999,18 @@
         }
 
         triggerHitStop(HIT_STOP_MS[tier] || 0);
-        if (tier >= 3) joltStarfield(x, y, tier);
+        if (tier >= 4) joltStarfield(x, y, tier);
 
         damageNullCoreForBlast(r, c, r2, c2, tier, { x, y });
 
         // Equation on every blast; tier names only for the big ones; the cascade gets one counter
-        addFloatingText(equationText, x, y - 14, '#ffffff', 1.05);
-        if (tier >= 3) addFloatingText(bannerText, x, y + 20, bannerColor, bannerScale);
+        // A Cross Laser gets one short label in place of the equation, so the board stays readable
+        if (tier === 3) {
+            const lx = Math.min(Math.max(x, boardOffsetX + cellW * 1.2), boardOffsetX + (COLS - 1.2) * cellW);
+            addFloatingText(bannerText, lx, y - 14, bannerColor, bannerScale);
+        }
+        else addFloatingText(equationText, x, y - 14, '#ffffff', 1.05);
+        if (tier >= 4) addFloatingText(bannerText, x, y + 20, bannerColor, bannerScale);
         if (combo > 1) bumpComboCounter(combo, x, y);
 
         // Tier-scaled score bonus (Base 10 for Tier 1)
@@ -4055,6 +4069,21 @@
             [r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]
         ];
         neighbors.forEach(([nr, nc]) => damageDarkMatterTile(nr, nc, 1));
+    }
+
+    // Cells in a Cross Laser's rows and columns it can damage: Dark Matter, webs, core cells
+    function laserPathTargets(r1, c1, r2, c2) {
+        const rows = new Set([r1, r2]);
+        const cols = new Set([c1, c2]);
+        const out = [];
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                if (!rows.has(r) && !cols.has(c)) continue;
+                const t = grid[r][c];
+                if (t && (t.web || t.type === 'dark_matter' || t.type === 'null_core')) out.push([r, c]);
+            }
+        }
+        return out;
     }
 
     function damageLaserPath(r1, c1, r2, c2) {
@@ -8784,10 +8813,14 @@
         // Laser Beams update
         for (let i = laserBeams.length - 1; i >= 0; i--) {
             const b = laserBeams[i];
-            b.alpha -= 3.5 * dt;
+            b.alpha -= (b.ping ? 3.5 : 5.5) * dt;
             if (b.alpha <= 0) {
                 laserBeams.splice(i, 1);
             }
+        }
+        for (let i = laserHits.length - 1; i >= 0; i--) {
+            laserHits[i].alpha -= 2.2 * dt;
+            if (laserHits[i].alpha <= 0) laserHits.splice(i, 1);
         }
 
         // Screen Flash decay
@@ -9279,7 +9312,7 @@
                         previewLabel = '⚡ SHOCKWAVE';
                         previewColor = '#00f2fe';
                     } else if (previewTier === 3) {
-                        previewLabel = '⚡ CROSS LASER (Row & Col)!';
+                        previewLabel = 'CROSS LASER (row + column)';
                         previewColor = '#00f2fe';
                     } else if (previewTier === 4) {
                         previewLabel = '🌟 SUPERNOVA (3x3 Area!)';
@@ -10283,32 +10316,46 @@
         const w = canvas.width / dpr;
         const h = canvas.height / dpr;
 
-        // 1. Cross Laser Beams (Tier 3)
-        for (const beam of laserBeams) {
+        // 1. Cross Laser Beams (Tier 3): thin, normal blending, clipped to the board
+        if (laserBeams.length || laserHits.length) {
+            const bw = COLS * cellW;
+            const bh = ROWS * cellH;
             ctx.save();
-            const beamAlpha = Math.max(0, beam.alpha);
-            ctx.globalCompositeOperation = 'lighter';
-
-            if (beam.type === 'horizontal') {
-                const by = boardOffsetY + beam.row * cellH + cellH / 2;
+            ctx.beginPath();
+            ctx.rect(boardOffsetX, boardOffsetY, bw, bh);
+            ctx.clip();
+            for (const beam of laserBeams) {
+                const a = Math.max(0, beam.alpha);
+                const horizontal = beam.type === 'horizontal';
+                const mid = horizontal
+                    ? boardOffsetY + beam.row * cellH + cellH / 2
+                    : boardOffsetX + beam.col * cellW + cellW / 2;
+                const band = (thick) => horizontal
+                    ? ctx.fillRect(boardOffsetX, mid - thick / 2, bw, thick)
+                    : ctx.fillRect(mid - thick / 2, boardOffsetY, thick, bh);
                 ctx.fillStyle = beam.color || '#00f2fe';
-                ctx.globalAlpha = beamAlpha * 0.25;
-                ctx.fillRect(0, by - beam.width * 1.4, w, beam.width * 2.8);
-                ctx.globalAlpha = beamAlpha;
-                ctx.fillRect(0, by - beam.width / 2, w, beam.width);
-
+                if (!beam.ping) {
+                    ctx.globalAlpha = a * 0.18;
+                    band(beam.width * 2.5);
+                }
+                ctx.globalAlpha = a * 0.8;
+                band(beam.width);
                 ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, by - beam.width / 4, w, beam.width / 2);
-            } else if (beam.type === 'vertical') {
-                const bx = boardOffsetX + beam.col * cellW + cellW / 2;
-                ctx.fillStyle = beam.color || '#00f2fe';
-                ctx.globalAlpha = beamAlpha * 0.25;
-                ctx.fillRect(bx - beam.width * 1.4, boardOffsetY, beam.width * 2.8, h - boardOffsetY);
-                ctx.globalAlpha = beamAlpha;
-                ctx.fillRect(bx - beam.width / 2, boardOffsetY, beam.width, h - boardOffsetY);
-
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(bx - beam.width / 4, boardOffsetY, beam.width / 2, h - boardOffsetY);
+                ctx.globalAlpha = a * 0.7;
+                band(Math.max(1, beam.width / 3));
+            }
+            // Outline each cell the laser damaged
+            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = '#00f2fe';
+            ctx.fillStyle = '#00f2fe';
+            for (const hit of laserHits) {
+                const a = Math.max(0, Math.min(1, hit.alpha));
+                const hx = boardOffsetX + hit.c * cellW + 3;
+                const hy = boardOffsetY + hit.r * cellH + 3;
+                ctx.globalAlpha = a * 0.22;
+                ctx.fillRect(hx, hy, cellW - 6, cellH - 6);
+                ctx.globalAlpha = a;
+                ctx.strokeRect(hx, hy, cellW - 6, cellH - 6);
             }
             ctx.restore();
         }
