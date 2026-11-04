@@ -9304,34 +9304,14 @@
                 drawLandingCellReticle(cellLeft, cellTop, cellW, cellH, willZeroPoint ? 'zero' : (willSynthesize ? 'synth' : orbFlavor));
 
                 ctx.save();
+                // The outline alone previews a blast or merge: no text over the board
                 if (willZeroPoint) {
-                    let previewLabel = '💥 MICRO POP';
-                    let previewColor = '#ffffff';
-
-                    if (previewTier === 2) {
-                        previewLabel = '⚡ SHOCKWAVE';
-                        previewColor = '#00f2fe';
-                    } else if (previewTier === 3) {
-                        previewLabel = 'CROSS LASER (row + column)';
-                        previewColor = '#00f2fe';
-                    } else if (previewTier === 4) {
-                        previewLabel = '🌟 SUPERNOVA (3x3 Area!)';
-                        previewColor = '#ffd700';
-                    } else if (previewTier === 5) {
-                        previewLabel = '💥 HYPERSPACE SINGULARITY!';
-                        previewColor = '#c471ed';
-                    }
-
+                    const previewColor = previewTier === 5 ? '#c471ed' : previewTier === 4 ? '#ffd700' : previewTier >= 2 ? '#00f2fe' : '#ffffff';
                     ctx.shadowColor = previewColor;
                     ctx.shadowBlur = 16;
                     ctx.strokeStyle = previewColor;
                     ctx.lineWidth = previewTier >= 3 ? 3 : 2.5;
                     ctx.strokeRect(cellLeft + 4, cellTop + 4, cellW - 8, cellH - 8);
-
-                    ctx.fillStyle = previewColor;
-                    ctx.font = '900 11px Inter, sans-serif';
-                    ctx.textAlign = 'center';
-                    fillPopupText(previewLabel, centerX, ghostY - cellH / 2 - 4);
                 } else if (willSynthesize) {
                     const synthColor = orbVal > 0 ? '#00f2fe' : '#ff4e50';
                     ctx.shadowColor = synthColor;
@@ -9339,14 +9319,6 @@
                     ctx.strokeStyle = synthColor;
                     ctx.lineWidth = 2.2;
                     ctx.strokeRect(cellLeft + 4, cellTop + 4, cellW - 8, cellH - 8);
-
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = "800 11px 'Lato', 'Inter', sans-serif";
-                    ctx.textAlign = 'center';
-                    ctx.shadowColor = synthColor;
-                    ctx.shadowBlur = 8;
-                    const nextVal = (orbVal * 2 > 0 ? '+' : '') + (orbVal * 2);
-                    fillPopupText(`✨ MERGE (➜ ${nextVal})`, centerX, ghostY - cellH / 2 - 4);
                 }
 
                 // Render subtle low-opacity ghost tile (opacity 0.2)
