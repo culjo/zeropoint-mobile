@@ -2409,6 +2409,8 @@
         if (btnHomeSettings) btnHomeSettings.addEventListener('click', () => {
             openSettings();
         });
+        const btnHomeShare = document.getElementById('btn-home-share');
+        if (btnHomeShare) btnHomeShare.addEventListener('click', shareWithFriend);
 
         // Adventure Constellation Map Buttons
         if (btnAdvNodesBack) btnAdvNodesBack.addEventListener('click', () => showScreen('home'));
@@ -5570,6 +5572,53 @@
             const overload = !outOfDrops ? 'Keep stacks low and clear the tallest column first. ' : '';
             tip.textContent = `💡 ${close}${overload}${base}`.trim();
         }
+    }
+
+    // ---------- Share with a friend (home screen) ----------
+    const STORE_LINKS = {
+        ios: 'https://apps.apple.com/app/id6823532738',
+        android: 'https://play.google.com/store/apps/details?id=com.noviac.nullfall'
+    };
+
+    // Both links, since the friend may not be on the same kind of phone
+    function shareText() {
+        const best = career.highScore || 0;
+        const hook = best > 0
+            ? `Can you beat my best of ${best.toLocaleString()}?`
+            : 'Cancel opposite numbers, chain blasts and keep the board from overflowing.';
+        return `I'm playing Nullfall: Puzzle Cascade. ${hook}\n\niPhone: ${STORE_LINKS.ios}\nAndroid: ${STORE_LINKS.android}`;
+    }
+
+    let shareBusy = false;
+    async function shareWithFriend() {
+        if (shareBusy) return;
+        shareBusy = true;
+        sfx.playMove();
+        const text = shareText();
+        let method = null;
+        try {
+            const share = nativePlugin('Share');
+            if (share) {
+                const res = await share.share({ title: 'Nullfall: Puzzle Cascade', text, dialogTitle: 'Share Nullfall' });
+                method = (res && res.activityType) || 'share_sheet';
+            } else if (navigator.share) {
+                await navigator.share({ title: 'Nullfall: Puzzle Cascade', text });
+                method = 'web';
+            } else if (navigator.clipboard) {
+                await navigator.clipboard.writeText(text);
+                method = 'copy';
+                flashShareLabel('Copied');
+            }
+        } catch (e) { /* closed the share sheet */ }
+        shareBusy = false;
+        if (method && analytics()) analytics().share(method);
+    }
+
+    function flashShareLabel(text) {
+        const label = document.getElementById('home-share-label');
+        if (!label) return;
+        label.textContent = text;
+        setTimeout(() => { label.textContent = 'Share'; }, 1600);
     }
 
     function openSettings() {

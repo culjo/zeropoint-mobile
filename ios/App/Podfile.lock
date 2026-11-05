@@ -16,6 +16,8 @@ PODS:
     - Capacitor
   - CapacitorScreenOrientation (8.0.2):
     - Capacitor
+  - CapacitorShare (8.0.3):
+    - Capacitor
   - CapacitorStatusBar (8.0.4):
     - Capacitor
   - FirebaseAnalytics/Core (12.19.0):
@@ -86,6 +88,7 @@ DEPENDENCIES:
   - "CapacitorHaptics (from `../../node_modules/@capacitor/haptics`)"
   - "CapacitorLocalNotifications (from `../../node_modules/@capacitor/local-notifications`)"
   - "CapacitorScreenOrientation (from `../../node_modules/@capacitor/screen-orientation`)"
+  - "CapacitorShare (from `../../node_modules/@capacitor/share`)"
   - "CapacitorStatusBar (from `../../node_modules/@capacitor/status-bar`)"
 
 SPEC REPOS:
@@ -112,6 +115,8 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/@capacitor/local-notifications"
   CapacitorScreenOrientation:
     :path: "../../node_modules/@capacitor/screen-orientation"
+  CapacitorShare:
+    :path: "../../node_modules/@capacitor/share"
   CapacitorStatusBar:
     :path: "../../node_modules/@capacitor/status-bar"
 
@@ -122,6 +127,7 @@ SPEC CHECKSUMS:
   CapacitorHaptics: 296f771ecd89c7a1bd92a7b6826a7d268e2e70f5
   CapacitorLocalNotifications: e0747a329ddde3074d52dc74a003688af90e42be
   CapacitorScreenOrientation: 0ccb98cbbfbb1dce509da837a3e35848128417ce
+  CapacitorShare: 5b5e53347556bee89ae6163ed20b5b3c25fe75f1
   CapacitorStatusBar: ff844df1f126da6c4fbc4028272425fa3a91e7e3
   FirebaseAnalytics: e9f8c369447e453da23f0455a06e4910bad10de0
   FirebaseCore: c990214798d7c568ad436a15ba7da25c7a278c9a
@@ -132,6 +138,6 @@ SPEC CHECKSUMS:
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
 
-PODFILE CHECKSUM: a3251c9823fd127ffe23eff4e14b2c017386767d
+PODFILE CHECKSUM: a063cd14052eb5b0c1bf69abbab0a79490a297e4
 
 COCOAPODS: 1.17.0

@@ -62,6 +62,8 @@
         remindersSet: (enabled, source) => log(enabled ? 'reminders_enabled' : 'reminders_disabled', { source }),
         // The store's own rating prompt was requested (it may not show) · moment: three_stars | boss_clear | classic_best
         reviewPrompt: (moment) => log('review_prompt', { moment }),
-        rateTapped: () => log('rate_tapped', {})
+        rateTapped: () => log('rate_tapped', {}),
+        // GA4's share event · method: the app picked (iOS only reports it), or copy / web
+        share: (method) => log('share', { method, content_type: 'app', item_id: 'nullfall' })
     };
 }));
