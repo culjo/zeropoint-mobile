@@ -389,6 +389,79 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 - a Riser reaches the red line
 - you run out of drops (except in Survive)
 
+### 7.1 Coins [PLANNED]
+Players earn coins after each game. They spend them on items during a game. Boosters before a game are a later idea (§7.1.7). Everything uses tools the game already has (Swaps, Overdrive, power-ups, drops), so there are no new rules.
+
+#### 7.1.1 Wallet
+- **Name:** Coins, drawn as gold.
+- **Saving:** `career.coins` in the `zeropoint_career` save, plus a short list of recent earnings for the results screen. Local for now.
+- **When coins show up:** after the first clear of 1-5. Players get **100 coins as a welcome gift**, so they can afford their first item, such as an Undo or +5 Drops, straight away.
+- **No coins or shop** in first play or the tutorial.
+
+#### 7.1.2 Earning (paid after each game)
+| Source | Coins |
+|---|---|
+| Adventure: first clear | 20 + 10 per star (max 50) |
+| Adventure: earning new stars on a replay | 10 for each new star |
+| Adventure: replaying a cleared level | 5 flat (stops farming) |
+| Boss: first clear | +100 |
+| Bonus rift: first clear | +30 |
+| Board clear (any mode) | +10 |
+| Classic | 1 per 500 score (max 60), +5 per bounty rung, +5 per Surge done, +25 for a new best |
+| Challenges: first clear | 30 |
+| Loss | 0. Classic still pays its score coins, since every Classic run ends in a loss |
+
+**Pacing goal:** a new player earns about 40–50 coins a level, enough for an item or a +5 Drops rescue every couple of levels.
+
+#### 7.1.3 Before a game: boosters [LATER]
+Moved to Later (§7.1.7) on 2026-11-05. It isn't clear yet how buying a head start before a level makes the game better, so v1 has no boosters. Coins in v1 are spent only during a game (§7.1.4).
+
+#### 7.1.4 During a game: items
+These are on a coin button in the game header (next to Pause), plus the offers that come up before the fail screens.
+
+| Item | Effect | Price |
+|---|---|---|
+| Buy Swap | +1 Swap token. It still can't go over the cap of 3 | 30 |
+| Undo | Takes back the last drop (once per drop) | 40 |
+| Smash | Removes one tile you pick, Dark Matter included | 50 |
+| Out of drops: +5 Drops | Adventure | 80, then 160 in the same run |
+| Breach: Revive | Clears the top 2 rows and you keep playing | 100, then 200 in the same run |
+
+#### 7.1.5 Fairness rules
+- **Stars:** drops you buy help you finish a level but **don't count toward the drops-left stars** (§7). Coins can save a level, but they can't buy ★★★.
+- **Classic leaderboard:** no Revive or Undo in Classic. Swap Pack, Head Start and Buy Swap are allowed, since everyone can get them.
+- **Rising prices:** fail-screen offers get more expensive within a run, so you can't win just by paying.
+
+#### 7.1.6 Where coins show up in the UI
+- A coin pill in the Home and map headers.
+- A coin button in the game header, next to Pause, that opens the Items sheet. The tray stays unchanged.
+- **Coin offers before a loss:** when the player runs out of drops or a tile hits the red line, an offer screen comes up first (+5 Drops or Revive). It shows the wallet top left and an X top right, and nothing else apart from the offer.
+  - **Accept:** coins are spent and the same run carries on.
+  - **X (cancel):** goes to the normal failed/Breach screen and its current flow, with the reasons, Retry and Map. The offer screen adds no Retry or Map of its own.
+  - **Can't afford it:** the button reads "Need X more", and X is the way out.
+  - **Classic:** no Revive offer, so a Breach goes straight to the normal screen.
+- **Coin claim after a win:** a full-screen "Coins earned" screen with the total and its breakdown (first clear, stars, board clear, and so on), shown before the stars screen. The player taps **Claim**, the coins fly into the wallet, and the button becomes **See your stars**. The stars screen that follows shows the updated wallet with no coin card.
+- **After a loss:** Classic's score coins appear on the Breach screen, with no claim step.
+- A small shop (can come later).
+
+UI design starts from the existing design artifact: https://claude.ai/artifact/FXsbyyAz85qaxXnftms7Y3
+
+#### 7.1.7 Later [OPEN]
+- **Pre-game boosters** (moved here from §7.1.3 on 2026-11-05): picked on the node sheet before Play and used up when the level starts. Bring them back only if playtests show a real need, for example players stuck on one level or a reason to spend a stockpile of coins. The draft list:
+
+| Booster | Effect | Price |
+|---|---|---|
+| +3 Drops | Adventure only | 60 |
+| Swap Pack | Start with 3 Swap tokens instead of 1 | 50 |
+| Overdrive Head Start | The bar starts at 50% | 70 |
+| Opening Bomb | A 0 orb (3×3 blast) is in the tray at the start | 80 |
+
+- **Cosmetics as a coin sink:** orb skins, tray themes and tap sounds. They keep coins useful once players have plenty, without affecting fairness.
+- **Daily first win:** double coins on the first clear each day.
+- **Money-making hooks:** watch an ad to double a level's coins, and coin packs to buy. Leave space for them on the results screen, but don't build them yet.
+- **Permanent upgrades** (for example a Swap cap of 4, or Overdrive charging 10% faster): out of v1, because they make levels harder to balance.
+- **Classic leaderboard, strict version:** a run that buys anything doesn't post a score.
+
 ---
 
 ## 8. Screens and UI [LIVE]
@@ -438,7 +511,7 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 3. Classic tide speed (25 drops, to be tuned). ~~Risers or Catch the Stars moments~~ answered by Surges (§4.1.3).
 4. What happens to Challenges: move them to the new goals, or fold them into Adventure?
 5. Whether Rescue opposites (§3.4) is needed, based on playtests.
-6. Monetisation and meta-progression (cosmetics for orb records?). Not discussed yet.
+6. Monetisation and meta-progression. ~~Currency~~ Coins planned 2026-11-04 (§7.1). Cosmetics, ads, coin packs and permanent upgrades are still open (§7.1.7).
 7. ~~Reduce blast impact at high tides.~~ Decided 2026-10-18: tiers follow the tide in every mode (§2.3). Sector 2–3 levels were re-tuned with the bot.
 8. **Bot findings to decide (first report, 2026-10-17):**
    - Survive levels are near 100% for the bot with a row every 4 drops. Harder needs faster rows (every 3) or more Risers.
@@ -485,3 +558,7 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 | 2026-10-19 | Adventure board clear: same trigger and fanfare as Classic, +2 drops left and +15% Overdrive, no score, no Swap, no refill; rise countdown resets to 5; never wins a level by itself (§5.6) |
 | 2026-10-20 | 10 sectors, 138 levels; 10–16 levels per sector, sizes vary. Tide rises every other sector after Sector 3 (S10 = Tide 6). Sectors 4–10 reuse today's goals and obstacles; handcrafted opener and boss, the rest generated |
 | 2026-10-20 | Late board elements: webbed orbs (S4), dense cores with 4 HP (S5, Lekan's addition), sealed columns (S6), entangled pairs (S8); S10 mixes them. Portals dropped. Each gets a guided intro at node 2 and every sector 4–10 a handcrafted showcase (§5.2) |
+| 2026-11-04 | Coins planned: earned after each game, spent on 4 pre-game boosters and 5 in-game items; bought drops never count for stars; no Revive or Undo in Classic (§7.1) |
+| 2026-11-05 | Win flow: a full-screen coin claim with a Claim button comes before the stars screen; the coin button sits in the game header next to Pause (§7.1.6) |
+| 2026-11-05 | Pre-game boosters moved to Later: no clear gain for the game yet; v1 coins buy in-game items only (§7.1.3, §7.1.7) |
+| 2026-11-05 | Declining a +5 Drops or Revive offer (X) goes to the normal failed/Breach screen flow; offer screens carry no Retry, Map or score (§7.1.6) |
