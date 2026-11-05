@@ -1108,7 +1108,7 @@ canvas {
 #screen-game .rise-status-label,
 #screen-game .counter-ring {
     font-family: var(--font-stack);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 900;
     letter-spacing: 1px;
     text-transform: uppercase;
