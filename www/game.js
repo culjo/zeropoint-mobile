@@ -654,6 +654,7 @@
     let movesUntilRise = MOVES_PER_RISE;
     let isGameOver = false;
     let gameOverFallAt = 0;    // performance.now() when a lost board starts falling away; 0 = not falling
+    let winClearAt = 0;        // performance.now() when a cleared level's leftover orbs start popping; 0 = off
     let isProcessing = false; // true during animations/cascades
     let aimCol = 2; // Selected column (0..5)
     let canHold = true;
@@ -5806,6 +5807,7 @@
         setScoreDisplay(score);
 
         addFloatingText('SECTOR CLEARED!', canvas.width / (2 * dpr), boardOffsetY + cellH * 2.5, 'var(--gold)', 1.5);
+        const winClearMs = startWinClear();
 
         const isNodeLevel = !!(activeAdventureLevel && activeAdventureLevel.sectorNum);
         if (activeAdventureLevel && activeAdventureLevel.isGraduation) {
@@ -5936,7 +5938,7 @@
             };
             if (coinPay) showCoinClaim(coinPay, openStars);
             else openStars();
-        }, VICTORY_PANEL_MS);
+        }, Math.max(VICTORY_PANEL_MS, winClearMs));
     }
 
     // Victory panel timing (the star delays match #modal-victory .win-star in style.css)
@@ -9299,6 +9301,7 @@
         const h = canvas.height / dpr;
 
         if (!isGameOver && gameOverFallAt) gameOverFallAt = 0;
+        if (!isGameOver && winClearAt) winClearAt = 0;
         canvas.classList.toggle('board-dead', !!gameOverFallAt);
 
         // Clear before the shake moves the canvas, so no strip is left uncleared at the edges
@@ -9717,7 +9720,7 @@
                 const tw = (cellW - 8) * tile.scaleX;
                 const th = (cellH - 8) * tile.scaleY;
 
-                const fallen = applyTileFall(r, c, x, y);
+                const fallen = applyTileFall(r, c, x, y) || applyTileClear(tile, x, y);
                 if (fallen === 'gone') continue;
 
                 if (tile.type === 'dark_matter') {
@@ -9750,6 +9753,75 @@
     const FALL_FADE = 0.7;        // seconds to fade out once falling
     const GAME_OVER_PANEL_MS = 1100; // the breach panel opens once the board has fallen
     const GAME_OVER_PANEL_MS_STILL = 450;
+
+    // Level cleared: the leftover orbs pop one by one in a ripple out from the board's centre,
+    // so the win lands on an empty board (each orb swells, then shrinks away in a burst of sparks)
+    const WIN_CLEAR_LEAD_MS = 380;   // the winning blast settles first
+    const WIN_CLEAR_SWEEP_MS = 760;  // centre to the far corner, however many orbs are left
+    const WIN_CLEAR_POP_MS = 260;    // one orb's swell-and-vanish
+    const WIN_CLEAR_HOLD_MS = 260;   // a beat on the empty board before the panel
+
+    function tileColor(tile) {
+        if (tile.type === 'dark_matter') return '#ff6b8a';
+        if (tile.type === 'static') return '#8a93b0';
+        if (tile.type === 'null_core') return '#c471ed';
+        return tile.value > 0 ? '#00f2fe' : '#ff4e50';
+    }
+
+    // Starts the sweep; returns how long it runs (ms), or 0 when there's nothing to clear
+    function startWinClear() {
+        if (prefersReducedMotion()) return 0;
+        const cells = [];
+        const cr = (ROWS - 1) / 2;
+        const cc = (COLS - 1) / 2;
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                const t = grid[r][c];
+                if (t) cells.push({ t, r, c, d: Math.hypot((r - cr) * 0.8, c - cc) });
+            }
+        }
+        if (!cells.length) return 0;
+        const maxD = Math.max(...cells.map(k => k.d)) || 1;
+        cells.sort((a, b) => a.d - b.d);
+        winClearAt = performance.now() + WIN_CLEAR_LEAD_MS;
+        let lastSoundAt = -Infinity;
+        cells.forEach((k, i) => {
+            const delay = Math.round((k.d / maxD) * WIN_CLEAR_SWEEP_MS);
+            k.t.clearDelay = delay;
+            // Sparks and a pop when the orb reaches its peak swell
+            const at = WIN_CLEAR_LEAD_MS + delay + WIN_CLEAR_POP_MS * 0.35;
+            setTimeout(() => {
+                if (!winClearAt || !isGameOver) return;
+                const x = boardOffsetX + k.c * cellW + cellW / 2;
+                const y = boardOffsetY + k.r * cellH + cellH / 2;
+                createSparks(x, y, tileColor(k.t), 7);
+                if (at - lastSoundAt >= 45) {
+                    lastSoundAt = at;
+                    sfx.playClearPop(i / Math.max(1, cells.length - 1));
+                }
+                if (i % 4 === 0) triggerHaptic('tick');
+            }, at);
+        });
+        return WIN_CLEAR_LEAD_MS + WIN_CLEAR_SWEEP_MS + WIN_CLEAR_POP_MS + WIN_CLEAR_HOLD_MS;
+    }
+
+    // Sets up the canvas for a popping tile; returns true (caller restores), false, or 'gone'
+    function applyTileClear(tile, x, y) {
+        if (!winClearAt || !isGameOver || tile.clearDelay == null) return false;
+        const t = performance.now() - winClearAt - tile.clearDelay;
+        if (t <= 0) return false;
+        const p = t / WIN_CLEAR_POP_MS;
+        if (p >= 1) return 'gone';
+        const swell = 0.35;
+        const s = p < swell ? 1 + 0.2 * (p / swell) : 1.2 * (1 - (p - swell) / (1 - swell));
+        const alpha = p < swell ? 1 : 1 - (p - swell) / (1 - swell);
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, alpha);
+        ctx.translate(x, y);
+        ctx.scale(s, s);
+        ctx.translate(-x, -y);
+        return true;
+    }
 
     // Sets up the canvas for a falling tile; returns true (caller restores), false, or 'gone'
     function applyTileFall(r, c, x, y) {

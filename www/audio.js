@@ -168,6 +168,27 @@ class SoundFX {
         osc.stop(now + 0.06);
     }
 
+    // Level-clear sweep: a soft bubble pop per orb, rising in pitch across the sweep (progress 0..1)
+    playClearPop(progress = 0) {
+        if (this.muted || !this.ctx) return;
+        this.resume();
+        const now = this.ctx.currentTime;
+        const p = Math.max(0, Math.min(1, progress));
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        const f = 520 * Math.pow(2, p * 1.2);
+        osc.frequency.setValueAtTime(f, now);
+        osc.frequency.exponentialRampToValueAtTime(f * 1.9, now + 0.07);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.09, now + 0.008);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+        osc.connect(gain);
+        gain.connect(this.out);
+        osc.start(now);
+        osc.stop(now + 0.12);
+    }
+
     // Victory star landing: a low thump plus a bell that rises with each star (C5, E5, A5)
     playStarStamp(index = 0) {
         if (this.muted || !this.ctx) return;
