@@ -397,6 +397,8 @@
             usedSwap: false,
             hints: { hold: { shown: 0, lastOrder: -99 }, swap: { shown: 0, lastOrder: -99 } },
             levelFails: {},        // node id -> { noHold, noSwap } fails without using the tool
+            coins: 0,              // wallet (GDD §7.1); unlocks with the first clear of 1-5
+            coinGiftClaimed: false, // the 100-coin welcome gift
             settings: {
                 sfx: true,
                 bgm: true,
@@ -578,6 +580,7 @@
         if (advHeaderStars) advHeaderStars.textContent = `⭐ ${totalChallengeStars} / ${maxChallengeStars}`;
         if (advNodesStarsPill) advNodesStarsPill.textContent = `★ ${totalNodeStars}`;
 
+        updateCoinDisplays();
         if (settingSfxToggle && career.settings) settingSfxToggle.checked = !!career.settings.sfx;
         if (settingBgmToggle && career.settings) settingBgmToggle.checked = !!career.settings.bgm;
         if (settingVibrationToggle && career.settings) settingVibrationToggle.checked = career.settings.vibration !== false;
@@ -614,6 +617,11 @@
     let runUsedHold = false;
     let runUsedSwap = false;
     let runHintShown = {};     // tool -> true once its hint showed this run
+    let runCoins = { boardClears: 0, rungs: 0, surges: 0, startBest: 0 }; // what this run has earned toward coins
+    let runDropBuys = 0;       // +5 Drops bought this run (price rises: COIN_OFFERS)
+    let runRevives = 0;        // Revives bought this run
+    let boughtDrops = 0;       // drops bought this run; they never count toward stars (GDD §7.1.5)
+    let pendingOffer = null;   // the open Keep going / Revive offer: { kind, price, message }
     let toolHint = null;       // active Hold/Swap hint: { tool, kind, slot, from, to, anim }
     let orbDealerKey = null;   // what the dealer was built for (level config or 'classic:<tide>')
     let classicTide = 0;       // Number Tide in Classic: rises every CLASSIC_TIDE_EVERY drops
@@ -799,9 +807,11 @@
         if (screenId === 'home') {
             if (screenHome) screenHome.classList.add('active');
             updateCareerDisplays();
+            if (coinGiftDue()) setTimeout(() => { if (currentScreen === 'home') maybeShowCoinGift(); }, 350);
         } else if (screenId === 'adventure-nodes' || screenId === 'adventure-map') {
             if (screenAdventureNodes) screenAdventureNodes.classList.add('active');
             renderAdventureNodeMap(career.currentSector || 1);
+            if (coinGiftDue()) setTimeout(() => { if (currentScreen === 'adventure-nodes' || currentScreen === 'adventure-map') maybeShowCoinGift(); }, 350);
         } else if (screenId === 'challenges') {
             if (screenChallenges) screenChallenges.classList.add('active');
             else if (screenAdventureMap) screenAdventureMap.classList.add('active');
@@ -2827,6 +2837,7 @@
         setupAudioUI();
         setupFullscreenUI();
         setupScreenFlow();
+        initCoinUI();
 
         // Debug mode can also be flipped from the URL: ?debug=1 (on) / ?debug=0 (off)
         const debugParam = new URLSearchParams(window.location.search).get('debug');
@@ -2909,6 +2920,11 @@
         runUsedHold = false;
         runUsedSwap = false;
         runHintShown = {};
+        runCoins = { boardClears: 0, rungs: 0, surges: 0, startBest: career.highScore || 0 };
+        runDropBuys = 0;
+        runRevives = 0;
+        boughtDrops = 0;
+        pendingOffer = null;
         if (guide) endGuide();
         pendingGuide = null;
         hideToolHint();
@@ -4423,7 +4439,12 @@
 
     // Value the star thresholds compare against: drops left, or headroom for Survive
     function getStarMeasure(stars) {
-        return stars && stars.kind === 'headroom' ? minColumnHeadroom() : getDropsLeft();
+        return stars && stars.kind === 'headroom' ? minColumnHeadroom() : getStarDropsLeft();
+    }
+
+    // Drops left for stars and the moves bonus: bought drops don't count (GDD §7.1.5)
+    function getStarDropsLeft() {
+        return Math.max(0, getDropsLeft() - boughtDrops);
     }
 
     function starGoalText(stars, need) {
@@ -5038,7 +5059,346 @@
         return code ? `MISSION ${code}` : 'MISSION';
     }
 
-    function triggerGameOver(message = "The reactor exceeded critical threshold capacity!") {
+    // ==========================================================
+    // COINS (GDD §7.1): earned after a game, spent on Keep going / Revive when a run is lost
+    // ==========================================================
+    const COIN_GIFT = 100;
+    const COIN_UNLOCK_NODE = '1-5';
+    // Price of each offer in one run (first, second); a third isn't offered
+    const COIN_OFFERS = { drops: [80, 160], revive: [100, 200] };
+    const COIN_OFFER_DROPS = 5;
+    const COIN_REVIVE_ROWS = 2;
+
+    function coinUnlockCleared() {
+        const n = career.adventureNodes && career.adventureNodes[COIN_UNLOCK_NODE];
+        return !!(n && n.cleared);
+    }
+
+    // Coins exist once 1-5 is cleared (no coins in first play or the early nodes)
+    function coinsUnlocked() {
+        return coinUnlockCleared() || !!career.coinGiftClaimed;
+    }
+
+    function coinGiftDue() {
+        return coinUnlockCleared() && !career.coinGiftClaimed;
+    }
+
+    function finishCoinPay(lines, kicker) {
+        const total = lines.reduce((sum, l) => sum + l.amt, 0);
+        return total > 0 ? { lines, total, kicker } : null;
+    }
+
+    function boardClearCoinLine(lines) {
+        if (runCoins.boardClears > 0) {
+            lines.push({ label: 'Board clear', note: runCoins.boardClears > 1 ? `${runCoins.boardClears} × 10` : '', amt: 10 * runCoins.boardClears });
+        }
+    }
+
+    // Adventure node or Challenge win. Called before the result is saved, so it can see what was new.
+    function adventureCoinPay(level, stars) {
+        if (!level || isTutorial || firstPlay || level.isTutorial || level.isGraduation || level.editorTest || !coinsUnlocked()) return null;
+        const lines = [];
+        if (level.sectorNum) {
+            const before = (career.adventureNodes && career.adventureNodes[level.id]) || {};
+            if (!before.cleared) {
+                lines.push({ label: 'First clear', note: '', amt: 20 });
+                lines.push({ label: 'Stars', note: `${stars} × 10`, amt: 10 * stars });
+                if (level.isBoss) lines.push({ label: 'Boss defeated', note: '', amt: 100 });
+                if (level.isBonus) lines.push({ label: 'Bonus rift', note: '', amt: 30 });
+            } else {
+                const newStars = Math.max(0, stars - (before.stars || 0));
+                if (newStars > 0) lines.push({ label: 'New stars', note: `${newStars} × 10`, amt: 10 * newStars });
+                else lines.push({ label: 'Replay', note: '', amt: 5 });
+            }
+        } else {
+            const cleared = (career.levelStars && career.levelStars[level.id]) > 0;
+            lines.push(cleared ? { label: 'Replay', note: '', amt: 5 } : { label: 'First clear', note: '', amt: 30 });
+        }
+        boardClearCoinLine(lines);
+        return finishCoinPay(lines, `${getLevelCode(level)} · CLEARED`);
+    }
+
+    // Classic always ends in a loss, so it pays from the run's score and goals
+    function classicCoinPay() {
+        if (isTutorial || firstPlay || !coinsUnlocked()) return null;
+        const lines = [];
+        const fromScore = Math.min(60, Math.floor(score / 500));
+        if (fromScore > 0) lines.push({ label: 'Score', note: `${score.toLocaleString()} pts`, amt: fromScore });
+        if (runCoins.rungs > 0) lines.push({ label: 'Bounty rungs', note: `${runCoins.rungs} × 5`, amt: 5 * runCoins.rungs });
+        if (runCoins.surges > 0) lines.push({ label: 'Surges', note: `${runCoins.surges} × 5`, amt: 5 * runCoins.surges });
+        boardClearCoinLine(lines);
+        if (score > runCoins.startBest) lines.push({ label: 'New best', note: '', amt: 25 });
+        return finishCoinPay(lines, 'CLASSIC · RUN OVER');
+    }
+
+    function trackCoins(earned, amount, item) {
+        const a = analytics();
+        if (!a) return;
+        if (earned && a.earnCoins) a.earnCoins(amount, item);
+        if (!earned && a.spendCoins) a.spendCoins(amount, item);
+    }
+
+    function setCoinCount(el, value) {
+        if (!el) return;
+        el.textContent = value.toLocaleString();
+        el._countValue = value;
+    }
+
+    // Coins fly from the total into the wallet pill
+    function flyCoins(fromEl, toEl, count = 7) {
+        if (!fromEl || !toEl || prefersReducedMotion() || !document.body.animate) return 0;
+        const a = fromEl.getBoundingClientRect();
+        const b = toEl.getBoundingClientRect();
+        const dur = 620;
+        for (let i = 0; i < count; i++) {
+            const coin = document.createElement('span');
+            coin.className = 'coin-flyer';
+            coin.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#coin-glyph"></use></svg>';
+            document.body.appendChild(coin);
+            const sx = a.left + a.width / 2 + (Math.random() - 0.5) * 60;
+            const sy = a.top + a.height / 2 + (Math.random() - 0.5) * 24;
+            const ex = b.left + 18;
+            const ey = b.top + b.height / 2;
+            const anim = coin.animate([
+                { transform: `translate(${sx - 14}px, ${sy - 14}px) scale(1)`, opacity: 1 },
+                { transform: `translate(${ex - 14}px, ${ey - 14}px) scale(0.55)`, opacity: 0.9 }
+            ], { duration: dur, delay: i * 55, easing: 'cubic-bezier(.5,0,.75,0)', fill: 'both' });
+            anim.onfinish = () => coin.remove();
+        }
+        return dur + count * 55;
+    }
+
+    // Full-screen "Coins earned" before the stars (or the Classic Breach) screen.
+    // The coins are saved straight away; Claim is the moment they land in the wallet.
+    function showCoinClaim(pay, nextLabel, onNext) {
+        const modal = document.getElementById('modal-coins');
+        if (!modal) { onNext(); return; }
+        const before = career.coins || 0;
+        career.coins = before + pay.total;
+        saveCareerData();
+        trackCoins(true, pay.total, gameMode === 'classic' ? 'classic' : 'level_clear');
+
+        const wallet = document.getElementById('coins-wallet');
+        const totalEl = document.getElementById('coins-total');
+        const list = document.getElementById('coins-lines');
+        const btn = document.getElementById('btn-coins-claim');
+        const btnLabel = document.getElementById('coins-claim-label');
+        const note = document.getElementById('coins-note');
+        const kicker = document.getElementById('coins-kicker');
+        if (kicker) kicker.textContent = pay.kicker;
+        if (totalEl) totalEl.textContent = `+${pay.total}`;
+        setCoinCount(wallet, before);
+        if (list) {
+            list.innerHTML = '';
+            pay.lines.forEach((l, i) => {
+                const row = document.createElement('div');
+                row.className = 'coins-line';
+                row.style.animationDelay = `${0.45 + i * 0.18}s`;
+                row.innerHTML = `<b></b><i></i><span class="coins-amt"></span>`;
+                row.querySelector('b').textContent = l.label;
+                row.querySelector('i').textContent = l.note;
+                row.querySelector('.coins-amt').textContent = `+${l.amt}`;
+                list.appendChild(row);
+            });
+        }
+        modal.classList.remove('claimed');
+        if (btnLabel) btnLabel.textContent = `Claim ${pay.total}`;
+        if (note) note.textContent = nextLabel === 'See your stars' ? 'Your stars are next' : '';
+        let claimed = false;
+        btn.onclick = () => {
+            if (!claimed) {
+                claimed = true;
+                sfx.init();
+                sfx.playBountyComplete();
+                triggerHaptic('zero');
+                const flight = flyCoins(totalEl, wallet);
+                setTimeout(() => {
+                    animateCount(wallet, before + pay.total, 600, before, scoreTicks);
+                    const pill = wallet && wallet.closest('.coin-pill');
+                    if (pill) retriggerClass(pill, 'bump');
+                }, Math.max(0, flight - 200));
+                modal.classList.add('claimed');
+                if (btnLabel) btnLabel.textContent = nextLabel;
+                if (note) note.textContent = `+${pay.total} added to your coins`;
+                return;
+            }
+            btn.onclick = null;
+            modal.classList.remove('visible');
+            onNext();
+        };
+        modal.classList.add('visible');
+    }
+
+    // Welcome gift: the first time the player is between screens after clearing 1-5
+    function maybeShowCoinGift(onDone = null) {
+        const modal = document.getElementById('modal-coin-gift');
+        if (!modal || !coinGiftDue() || modal.classList.contains('visible')) return false;
+        const btn = document.getElementById('btn-coin-gift');
+        btn.onclick = () => {
+            btn.onclick = null;
+            career.coins = (career.coins || 0) + COIN_GIFT;
+            career.coinGiftClaimed = true;
+            saveCareerData();
+            trackCoins(true, COIN_GIFT, 'welcome_gift');
+            sfx.init();
+            sfx.playBountyComplete();
+            triggerHaptic('zero');
+            modal.classList.remove('visible');
+            const homePill = document.getElementById('home-coins');
+            if (homePill && currentScreen === 'home') retriggerClass(homePill, 'bump');
+            if (onDone) onDone();
+        };
+        modal.classList.add('visible');
+        return true;
+    }
+
+    // A lost Adventure or Challenge run: offer +5 moves (out of moves) or a Revive (breach),
+    // only when the player can pay. Returns true when the offer took over from the Breach screen.
+    function maybeOfferRescue(message) {
+        const lvl = activeAdventureLevel;
+        if (gameMode !== 'adventure' || !lvl || isTutorial || firstPlay || lvl.isTutorial || lvl.isGraduation || lvl.editorTest || !coinsUnlocked()) return false;
+        const kind = /out of moves|drops/i.test(message) ? 'drops' : 'revive';
+        const bought = kind === 'drops' ? runDropBuys : runRevives;
+        const price = COIN_OFFERS[kind][bought];
+        if (price == null || (career.coins || 0) < price) return false;
+
+        isGameOver = true; // input stops while the offer is up
+        pendingOffer = { kind, price, message };
+        clearFlyingChips();
+        hideToolHint();
+        sfx.playWarning();
+        triggerHaptic('pulse');
+        triggerScreenShake(kind === 'revive' ? 12 : 6);
+        renderRescueOffer(pendingOffer);
+        setTimeout(() => {
+            const modal = document.getElementById('modal-offer');
+            if (modal && pendingOffer) modal.classList.add('visible');
+        }, 650);
+        return true;
+    }
+
+    function renderRescueOffer(o) {
+        const modal = document.getElementById('modal-offer');
+        if (!modal) return;
+        const lvl = activeAdventureLevel;
+        const revive = o.kind === 'revive';
+        modal.classList.toggle('is-revive', revive);
+        modal.classList.toggle('is-drops', !revive);
+        setCoinCount(document.getElementById('offer-wallet'), career.coins || 0);
+        const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+        set('offer-price', o.price.toLocaleString());
+
+        if (revive) {
+            set('offer-kicker', /riser/i.test(o.message) ? 'A RISER HIT THE RED LINE' : 'A TILE HIT THE RED LINE');
+            set('offer-btn-label', 'Revive');
+            const mini = document.getElementById('offer-mini');
+            if (mini) {
+                mini.style.setProperty('--cols', COLS);
+                mini.style.setProperty('--rows', ROWS);
+                mini.innerHTML = '';
+                for (let r = 0; r < ROWS; r++) {
+                    for (let c = 0; c < COLS; c++) {
+                        const t = grid[r] && grid[r][c];
+                        const cell = document.createElement('span');
+                        cell.className = 'mc ' + (!t ? 'x' : t.type === 'dark_matter' ? 'd' : t.type === 'special' ? 's' : t.value < 0 ? 'n' : 'p');
+                        mini.appendChild(cell);
+                    }
+                }
+            }
+        } else {
+            set('offer-kicker', getLevelCode(lvl));
+            set('offer-btn-label', 'Keep going');
+            const goal = getLevelGoal(lvl);
+            const goalRow = document.getElementById('offer-goal');
+            if (goal && goalRow) {
+                const meta = OBJECTIVE_META[goal.type];
+                const counts = getObjectiveCounts(goal);
+                const left = counts.left != null ? counts.left : Math.max(0, counts.tgt - counts.cur);
+                goalRow.hidden = false;
+                set('offer-goal-label', meta ? meta.short(goal) : (lvl.desc || 'Goal'));
+                set('offer-goal-count', GOAL_GLYPHS[goal.type] ? `${counts.cur}/${counts.tgt}` : counts.text);
+                const bar = document.getElementById('offer-goal-bar');
+                if (bar) bar.style.width = `${Math.round(100 * Math.min(1, counts.tgt ? counts.cur / counts.tgt : 0))}%`;
+                set('offer-sub', left === 1 ? 'Just 1 left. Keep going?' : left > 1 ? `${left} left. Keep going?` : 'So close. Keep going?');
+            } else {
+                if (goalRow) goalRow.hidden = true;
+                set('offer-sub', 'So close. Keep going?');
+            }
+        }
+    }
+
+    function acceptRescueOffer() {
+        const o = pendingOffer;
+        if (!o || (career.coins || 0) < o.price) return;
+        pendingOffer = null;
+        career.coins -= o.price;
+        saveCareerData();
+        trackCoins(false, o.price, o.kind === 'revive' ? 'revive' : 'extra_moves');
+        const modal = document.getElementById('modal-offer');
+        if (modal) modal.classList.remove('visible');
+        sfx.playPowerup();
+        triggerHaptic('zero');
+        const cx = boardOffsetX + (COLS * cellW) / 2;
+        if (o.kind === 'drops') {
+            runDropBuys++;
+            maxDrops += COIN_OFFER_DROPS;
+            boughtDrops += COIN_OFFER_DROPS;
+            addFloatingText(`+${COIN_OFFER_DROPS} MOVES`, cx, boardOffsetY + cellH * 2.5, '#7ff8ff', 1.4);
+        } else {
+            runRevives++;
+            for (let r = 0; r < COIN_REVIVE_ROWS && r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    if (!grid[r][c]) continue;
+                    createSparks(boardOffsetX + c * cellW + cellW / 2, boardOffsetY + r * cellH + cellH / 2, '#ffc93c', 12);
+                    grid[r][c] = null;
+                }
+            }
+            shockwaves.push({ x: cx, y: boardOffsetY + cellH, radius: 10, maxRadius: COLS * cellW, alpha: 1, color: '#ffc93c' });
+            addFloatingText('REVIVED', cx, boardOffsetY + cellH * 2.5, '#ffd76a', 1.4);
+        }
+        isGameOver = false;
+        updateHUD();
+    }
+
+    function declineRescueOffer() {
+        const o = pendingOffer;
+        if (!o) return;
+        pendingOffer = null;
+        const modal = document.getElementById('modal-offer');
+        if (modal) modal.classList.remove('visible');
+        triggerGameOver(o.message, { skipOffer: true });
+    }
+
+    function updateCoinDisplays() {
+        const pill = document.getElementById('home-coins');
+        if (!pill) return;
+        pill.hidden = !career.coinGiftClaimed;
+        setCoinCount(document.getElementById('home-coins-count'), career.coins || 0);
+        pill.setAttribute('aria-label', `${(career.coins || 0).toLocaleString()} coins`);
+    }
+
+    function initCoinUI() {
+        const accept = document.getElementById('btn-offer-accept');
+        const decline = document.getElementById('btn-offer-close');
+        if (accept) accept.addEventListener('click', acceptRescueOffer);
+        if (decline) decline.addEventListener('click', declineRescueOffer);
+        updateCoinDisplays();
+        // Older saves past 1-5 get the gift on launch (Home is already showing, so showScreen isn't called)
+        if (coinGiftDue()) setTimeout(() => { if (currentScreen === 'home') maybeShowCoinGift(); }, 700);
+        // The gift waits for the player to leave the 1-5 stars screen, then carries on where they tapped
+        if (modalVictory) {
+            modalVictory.addEventListener('click', (e) => {
+                const btn = e.target.closest('#btn-vic-next, #btn-vic-replay, #btn-vic-map');
+                if (!btn || !coinGiftDue()) return;
+                e.stopPropagation();
+                e.preventDefault();
+                maybeShowCoinGift(() => btn.click());
+            }, true);
+        }
+    }
+
+    function triggerGameOver(message = "The reactor exceeded critical threshold capacity!", opts = {}) {
+        if (!opts.skipOffer && maybeOfferRescue(message)) return;
         isGameOver = true;
         clearFlyingChips();
         sfx.playGameOver();
@@ -5049,7 +5409,7 @@
         const panelAt = still ? GAME_OVER_PANEL_MS_STILL : GAME_OVER_PANEL_MS;
 
         const isAdventureRun = gameMode === 'adventure' && !!activeAdventureLevel;
-        const outOfDrops = /drops/i.test(message);
+        const outOfDrops = /out of moves|drops/i.test(message);
         if (isAdventureRun && activeAdventureLevel.sectorNum && !activeAdventureLevel.editorTest) {
             const f = career.levelFails[activeAdventureLevel.id] || { noHold: 0, noSwap: 0 };
             if (!runUsedHold) f.noHold++;
@@ -5111,8 +5471,11 @@
         renderBreachWhy(isAdventureRun && !isTutorial, outOfDrops, /riser/i.test(message));
         showRunOrb('go-orb');
 
+        const coinPay = gameMode === 'classic' && !isAdventureRun ? classicCoinPay(isNewBest) : null;
         setTimeout(() => {
-            if (modalGameOver) modalGameOver.classList.add('visible');
+            const openBreach = () => { if (modalGameOver) modalGameOver.classList.add('visible'); };
+            if (coinPay) showCoinClaim(coinPay, 'Continue', openBreach);
+            else openBreach();
         }, panelAt);
     }
 
@@ -5423,7 +5786,6 @@
         isGameOver = true;
         sfx.playVictory();
         triggerScreenShake(8);
-        setTimeout(maybeAskReminders, 1800);
 
         // Adventure nodes: stars from drops left. Challenges keep their drops + score stars.
         const goalLevel = isGoalLevel(activeAdventureLevel);
@@ -5437,7 +5799,8 @@
         const starScore = score;
 
         const prevBest = getStoredLevelBest(activeAdventureLevel);
-        const dropsLeft = Math.max(0, maxDrops - dropsUsed);
+        const dropsLeft = getStarDropsLeft();
+        const coinPay = adventureCoinPay(activeAdventureLevel, totalStars);
         const dropBonus = dropsLeft * 20;
         const finalScore = score + dropBonus;
         trackRunEnd(true, { result: 'cleared', score: finalScore, stars: totalStars, moves_left: dropsLeft, moves_used: dropsUsed });
@@ -5571,7 +5934,12 @@
         });
 
         setTimeout(() => {
-            if (modalVictory) modalVictory.classList.add('visible');
+            const openStars = () => {
+                if (modalVictory) modalVictory.classList.add('visible');
+                setTimeout(maybeAskReminders, 1300);
+            };
+            if (coinPay) showCoinClaim(coinPay, 'See your stars', openStars);
+            else openStars();
         }, VICTORY_PANEL_MS);
     }
 
@@ -5791,6 +6159,7 @@
     }
 
     function completeRung(rung) {
+        runCoins.rungs++;
         sfx.playBountyComplete();
         triggerHaptic('zero');
         addFloatingText(`BOUNTY ${rung.index + 1} DONE`, canvas.width / (2 * dpr), boardOffsetY + cellH * 2.2, '#ffd700', 1.3);
@@ -5846,6 +6215,7 @@
         const s = classicSurge;
         classicSurge = null;
         if (won) {
+            runCoins.surges++;
             const reward = ClassicRun.surgeReward(classicTide, surgeCount++);
             sfx.playBountyComplete();
             triggerHaptic('zero');
@@ -5958,6 +6328,7 @@
     }
 
     async function celebrateBoardClear() {
+        runCoins.boardClears++;
         const cx = boardOffsetX + (COLS * cellW) / 2;
         const cy = boardOffsetY + (ROWS * cellH) / 2;
         triggerScreenFlash(0.9, '#ffffff', { x: cx, y: cy });
@@ -8572,6 +8943,13 @@
             frenzy() {
                 if (!isDebugMode() || currentScreen !== 'game') return;
                 activateOverdrive();
+            },
+            // Set the moves left on an Adventure node (e.g. 1 to check the out-of-moves offer)
+            movesLeft(n = 1) {
+                if (!isDebugMode() || currentScreen !== 'game' || gameMode !== 'adventure') return;
+                dropsUsed = Math.max(0, maxDrops - Math.max(0, n | 0));
+                updateHUD();
+                return getDropsLeft();
             },
             // Advance the Adventure goal by n to check the objective strip states
             goal(n = 1) {

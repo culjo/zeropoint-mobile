@@ -389,7 +389,7 @@ Hold and Swap are available from the start but aren't taught in the first play. 
 - a Riser reaches the red line
 - you run out of drops (except in Survive)
 
-### 7.1 Coins [PLANNED]
+### 7.1 Coins [BUILT v1]
 Players earn coins after each game. They spend them on items during a game. Boosters before a game are a later idea (§7.1.7). Everything uses tools the game already has (Swaps, Overdrive, power-ups, drops), so there are no new rules.
 
 #### 7.1.1 Wallet
@@ -416,16 +416,15 @@ Players earn coins after each game. They spend them on items during a game. Boos
 #### 7.1.3 Before a game: boosters [LATER]
 Moved to Later (§7.1.7) on 2026-11-05. It isn't clear yet how buying a head start before a level makes the game better, so v1 has no boosters. Coins in v1 are spent only during a game (§7.1.4).
 
-#### 7.1.4 During a game: items
-These are on a coin button in the game header (next to Pause), plus the offers that come up before the fail screens.
+#### 7.1.4 Spending: rescue offers [BUILT]
+In v1, coins are spent only on the offers that come up when an Adventure node or Challenge is lost. Nothing coin-related shows on the gameplay screen.
 
-| Item | Effect | Price |
+| Offer | Effect | Price |
 |---|---|---|
-| Buy Swap | +1 Swap token. It still can't go over the cap of 3 | 30 |
-| Undo | Takes back the last drop (once per drop) | 40 |
-| Smash | Removes one tile you pick, Dark Matter included | 50 |
-| Out of drops: +5 Drops | Adventure | 80, then 160 in the same run |
-| Breach: Revive | Clears the top 2 rows and you keep playing | 100, then 200 in the same run |
+| Out of moves: +5 moves | Adventure and Challenges | 80, then 160 in the same run |
+| Breach: Revive | Clears the top 2 rows and you keep playing (not in Classic) | 100, then 200 in the same run |
+
+Each offer can be bought at most twice per run. In-game items (Buy Swap, Undo, Smash) moved to Later (§7.1.7) on 2026-11-05.
 
 #### 7.1.5 Fairness rules
 - **Stars:** drops you buy help you finish a level but **don't count toward the drops-left stars** (§7). Coins can save a level, but they can't buy ★★★.
@@ -433,20 +432,21 @@ These are on a coin button in the game header (next to Pause), plus the offers t
 - **Rising prices:** fail-screen offers get more expensive within a run, so you can't win just by paying.
 
 #### 7.1.6 Where coins show up in the UI
-- A coin pill in the Home and map headers.
-- A coin button in the game header, next to Pause, that opens the Items sheet. The tray stays unchanged.
+- **Main menu:** a coin pill top left on Home. It appears once the welcome gift is collected. No coins on the gameplay screen.
+- **Welcome gift (+100):** shown once, the first time the player leaves the 1-5 stars screen (any button), and then carries on to where they tapped. Saves that are already past 1-5 get it the next time Home or the map opens. Clearing 1-5 itself pays no coins, because coins unlock with that clear.
 - **Coin offers before a loss:** when the player runs out of drops or a tile hits the red line, an offer screen comes up first (+5 Drops or Revive). It shows the wallet top left and an X top right, and nothing else apart from the offer.
   - **Accept:** coins are spent and the same run carries on.
   - **X (cancel):** goes to the normal failed/Breach screen and its current flow, with the reasons, Retry and Map. The offer screen adds no Retry or Map of its own.
-  - **Can't afford it:** the button reads "Need X more", and X is the way out.
+  - **Can't afford it:** no offer. The run goes straight to the normal Breach screen.
   - **Classic:** no Revive offer, so a Breach goes straight to the normal screen.
 - **Coin claim after a win:** a full-screen "Coins earned" screen with the total and its breakdown (first clear, stars, board clear, and so on), shown before the stars screen. The player taps **Claim**, the coins fly into the wallet, and the button becomes **See your stars**. The stars screen that follows shows the updated wallet with no coin card.
-- **After a loss:** Classic's score coins appear on the Breach screen, with no claim step.
+- **Classic:** every run ends in a loss, so its coins (score, bounty rungs, Surges, board clears, new best) get the same full-screen claim, with **Continue** leading to the Breach screen. A run that earned nothing goes straight to Breach.
 - A small shop (can come later).
 
 UI design starts from the existing design artifact: https://claude.ai/artifact/FXsbyyAz85qaxXnftms7Y3
 
 #### 7.1.7 Later [OPEN]
+- **In-game items** (moved here from §7.1.4 on 2026-11-05): Buy Swap +1 token, capped at 3 (30); Undo the last drop, once per drop (40); Smash one tile you pick, Dark Matter included (50).
 - **Pre-game boosters** (moved here from §7.1.3 on 2026-11-05): picked on the node sheet before Play and used up when the level starts. Bring them back only if playtests show a real need, for example players stuck on one level or a reason to spend a stockpile of coins. The draft list:
 
 | Booster | Effect | Price |
@@ -561,4 +561,5 @@ UI design starts from the existing design artifact: https://claude.ai/artifact/F
 | 2026-11-04 | Coins planned: earned after each game, spent on 4 pre-game boosters and 5 in-game items; bought drops never count for stars; no Revive or Undo in Classic (§7.1) |
 | 2026-11-05 | Win flow: a full-screen coin claim with a Claim button comes before the stars screen; the coin button sits in the game header next to Pause (§7.1.6) |
 | 2026-11-05 | Pre-game boosters moved to Later: no clear gain for the game yet; v1 coins buy in-game items only (§7.1.3, §7.1.7) |
+| 2026-11-05 | Coins built (v1): welcome gift after 1-5, coin pill on Home only, full-screen claim after wins and Classic runs, +5 moves / Revive offers only when affordable; in-game items moved to Later (§7.1) |
 | 2026-11-05 | Declining a +5 Drops or Revive offer (X) goes to the normal failed/Breach screen flow; offer screens carry no Retry, Map or score (§7.1.6) |

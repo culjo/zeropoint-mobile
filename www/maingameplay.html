@@ -21,6 +21,11 @@
         <section id="screen-home" class="screen-view active">
             <!-- Menu A: one big Play — hero + Adventure primary + Classic / Challenges tiles -->
             <header class="home-topbar">
+                <!-- Coins (GDD §7.1): shows once the welcome gift is collected -->
+                <div id="home-coins" class="coin-pill home-coin-pill" role="img" aria-label="0 coins" hidden>
+                    <svg class="coin-ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#coin-glyph"></use></svg>
+                    <span id="home-coins-count">0</span>
+                </div>
                 <!-- Labs (debug mode only): compare against the classic drop controls -->
                 <a id="labs-switch" class="labs-switch" href="index.html" hidden>
                     <span class="labs-switch-tag">LABS</span>
@@ -854,6 +859,109 @@
                 <p class="remind-body">We'll remind you about your next level at the time you usually play. Never late at night.</p>
                 <button type="button" id="btn-reminders-yes" class="remind-yes">Yes, remind me</button>
                 <button type="button" id="btn-reminders-no" class="remind-no">Not now</button>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- COINS (GDD §7.1)                           -->
+        <!-- ========================================== -->
+        <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+            <symbol id="coin-glyph" viewBox="0 0 24 24">
+                <circle cx="12" cy="12.6" r="10" fill="#c98a00"></circle>
+                <circle cx="12" cy="11.4" r="10" fill="#ffc93c"></circle>
+                <circle cx="12" cy="11.4" r="7" fill="none" stroke="#c98a00" stroke-width="1.5"></circle>
+                <ellipse cx="12" cy="11.4" rx="2.4" ry="3.6" fill="none" stroke="#8a5d00" stroke-width="2"></ellipse>
+            </symbol>
+        </svg>
+
+        <!-- Coins earned: full screen with Claim, before the stars (or the Classic Breach) screen -->
+        <div id="modal-coins" class="overlay coins-screen" role="dialog" aria-modal="true" aria-labelledby="coins-title">
+            <div class="coins-rays" aria-hidden="true"></div>
+            <div class="coin-pill coins-wallet-pill" role="status" aria-live="polite">
+                <svg class="coin-ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#coin-glyph"></use></svg>
+                <span id="coins-wallet">0</span>
+            </div>
+            <div class="coins-body">
+                <span class="coins-kicker" id="coins-kicker">CLEARED</span>
+                <h2 class="coins-title" id="coins-title">Coins earned</h2>
+                <div class="coins-stack" aria-hidden="true">
+                    <svg class="cs-a" viewBox="0 0 24 24"><use href="#coin-glyph"></use></svg>
+                    <svg class="cs-b" viewBox="0 0 24 24"><use href="#coin-glyph"></use></svg>
+                    <svg class="cs-c" viewBox="0 0 24 24"><use href="#coin-glyph"></use></svg>
+                </div>
+                <span class="coins-total" id="coins-total">+0</span>
+                <div class="coins-lines" id="coins-lines"></div>
+            </div>
+            <div class="coins-actions">
+                <button type="button" id="btn-coins-claim" class="coins-claim">
+                    <svg class="coin-ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#coin-glyph"></use></svg>
+                    <span id="coins-claim-label">Claim</span>
+                    <svg class="coins-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"></path></svg>
+                </button>
+                <span class="coins-note" id="coins-note"></span>
+            </div>
+        </div>
+
+        <!-- Welcome gift: once, after the first clear of 1-5 -->
+        <div id="modal-coin-gift" class="overlay coin-gift-screen" role="dialog" aria-modal="true" aria-labelledby="coin-gift-title">
+            <div class="coin-gift-card">
+                <div class="coins-rays" aria-hidden="true"></div>
+                <span class="coin-gift-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg> NODE 1-5 CLEARED · COINS UNLOCKED</span>
+                <div class="coins-stack small" aria-hidden="true">
+                    <svg class="cs-a" viewBox="0 0 24 24"><use href="#coin-glyph"></use></svg>
+                    <svg class="cs-b" viewBox="0 0 24 24"><use href="#coin-glyph"></use></svg>
+                    <svg class="cs-c" viewBox="0 0 24 24"><use href="#coin-glyph"></use></svg>
+                </div>
+                <span class="coin-gift-kicker" id="coin-gift-title">WELCOME GIFT</span>
+                <span class="coin-gift-amount">+100</span>
+                <span class="coin-gift-sub">coins to spend</span>
+                <span class="coin-gift-text">From now on you earn coins after every game.</span>
+                <div class="coin-gift-uses">
+                    <div class="coin-gift-use"><span class="cgu-ico cyan"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v14M5 10l7 7 7-7"></path></svg></span><span><b>Out of moves?</b><small>Buy 5 more and keep going</small></span></div>
+                    <div class="coin-gift-use"><span class="cgu-ico red"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path></svg></span><span><b>Breach?</b><small>Revive: clear the top 2 rows and play on</small></span></div>
+                </div>
+                <button type="button" id="btn-coin-gift" class="coins-claim">Collect</button>
+            </div>
+        </div>
+
+        <!-- Keep going (+5 moves) / Revive: comes up before the Breach screen when the player can pay -->
+        <div id="modal-offer" class="overlay offer-screen" role="dialog" aria-modal="true" aria-labelledby="offer-title">
+            <div class="coin-pill offer-wallet-pill" role="img" aria-label="Your coins">
+                <svg class="coin-ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#coin-glyph"></use></svg>
+                <span id="offer-wallet">0</span>
+            </div>
+            <button type="button" id="btn-offer-close" class="offer-close" aria-label="No thanks, end the run">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+            </button>
+            <div class="offer-body">
+                <span class="offer-kicker" id="offer-kicker">NODE 1-3</span>
+                <h2 class="offer-title for-drops" id="offer-title">Out of moves</h2>
+                <h2 class="offer-title for-revive breach-glitch" aria-label="Breach">
+                    <span class="g1" aria-hidden="true">BREACH</span>
+                    <span class="g2" aria-hidden="true">BREACH</span>
+                    <span class="g0" aria-hidden="true">BREACH</span>
+                </h2>
+                <span class="offer-sub for-drops" id="offer-sub">Keep going?</span>
+
+                <div class="offer-goal for-drops" id="offer-goal" hidden>
+                    <span class="og-text"><b id="offer-goal-label">Goal</b><span class="og-bar"><i id="offer-goal-bar"></i></span></span>
+                    <span class="og-count" id="offer-goal-count">0/0</span>
+                </div>
+
+                <div class="offer-card">
+                    <div class="offer-what for-drops">
+                        <span class="offer-badge">+5</span>
+                        <span class="offer-copy"><b>5 more moves</b><small>The board stays as it is. These moves don’t count for stars.</small></span>
+                    </div>
+                    <div class="offer-what for-revive">
+                        <div class="offer-mini" id="offer-mini" role="img" aria-label="The top 2 rows of the board get cleared"></div>
+                        <span class="offer-copy"><span class="offer-tag">REVIVE</span><b>Clear the top 2 rows</b><small>Keep your score and moves, then play on.</small></span>
+                    </div>
+                    <button type="button" id="btn-offer-accept" class="offer-btn">
+                        <span id="offer-btn-label">Keep going</span>
+                        <span class="offer-price"><svg class="coin-ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#coin-glyph"></use></svg><span id="offer-price">80</span></span>
+                    </button>
+                </div>
             </div>
         </div>
 

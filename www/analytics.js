@@ -48,6 +48,9 @@
         // result: cleared | out_of_moves | overload | riser
         levelEnd: (level, mode, success, details) => log('level_end', { level_name: level, mode, success, ...details }),
         postScore: (score, level) => log('post_score', { score, level_name: level }),
+        // Coins (GDD §7.1) · source: level_clear | classic | welcome_gift · item: extra_moves | revive
+        earnCoins: (value, source) => log('earn_virtual_currency', { virtual_currency_name: 'coins', value, source }),
+        spendCoins: (value, item) => log('spend_virtual_currency', { virtual_currency_name: 'coins', value, item_name: item }),
         tutorialBegin: (kind) => log('tutorial_begin', { tutorial: kind }),
         tutorialComplete: (kind) => log('tutorial_complete', { tutorial: kind }),
         tutorialSkip: (kind) => log('tutorial_skip', { tutorial: kind }),
