@@ -13,9 +13,9 @@
     }
 }(typeof self !== 'undefined' ? self : this, function (root) {
 
-    // The numeric Apple ID from App Store Connect > App Information. Until it's set,
+    // The numeric Apple ID from App Store Connect > App Information. Set to REPLACE_ME,
     // the Settings "Rate Nullfall" row stays hidden on iOS (the system prompt still works).
-    const APP_STORE_ID = 'REPLACE_ME';
+    const APP_STORE_ID = '6823532738';
 
     function plugin() {
         const cap = root.Capacitor;
