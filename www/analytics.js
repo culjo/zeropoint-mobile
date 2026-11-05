@@ -59,6 +59,9 @@
         // slot: d1 … d30 · hook: nearMiss | next | stars | classic | orb | generic
         reminderOpen: (slot, hook) => log('reminder_open', { slot, hook }),
         // source: prompt | settings
-        remindersSet: (enabled, source) => log(enabled ? 'reminders_enabled' : 'reminders_disabled', { source })
+        remindersSet: (enabled, source) => log(enabled ? 'reminders_enabled' : 'reminders_disabled', { source }),
+        // The store's own rating prompt was requested (it may not show) · moment: three_stars | boss_clear | classic_best
+        reviewPrompt: (moment) => log('review_prompt', { moment }),
+        rateTapped: () => log('rate_tapped', {})
     };
 }));

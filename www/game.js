@@ -399,6 +399,8 @@
             levelFails: {},        // node id -> { noHold, noSwap } fails without using the tool
             coins: 0,              // wallet (GDD §7.1); unlocks with the first clear of 1-5
             coinGiftClaimed: false, // the 100-coin welcome gift
+            classicRuns: 0,        // Classic runs played to the end (store rating eligibility)
+            reviewAsks: [],        // times the store rating prompt was requested (ms)
             settings: {
                 sfx: true,
                 bgm: true,
@@ -2589,6 +2591,12 @@
         });
         if (btnSettingsSave) btnSettingsSave.addEventListener('click', () => {
             if (modalSettings) modalSettings.classList.remove('visible');
+        });
+        const btnRateGame = document.getElementById('btn-rate-game');
+        if (btnRateGame) btnRateGame.addEventListener('click', () => {
+            if (typeof NullfallStoreReview === 'undefined') return;
+            NullfallStoreReview.openStorePage();
+            if (analytics()) analytics().rateTapped();
         });
 
         if (settingSfxToggle) {
@@ -5465,12 +5473,22 @@
         const btnGoRanks = document.getElementById('btn-go-ranks');
         if (btnGoRanks) btnGoRanks.hidden = isAdventureRun || !gameServicesReady('classic');
         if (gameMode === 'classic' && !isAdventureRun && !firstPlay) submitClassicScore(score);
+        const isClassicRun = gameMode === 'classic' && !isAdventureRun && isTrackedRun();
+        if (isClassicRun) {
+            career.classicRuns = (career.classicRuns || 0) + 1;
+            saveCareerData();
+        }
+        const reviewMoment = isClassicRun && runCoins.startBest > 0 && score > runCoins.startBest ? 'classic_best' : null;
         renderBreachWhy(isAdventureRun && !isTutorial, outOfDrops, /riser/i.test(message));
         showRunOrb('go-orb');
 
         const coinPay = gameMode === 'classic' && !isAdventureRun ? classicCoinPay(isNewBest) : null;
         setTimeout(() => {
-            const openBreach = () => { if (modalGameOver) modalGameOver.classList.add('visible'); };
+            const openBreach = () => {
+                if (modalGameOver) modalGameOver.classList.add('visible');
+                // After the score has counted up
+                if (reviewMoment) setTimeout(() => maybeAskReview(reviewMoment, modalGameOver), 1800);
+            };
             if (coinPay) showCoinClaim(coinPay, openBreach);
             else openBreach();
         }, panelAt);
@@ -5558,6 +5576,7 @@
         if (!modalSettings) return;
         modalSettings.classList.add('visible');
         syncRemindersRow();
+        syncRateRow();
     }
 
     // ---------- Native helpers: plugins and game reminders ----------
@@ -5699,19 +5718,69 @@
 
     // Our own soft prompt goes first, so the one-time system prompt is only used on a yes.
     // Shown after the first win; a "Not now" gets one more ask a few wins later.
+    // True when it showed its nudge (so nothing else is asked over it)
     async function maybeAskReminders() {
         const notifs = nativePlugin('LocalNotifications');
-        if (!notifs || !career.settings || !remindersOn() || !isTrackedRun()) return;
+        if (!notifs || !career.settings || !remindersOn() || !isTrackedRun()) return false;
         const nudge = career.reminderNudge || { wins: 0, askAt: 1 };
         nudge.wins++;
         career.reminderNudge = nudge;
         saveCareerData();
-        if (career.settings.remindersAsked || !nudge.askAt || nudge.wins < nudge.askAt) return;
+        if (career.settings.remindersAsked || !nudge.askAt || nudge.wins < nudge.askAt) return false;
         try {
             const perm = await notifs.checkPermissions();
-            if (perm.display === 'granted' || perm.display === 'denied') return;
-        } catch (e) { return; }
-        if (modalReminders) modalReminders.classList.add('visible');
+            if (perm.display === 'granted' || perm.display === 'denied') return false;
+        } catch (e) { return false; }
+        if (!modalReminders) return false;
+        modalReminders.classList.add('visible');
+        return true;
+    }
+
+    // ---------- Store rating (storeReview.js) ----------
+    // Each store's own rating prompt, right after a high point, once the player has played
+    // enough. Never our own "Enjoying the game?" question first: both stores forbid that.
+    const REVIEW_MIN_CLEARS = 5;          // Adventure nodes cleared...
+    const REVIEW_MIN_CLASSIC_RUNS = 3;    // ...or Classic runs played to the end
+    const REVIEW_COOLDOWN_DAYS = 30;
+    const REVIEW_MAX_PER_YEAR = 3;        // Apple's own cap; Play keeps a quota of its own
+    const REVIEW_DAY_MS = 86400000;
+    let reviewAskedThisSession = false;
+
+    function recentReviewAsks(now) {
+        return (career.reviewAsks || []).filter((t) => now - t < 365 * REVIEW_DAY_MS);
+    }
+
+    function reviewEligible() {
+        if (typeof NullfallStoreReview === 'undefined' || !NullfallStoreReview.available() || isDebugMode()) return false;
+        if (reviewAskedThisSession || !isTrackedRun()) return false;
+        const clears = Object.values(career.adventureNodes || {}).filter((n) => n && n.cleared).length;
+        if (clears < REVIEW_MIN_CLEARS && (career.classicRuns || 0) < REVIEW_MIN_CLASSIC_RUNS) return false;
+        const now = Date.now();
+        const asks = recentReviewAsks(now);
+        if (asks.length >= REVIEW_MAX_PER_YEAR) return false;
+        return !asks.length || now - asks[asks.length - 1] >= REVIEW_COOLDOWN_DAYS * REVIEW_DAY_MS;
+    }
+
+    // moment: three_stars | boss_clear | classic_best · panel: the result panel it follows
+    function maybeAskReview(moment, panel) {
+        if (!moment || !reviewEligible()) return;
+        // Not if the player has already left the result panel
+        if (panel && !panel.classList.contains('visible')) return;
+        reviewAskedThisSession = true;
+        const now = Date.now();
+        career.reviewAsks = [...recentReviewAsks(now), now];
+        saveCareerData();
+        NullfallStoreReview.requestReview();
+        if (analytics()) analytics().reviewPrompt(moment);
+    }
+
+    function syncRateRow() {
+        const row = document.getElementById('btn-rate-game');
+        if (!row) return;
+        row.hidden = typeof NullfallStoreReview === 'undefined' || !NullfallStoreReview.canOpenStorePage();
+        const sub = document.getElementById('rate-game-sub');
+        const store = window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios' ? 'the App Store' : 'Google Play';
+        if (sub) sub.textContent = `Leave a rating on ${store}`;
     }
 
     async function answerReminderNudge(yes) {
@@ -5931,10 +6000,14 @@
             showMap: !activeAdventureLevel.isGraduation
         });
 
+        const reviewMoment = activeAdventureLevel.isGraduation || activeAdventureLevel.editorTest ? null
+            : totalStars >= 3 ? 'three_stars' : activeAdventureLevel.isBoss ? 'boss_clear' : null;
         setTimeout(() => {
             const openStars = () => {
                 if (modalVictory) modalVictory.classList.add('visible');
-                setTimeout(maybeAskReminders, 1300);
+                setTimeout(async () => {
+                    if (!(await maybeAskReminders())) maybeAskReview(reviewMoment, modalVictory);
+                }, 1300);
             };
             if (coinPay) showCoinClaim(coinPay, openStars);
             else openStars();
