@@ -5144,33 +5144,34 @@
         el._countValue = value;
     }
 
-    // Coins fly from the total into the wallet pill
-    function flyCoins(fromEl, toEl, count = 7) {
+    // Coins fly up from the total into the wallet pill; returns when the last one lands (ms)
+    function flyCoins(fromEl, toEl, count = 8) {
         if (!fromEl || !toEl || prefersReducedMotion() || !document.body.animate) return 0;
         const a = fromEl.getBoundingClientRect();
         const b = toEl.getBoundingClientRect();
-        const dur = 620;
+        const dur = 650;
+        const gap = 60;
         for (let i = 0; i < count; i++) {
             const coin = document.createElement('span');
             coin.className = 'coin-flyer';
             coin.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#coin-glyph"></use></svg>';
             document.body.appendChild(coin);
-            const sx = a.left + a.width / 2 + (Math.random() - 0.5) * 60;
-            const sy = a.top + a.height / 2 + (Math.random() - 0.5) * 24;
+            const sx = a.left + a.width / 2 + (Math.random() - 0.5) * 70;
+            const sy = a.top + a.height / 2 + (Math.random() - 0.5) * 26;
             const ex = b.left + 18;
             const ey = b.top + b.height / 2;
             const anim = coin.animate([
-                { transform: `translate(${sx - 14}px, ${sy - 14}px) scale(1)`, opacity: 1 },
+                { transform: `translate(${sx - 14}px, ${sy - 14}px) scale(1.1)`, opacity: 1 },
                 { transform: `translate(${ex - 14}px, ${ey - 14}px) scale(0.55)`, opacity: 0.9 }
-            ], { duration: dur, delay: i * 55, easing: 'cubic-bezier(.5,0,.75,0)', fill: 'both' });
+            ], { duration: dur, delay: i * gap, easing: 'cubic-bezier(.5,0,.75,0)', fill: 'both' });
             anim.onfinish = () => coin.remove();
         }
-        return dur + count * 55;
+        return dur + (count - 1) * gap;
     }
 
     // Full-screen "Coins earned" before the stars (or the Classic Breach) screen.
-    // The coins are saved straight away; Claim is the moment they land in the wallet.
-    function showCoinClaim(pay, nextLabel, onNext) {
+    // The coins are saved straight away; Claim goes on to the screen that comes next.
+    function showCoinClaim(pay, onNext) {
         const modal = document.getElementById('modal-coins');
         if (!modal) { onNext(); return; }
         const before = career.coins || 0;
@@ -5183,7 +5184,6 @@
         const list = document.getElementById('coins-lines');
         const btn = document.getElementById('btn-coins-claim');
         const btnLabel = document.getElementById('coins-claim-label');
-        const note = document.getElementById('coins-note');
         const kicker = document.getElementById('coins-kicker');
         if (kicker) kicker.textContent = pay.kicker;
         if (totalEl) totalEl.textContent = `+${pay.total}`;
@@ -5201,30 +5201,26 @@
                 list.appendChild(row);
             });
         }
-        modal.classList.remove('claimed');
         if (btnLabel) btnLabel.textContent = `Claim ${pay.total}`;
-        if (note) note.textContent = nextLabel === 'See your stars' ? 'Your stars are next' : '';
-        let claimed = false;
+        modal.classList.remove('claiming');
         btn.onclick = () => {
-            if (!claimed) {
-                claimed = true;
-                sfx.init();
-                sfx.playBountyComplete();
-                triggerHaptic('zero');
-                const flight = flyCoins(totalEl, wallet);
-                setTimeout(() => {
-                    animateCount(wallet, before + pay.total, 600, before, scoreTicks);
-                    const pill = wallet && wallet.closest('.coin-pill');
-                    if (pill) retriggerClass(pill, 'bump');
-                }, Math.max(0, flight - 200));
-                modal.classList.add('claimed');
-                if (btnLabel) btnLabel.textContent = nextLabel;
-                if (note) note.textContent = `+${pay.total} added to your coins`;
-                return;
-            }
             btn.onclick = null;
-            modal.classList.remove('visible');
-            onNext();
+            sfx.init();
+            sfx.playBountyComplete();
+            triggerHaptic('zero');
+            modal.classList.add('claiming');
+            // Coins fly up into the wallet and it counts up, then the next screen opens
+            const pill = wallet && wallet.closest('.coin-pill');
+            const flight = flyCoins(totalEl, pill || wallet);
+            const landAt = Math.max(0, flight - 450);
+            setTimeout(() => {
+                animateCount(wallet, before + pay.total, 500, before, scoreTicks);
+                if (pill) retriggerClass(pill, 'bump');
+            }, landAt);
+            setTimeout(() => {
+                modal.classList.remove('visible', 'claiming');
+                onNext();
+            }, flight ? landAt + 850 : 0);
         };
         modal.classList.add('visible');
     }
@@ -5474,7 +5470,7 @@
         const coinPay = gameMode === 'classic' && !isAdventureRun ? classicCoinPay(isNewBest) : null;
         setTimeout(() => {
             const openBreach = () => { if (modalGameOver) modalGameOver.classList.add('visible'); };
-            if (coinPay) showCoinClaim(coinPay, 'Continue', openBreach);
+            if (coinPay) showCoinClaim(coinPay, openBreach);
             else openBreach();
         }, panelAt);
     }
@@ -5861,7 +5857,7 @@
             saveCareerData();
 
             victoryNextNode = getNextNodeConfig(activeAdventureLevel);
-            setVictoryNextLabel(victoryNextNode ? 'Next mission' : 'Return to map');
+            setVictoryNextLabel(victoryNextNode ? 'Next play' : 'Return to map');
         } else {
             // Handcrafted Challenge Level
             const lvlId = activeAdventureLevel.id;
@@ -5872,7 +5868,7 @@
             }
             saveCareerData();
 
-            setVictoryNextLabel(lvlId < ADVENTURE_LEVELS.length ? 'Next mission' : 'All missions complete');
+            setVictoryNextLabel(lvlId < ADVENTURE_LEVELS.length ? 'Next play' : 'All missions complete');
         }
 
         const lvlObj = getLevelGoal(activeAdventureLevel);
@@ -5938,7 +5934,7 @@
                 if (modalVictory) modalVictory.classList.add('visible');
                 setTimeout(maybeAskReminders, 1300);
             };
-            if (coinPay) showCoinClaim(coinPay, 'See your stars', openStars);
+            if (coinPay) showCoinClaim(coinPay, openStars);
             else openStars();
         }, VICTORY_PANEL_MS);
     }

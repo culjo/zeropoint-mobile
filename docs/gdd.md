@@ -439,8 +439,8 @@ Each offer can be bought at most twice per run. In-game items (Buy Swap, Undo, S
   - **X (cancel):** goes to the normal failed/Breach screen and its current flow, with the reasons, Retry and Map. The offer screen adds no Retry or Map of its own.
   - **Can't afford it:** no offer. The run goes straight to the normal Breach screen.
   - **Classic:** no Revive offer, so a Breach goes straight to the normal screen.
-- **Coin claim after a win:** a full-screen "Coins earned" screen with the total and its breakdown (first clear, stars, board clear, and so on), shown before the stars screen. The player taps **Claim**, the coins fly into the wallet, and the button becomes **See your stars**. The stars screen that follows shows the updated wallet with no coin card.
-- **Classic:** every run ends in a loss, so its coins (score, bounty rungs, Surges, board clears, new best) get the same full-screen claim, with **Continue** leading to the Breach screen. A run that earned nothing goes straight to Breach.
+- **Coin claim after a win:** a full-screen "Coins earned" screen with the total and its breakdown (first clear, stars, board clear, and so on), shown before the stars screen. The player taps **Claim** and goes straight on to the stars screen, which has no coin card.
+- **Classic:** every run ends in a loss, so its coins (score, bounty rungs, Surges, board clears, new best) get the same full-screen claim, and **Claim** goes straight on to the Breach screen. A run that earned nothing goes straight to Breach.
 - A small shop (can come later).
 
 UI design starts from the existing design artifact: https://claude.ai/artifact/FXsbyyAz85qaxXnftms7Y3

@@ -1854,6 +1854,18 @@
 .coin-pill[hidden] { display: none; }
 .coin-pill .coin-ico { width: 22px; height: 22px; flex-shrink: 0; }
 .coin-pill.bump { animation: coinBump 0.45s ease-out; }
+.coin-flyer {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 28px;
+    height: 28px;
+    z-index: 300;
+    pointer-events: none;
+}
+.coin-flyer svg { width: 100%; height: 100%; display: block; }
+#modal-coins.claiming .coins-claim { pointer-events: none; }
+#modal-coins.claiming .coins-stack { opacity: 0.35; }
 @keyframes coinBump { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.18); } }
 
 #screen-home .home-coin-pill {
@@ -1865,16 +1877,6 @@
 }
 #screen-home .home-coin-pill .coin-ico { width: 24px; height: 24px; }
 
-.coin-flyer {
-    position: fixed;
-    left: 0;
-    top: 0;
-    width: 28px;
-    height: 28px;
-    z-index: 300;
-    pointer-events: none;
-}
-.coin-flyer svg { width: 100%; height: 100%; display: block; }
 
 /* Shared: rays, coin stack, gold button */
 @keyframes coinRays { to { transform: rotate(360deg); } }
@@ -1955,10 +1957,12 @@
     width: 100%;
     max-width: 440px;
     box-sizing: border-box;
-    padding: calc(env(safe-area-inset-top, 0px) + 72px) 24px 0;
+    min-height: 0;
+    padding: calc(env(safe-area-inset-top, 0px) + 64px) 24px 0;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
 }
 #modal-coins .coins-kicker { font-size: 11px; font-weight: 900; letter-spacing: 3px; color: #ffc93c; }
 #modal-coins .coins-title { margin: 8px 0 0; font-size: 30px; font-weight: 900; letter-spacing: 1px; color: var(--text-primary); }
@@ -2005,18 +2009,6 @@
     align-items: center;
     gap: 12px;
 }
-#modal-coins .coins-note { min-height: 16px; font-size: 12px; font-weight: 700; color: var(--text-muted); }
-#modal-coins .coins-arrow { display: none; }
-#modal-coins.claimed .coins-claim {
-    background: linear-gradient(#18c6dc, #0aa3b8);
-    border-color: #7ff8ff;
-    box-shadow: 0 6px 0 #06606d, 0 12px 26px rgba(0, 242, 254, 0.25);
-    color: #02161a;
-}
-#modal-coins.claimed .coins-claim .coin-ico { display: none; }
-#modal-coins.claimed .coins-arrow { display: block; }
-#modal-coins.claimed .coins-note { color: #ffd76a; }
-#modal-coins.claimed .coins-stack { opacity: 0.35; }
 
 /* Welcome gift */
 #modal-coin-gift.coin-gift-screen { z-index: 135; padding: 0 18px; }
