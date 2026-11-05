@@ -1,4 +1,4 @@
-# Nullfall: Game Design Document
+# Null Fall: Game Design Document
 
 Version 0.1 · 2026-10-17 · Owner: Lekan
 
@@ -25,7 +25,7 @@ Detailed Adventure goal rules are in [adventure-objectives.md](adventure-objecti
 3. **Build bigger.** The game should feel like it's growing: bigger numbers, bigger blasts, new records.
 4. **Fair.** Losing should feel like your own mistake, never the random orbs.
 
-**Naming:** the visible name is **Nullfall**. Save keys stay `zeropoint_*`, and the in-game blast callout stays **"ZERO POINT!"**.
+**Naming:** the visible name is **Null Fall**. Save keys stay `zeropoint_*`, and the in-game blast callout stays **"ZERO POINT!"**.
 
 ---
 
@@ -204,7 +204,7 @@ They currently use the old objective types. They need moving to the new goal set
 | 7 | Quasar Drift | 4 | 13 (11 + 2) | 7-11 |
 | 8 | Void Expanse | 5 | 16 (14 + 2) | 8-14 |
 | 9 | Entropy Shoals | 5 | 11 (10 + 1) | 9-10 |
-| 10 | Nullfall | 6 | 16 (14 + 2) | 10-14 |
+| 10 | Null Fall | 6 | 16 (14 + 2) | 10-14 |
 
 Sectors 4–10 use the existing goals and obstacles, mixed more densely, plus four new board elements (§5.2). Their openers, element intros, one showcase each and the bosses are handcrafted; the rest is generated (§5.3).
 
@@ -563,3 +563,4 @@ UI design starts from the existing design artifact: https://claude.ai/artifact/F
 | 2026-11-05 | Pre-game boosters moved to Later: no clear gain for the game yet; v1 coins buy in-game items only (§7.1.3, §7.1.7) |
 | 2026-11-05 | Coins built (v1): welcome gift after 1-5, coin pill on Home only, full-screen claim after wins and Classic runs, +5 moves / Revive offers only when affordable; in-game items moved to Later (§7.1) |
 | 2026-11-05 | Declining a +5 Drops or Revive offer (X) goes to the normal failed/Breach screen flow; offer screens carry no Retry, Map or score (§7.1.6) |
+| 2026-11-05 | Visible name and app name changed to Null Fall (code names, IDs and save keys unchanged) |

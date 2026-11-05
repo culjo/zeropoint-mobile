@@ -1,4 +1,4 @@
-# Nullfall — Store Listing Copy
+# Null Fall — Store Listing Copy
 
 Copy for Google Play and the App Store. Character counts are noted against each store's limit.
 Bundle / package ID: `com.noviac.nullfall`.
@@ -8,7 +8,7 @@ Bundle / package ID: `com.noviac.nullfall`.
 ## Shared
 
 **App name / title** (Play 30 · App Store 30)
-> Nullfall: Puzzle Cascade
+> Null Fall: Puzzle Cascade
 
 **Category**
 - Google Play: Game → Puzzle
@@ -28,7 +28,7 @@ Bundle / package ID: `com.noviac.nullfall`.
 ```
 Positive meets negative. Everything goes to zero.
 
-Nullfall is a fast, tactile number puzzle where every move can set off a chain reaction. Drag glowing orbs onto the board, pair each number with its opposite, and watch them cancel out in a burst of light. +3 meets −3? ZERO POINT! The bigger the numbers, the bigger the blast.
+Null Fall is a fast, tactile number puzzle where every move can set off a chain reaction. Drag glowing orbs onto the board, pair each number with its opposite, and watch them cancel out in a burst of light. +3 meets −3? ZERO POINT! The bigger the numbers, the bigger the blast.
 
 HOW IT WORKS
 • Opposites cancel – drop −5 next to +5 and both vanish in a Zero Blast.
@@ -67,7 +67,7 @@ Simple addition. Explosive results. Can you reach the Zero Point?
 ```
 
 **Release notes – first release** (max 500)
-> Welcome to Nullfall! Drag orbs onto the board, cancel opposites to zero and chain cascades for huge combos. Explore Adventure, chase high scores in Classic and master the Challenges.
+> Welcome to Null Fall! Drag orbs onto the board, cancel opposites to zero and chain cascades for huge combos. Explore Adventure, chase high scores in Classic and master the Challenges.
 
 **Tags to pick in Play Console:** Puzzle, Casual, Brain games, Math, Single player, Offline, Stylized.
 
@@ -93,7 +93,7 @@ math,number,merge,brain,zero,logic,arcade,combo,orb,match,sum,offline,casual,blo
 ```
 
 **What's New – version 1.0**
-> Welcome to Nullfall! Drag orbs onto the board, cancel opposites to zero and chain cascades for huge combos. Explore Adventure, chase high scores in Classic and master the Challenges.
+> Welcome to Null Fall! Drag orbs onto the board, cancel opposites to zero and chain cascades for huge combos. Explore Adventure, chase high scores in Classic and master the Challenges.
 
 **Age rating questionnaire:** answer "None" to every content item → 4+.
 

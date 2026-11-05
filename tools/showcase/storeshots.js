@@ -112,7 +112,7 @@ body { width: ${W}px; height: ${H}px; }
   box-shadow: 0 0 0 2px rgba(0, 242, 254, 0.35), 0 20px 60px rgba(0,0,0,0.7), 0 0 80px rgba(0, 242, 254, 0.2); }
 .shot img { width: 100%; height: 100%; display: block; }
 </style></head><body><div class="bg"></div><div class="stars"></div>
-<div class="left"><img class="icon" src="${ICON}"><div class="name">NULLFALL</div><div class="sub">${titleHtml(feature.tagline || 'Puzzle Cascade')}</div></div>
+<div class="left"><img class="icon" src="${ICON}"><div class="name">NULL FALL</div><div class="sub">${titleHtml(feature.tagline || 'Puzzle Cascade')}</div></div>
 <div class="shot"><img src="${fileUrl(feature.shot)}"></div>
 </body></html>`;
 }
@@ -133,9 +133,9 @@ function bannerHtml(size, banner) {
     const t = u * Math.min(1, W / H / 2.3); // text unit: the title block shrinks on narrower banners
     const phones = banner.shots.slice(0, 3);
     const s = sizeOf(phones[0]);
-    // NULLFALL at 15% of the height is ~75% of the height wide; the three phones (about 2.75
+    // NULL FALL at 15% of the height is ~85% of the height wide; the three phones (about 2.75
     // phone widths with the fan) take what is left, capped by the height on wide banners
-    const textRight = W * 0.06 + t * 80;
+    const textRight = W * 0.06 + t * 90;
     const fanW = W - textRight - Math.max(W * 0.05, u * 8) - u * 4;
     const phoneH = Math.round(Math.min(H * 0.84, (fanW / 2.75) * s.h / s.w));
     const phoneW = Math.round(phoneH * s.w / s.h);
@@ -168,7 +168,7 @@ body { width: ${W}px; height: ${H}px; }
 .glow { position: absolute; left: ${centreX - phoneW}px; top: ${Math.round(H * 0.15)}px; width: ${phoneW * 2}px; height: ${Math.round(H * 0.7)}px;
   background: radial-gradient(closest-side, rgba(0, 242, 254, 0.22), transparent); filter: blur(${Math.round(u * 4)}px); }
 </style></head><body><div class="bg"></div><div class="stars"></div><div class="glow"></div>
-<div class="left"><img class="icon" src="${ICON}"><div class="name">NULLFALL</div><div class="sub">${titleHtml(banner.tagline || 'Puzzle Cascade')}</div></div>
+<div class="left"><img class="icon" src="${ICON}"><div class="name">NULL FALL</div><div class="sub">${titleHtml(banner.tagline || 'Puzzle Cascade')}</div></div>
 ${frames}
 </body></html>`;
 }

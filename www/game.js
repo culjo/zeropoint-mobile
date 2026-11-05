@@ -1,5 +1,5 @@
 /**
- * NULLFALL — Puzzle Cascade
+ * NULL FALL — Puzzle Cascade
  * Core Game Engine
  */
 
@@ -1471,7 +1471,7 @@
         if (modalVictory) modalVictory.classList.remove('visible');
         if (modalGameOver) modalGameOver.classList.remove('visible');
 
-        if (gameModeDisplay) gameModeDisplay.textContent = 'NULLFALL';
+        if (gameModeDisplay) gameModeDisplay.textContent = 'NULL FALL';
         if (gameModeSub) gameModeSub.textContent = 'Puzzle Cascade';
         if (bountyCard) bountyCard.style.display = 'none';
         if (adventureObjectiveCard) adventureObjectiveCard.style.display = 'none';
@@ -2625,7 +2625,7 @@
             });
         }
 
-        // Hidden gesture: tap the NULLFALL title 5 times quickly to toggle debug mode
+        // Hidden gesture: tap the NULL FALL title 5 times quickly to toggle debug mode
         if (homeTitle) {
             let taps = [];
             // pointerup, not click: iOS WebKit doesn't send click to non-interactive elements
@@ -5586,7 +5586,7 @@
         const hook = best > 0
             ? `Can you beat my best of ${best.toLocaleString()}?`
             : 'Cancel opposite numbers, chain blasts and keep the board from overflowing.';
-        return `I'm playing Nullfall: Puzzle Cascade. ${hook}\n\niPhone: ${STORE_LINKS.ios}\nAndroid: ${STORE_LINKS.android}`;
+        return `I'm playing Null Fall: Puzzle Cascade. ${hook}\n\niPhone: ${STORE_LINKS.ios}\nAndroid: ${STORE_LINKS.android}`;
     }
 
     let shareBusy = false;
@@ -5599,10 +5599,10 @@
         try {
             const share = nativePlugin('Share');
             if (share) {
-                const res = await share.share({ title: 'Nullfall: Puzzle Cascade', text, dialogTitle: 'Share Nullfall' });
+                const res = await share.share({ title: 'Null Fall: Puzzle Cascade', text, dialogTitle: 'Share Null Fall' });
                 method = (res && res.activityType) || 'share_sheet';
             } else if (navigator.share) {
-                await navigator.share({ title: 'Nullfall: Puzzle Cascade', text });
+                await navigator.share({ title: 'Null Fall: Puzzle Cascade', text });
                 method = 'web';
             } else if (navigator.clipboard) {
                 await navigator.clipboard.writeText(text);
@@ -5646,7 +5646,7 @@
     const GENERIC_REMINDERS = [
         { title: 'The reactor misses you', body: 'Your board is waiting. Drop in for a quick run.' },
         { title: 'Numbers are piling up', body: 'Come back and zero them out before the tide rises.' },
-        { title: 'New stars to earn', body: 'Pick up where you left off in Nullfall.' }
+        { title: 'New stars to earn', body: 'Pick up where you left off in Null Fall.' }
     ];
 
     // Short wins first while the habit forms; bigger goals once the player has drifted

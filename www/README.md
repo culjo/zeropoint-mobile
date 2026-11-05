@@ -1,4 +1,4 @@
-# NULLFALL — Puzzle Cascade
+# NULL FALL — Puzzle Cascade
 
 A tactile, fast-paced arithmetic arcade puzzle game where positive matter and negative anti-matter collide to reach equilibrium.
 

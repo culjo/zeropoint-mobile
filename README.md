@@ -1,6 +1,6 @@
-# NULLFALL — Mobile (Capacitor)
+# NULL FALL — Mobile (Capacitor)
 
-Dedicated standalone mobile application build for **Nullfall: Puzzle Cascade**, powered by **Capacitor 7**.
+Dedicated standalone mobile application build for **Null Fall: Puzzle Cascade**, powered by **Capacitor 7**.
 
 ---
 
@@ -60,6 +60,6 @@ npm run cap:doctor
 ---
 
 ## ⚙️ Configuration
-- **App Name**: `Nullfall` (App Store title: "Nullfall: Puzzle Cascade")
+- **App Name**: `Null Fall` (App Store title: "Null Fall: Puzzle Cascade")
 - **Bundle ID / App ID**: `com.noviac.nullfall`
 - **Platform Targets**: Android 14+ (API 34/35), iOS 17+

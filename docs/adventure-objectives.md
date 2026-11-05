@@ -1,4 +1,4 @@
-# Nullfall: Adventure Objectives
+# Null Fall: Adventure Objectives
 
 Status: **in build** (2026-10-17). All 8 goals are playable (`www/levels.js`). Only 2-3 is still a placeholder, because static blocks aren't built yet. Level numbers are untuned until the playtest bot exists.
 Replaces an earlier redesign (deleted 2026-10-17), which was rejected as too complex.

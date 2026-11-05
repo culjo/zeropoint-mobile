@@ -334,10 +334,10 @@
         '9-5': { title: 'Faded Star', goal: collect(12, 64), drops: 28, board: B.linkSeal, pool: { ...POOL_STD, favor: 2 }, sealed: [0] },
         '9-10': { title: 'The Entropy Core', goal: nullCore(18), drops: 29, board: B.nullCore, pool: POOL_STD, rise: 6, risers: { start: 1, every: 6, max: 3 } },
 
-        // ===== Sector 10: Nullfall (Tide 6) =====
+        // ===== Sector 10: Null Fall (Tide 6) =====
         '10-1': { title: 'The Last Sector', goal: zeroOut(24), drops: 30, board: B.wallsWide, pool: POOL_STD },
         '10-7': { title: 'Fallen Light', goal: zeroOut(28), drops: 30, board: B.allElements, pool: POOL_STD, sealed: [3] },
-        '10-14': { title: 'Nullfall', goal: nullCore(20), drops: 33, board: B.nullCoreWebbed, pool: POOL_STD, rise: 6, risers: { every: 4, max: 2 } }
+        '10-14': { title: 'Null Fall', goal: nullCore(20), drops: 33, board: B.nullCoreWebbed, pool: POOL_STD, rise: 6, risers: { every: 4, max: 2 } }
     };
 
     return { LEVELS };

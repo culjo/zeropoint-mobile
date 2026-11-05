@@ -75,7 +75,7 @@
         },
         {
             sector: 10,
-            name: "Nullfall",
+            name: "Null Fall",
             theme: "The Final Collapse",
             color: "#ff2a5f",
             desc: "Every number falls back to zero. Balance the universe one last time."

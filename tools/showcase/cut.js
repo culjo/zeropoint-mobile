@@ -196,7 +196,7 @@ if (cmd === 'raw') {
         return f;
     });
     const end = path.join(work, 'end-card.mp4');
-    card(arg('title', 'NULLFALL'), arg('sub', 'Puzzle Cascade'), 3, end);
+    card(arg('title', 'NULL FALL'), arg('sub', 'Puzzle Cascade'), 3, end);
     files.push(end);
     concat(files, out);
     console.log(`→ ${out} (${parts.length} clips)`);
@@ -243,7 +243,7 @@ if (cmd === 'raw') {
         return f;
     });
     const end = path.join(work, 'end-card.mp4');
-    card(arg('title', 'NULLFALL'), arg('sub', 'Puzzle Cascade'), 3, end);
+    card(arg('title', 'NULL FALL'), arg('sub', 'Puzzle Cascade'), 3, end);
     files.push(end);
     const out = arg('out', path.join(CAPS, `${name}-reel.mp4`));
     concat(files, out);
