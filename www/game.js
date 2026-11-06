@@ -9154,8 +9154,11 @@
             career.tutorialDone = true;
             career.usedHold = true;
             career.usedSwap = true;
+            career.coinGiftClaimed = true; // the once-only welcome gift card would cover the capture
             saveCareerData();
             pendingJit = [];
+            const gift = document.getElementById('modal-coin-gift');
+            if (gift) gift.classList.remove('visible');
         },
         state() {
             if (!isDebugMode()) return null;

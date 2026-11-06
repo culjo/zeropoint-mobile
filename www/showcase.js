@@ -502,6 +502,23 @@
             },
             moves: [drop(5)]
         },
+        // Heat 2 (tide ±4–16), seven high, a +128 Magnetar on top: a −128 onto it is a Hyperspace
+        // Singularity (128 is 32× the tide's smallest orb) that wipes the bottom rows
+        magnetar: {
+            stage: {
+                heat: 2,
+                rows: [
+                    ['.', '.', 128, '.', '.', '.'],
+                    [8, '.', -12, 16, '.', -4],
+                    [-16, 4, 'D', -8, 12, 8],
+                    [12, 'D', -16, 4, 'D', -12],
+                    ['D', -8, 12, 'D', -16, 'D'],
+                    [4, 16, 'D', -12, 'D', 16]
+                ],
+                tray: [-128, 8], rise: 4, overdrive: 80
+            },
+            moves: [drop(2)]
+        },
         // Seven high, one row from the red line: an 18-step chain pulls it back to three
         brink: {
             stage: {
@@ -745,6 +762,14 @@
         await sleep(700);
         mark('fight');
         const log = await play({ style: 'boss', keepBoard: true, lead: 200, t0 });
+        // A win shows "Coins earned" first: claim them, like a player, so the stars screen follows
+        const claim = document.getElementById('btn-coins-claim');
+        for (let i = 0; i < 40 && !(claim && claim.closest('.visible')); i++) await sleep(100);
+        if (claim && claim.closest('.visible')) {
+            await sleep(1700);
+            mark('claim');
+            await tap(claim);
+        }
         return flow.concat(log).sort((a, b) => a.t - b.t);
     }
 
