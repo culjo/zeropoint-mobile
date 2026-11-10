@@ -20,6 +20,7 @@
 		A6D6A471308AC79A00035A75 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A6D6A470308AC79A00035A75 /* GoogleService-Info.plist */; };
 		AB3655380F49297DF44A54C6 /* GameServicesPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECCC9ACAB10C154AC5C77B6C /* GameServicesPlugin.swift */; };
 		DB0B83E9D30470955A7EE6DE /* StoreReviewPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFD4110AA275788511FCD2E8 /* StoreReviewPlugin.swift */; };
+		A1E7C0DE5EED0001FB5DA001 /* MetaEventsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E7C0DE5EED0002FB5DA002 /* MetaEventsPlugin.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -41,6 +42,7 @@
 		ECCC9ACAB10C154AC5C77B6C /* GameServicesPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GameServicesPlugin.swift; sourceTree = "<group>"; };
 		FC68EB0AF532CFC21C3344DD /* Pods-App.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.debug.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.debug.xcconfig"; sourceTree = "<group>"; };
 		FFD4110AA275788511FCD2E8 /* StoreReviewPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StoreReviewPlugin.swift; sourceTree = "<group>"; };
+		A1E7C0DE5EED0002FB5DA002 /* MetaEventsPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MetaEventsPlugin.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -98,6 +100,7 @@
 				51B5FBB28AEB463BDB62E4F2 /* MainViewController.swift */,
 				8CCACD72340FC3CBB8327D5E /* App.entitlements */,
 				FFD4110AA275788511FCD2E8 /* StoreReviewPlugin.swift */,
+				A1E7C0DE5EED0002FB5DA002 /* MetaEventsPlugin.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -230,6 +233,7 @@
 				AB3655380F49297DF44A54C6 /* GameServicesPlugin.swift in Sources */,
 				09709FB5B05EA323FEAA947A /* MainViewController.swift in Sources */,
 				DB0B83E9D30470955A7EE6DE /* StoreReviewPlugin.swift in Sources */,
+				A1E7C0DE5EED0001FB5DA001 /* MetaEventsPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

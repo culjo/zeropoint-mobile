@@ -15,4 +15,5 @@ ext {
     cordovaAndroidVersion = '14.0.1'
     playGamesV2Version = '22.1.0'
     playReviewVersion = '2.0.2'
+    facebookCoreVersion = '19.0.1'
 }

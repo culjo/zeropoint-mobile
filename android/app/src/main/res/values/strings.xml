@@ -7,4 +7,8 @@
     <!-- Play Games Services project id (Play Console > Play Games Services > Configuration).
          Set to REPLACE_ME to build without Play Games. -->
     <string name="game_services_project_id" translatable="false">989783217786</string>
+    <!-- Meta (Facebook) SDK: App ID and Client Token from the Meta developer dashboard
+         (App settings > Basic and > Advanced). Leave REPLACE_ME to build with the SDK off. -->
+    <string name="facebook_app_id" translatable="false">1114080567913082</string>
+    <string name="facebook_client_token" translatable="false">b782c166fb52086c779c0abfbdab5495</string>
 </resources>

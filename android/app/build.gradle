@@ -61,6 +61,8 @@ dependencies {
     implementation project(':capacitor-android')
     implementation "com.google.android.gms:play-services-games-v2:$playGamesV2Version"
     implementation "com.google.android.play:review:$playReviewVersion"
+    // Meta (Facebook) SDK app events for ad install attribution (MetaEventsPlugin.java)
+    implementation "com.facebook.android:facebook-core:$facebookCoreVersion"
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"

@@ -20,6 +20,12 @@ PODS:
     - Capacitor
   - CapacitorStatusBar (8.0.4):
     - Capacitor
+  - FBAEMKit (19.0.0):
+    - FBSDKCoreKit_Basics (= 19.0.0)
+  - FBSDKCoreKit (19.0.0):
+    - FBAEMKit (= 19.0.0)
+    - FBSDKCoreKit_Basics (= 19.0.0)
+  - FBSDKCoreKit_Basics (19.0.0)
   - FirebaseAnalytics/Core (12.19.0):
     - FirebaseCore (~> 12.19.0)
     - FirebaseInstallations (~> 12.19.0)
@@ -90,9 +96,13 @@ DEPENDENCIES:
   - "CapacitorScreenOrientation (from `../../node_modules/@capacitor/screen-orientation`)"
   - "CapacitorShare (from `../../node_modules/@capacitor/share`)"
   - "CapacitorStatusBar (from `../../node_modules/@capacitor/status-bar`)"
+  - FBSDKCoreKit (~> 19.0)
 
 SPEC REPOS:
   trunk:
+    - FBAEMKit
+    - FBSDKCoreKit
+    - FBSDKCoreKit_Basics
     - FirebaseAnalytics
     - FirebaseCore
     - FirebaseCoreInternal
@@ -129,6 +139,9 @@ SPEC CHECKSUMS:
   CapacitorScreenOrientation: 0ccb98cbbfbb1dce509da837a3e35848128417ce
   CapacitorShare: 5b5e53347556bee89ae6163ed20b5b3c25fe75f1
   CapacitorStatusBar: ff844df1f126da6c4fbc4028272425fa3a91e7e3
+  FBAEMKit: feeb39dc63c2de0ce729b642749766f872bb5cae
+  FBSDKCoreKit: 8ab2f41763606700686aff3dde1f997e3e7669c8
+  FBSDKCoreKit_Basics: 89dc0713ac15ffd0b2cf22a05bbf083eb426d6da
   FirebaseAnalytics: e9f8c369447e453da23f0455a06e4910bad10de0
   FirebaseCore: c990214798d7c568ad436a15ba7da25c7a278c9a
   FirebaseCoreInternal: 656b1c2fd5a1c5976183dc54b73deda78fb26ee3
@@ -138,6 +151,6 @@ SPEC CHECKSUMS:
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
 
-PODFILE CHECKSUM: a063cd14052eb5b0c1bf69abbab0a79490a297e4
+PODFILE CHECKSUM: a21aaeb326234977a90682f3f890afbc0767216c
 
 COCOAPODS: 1.17.0

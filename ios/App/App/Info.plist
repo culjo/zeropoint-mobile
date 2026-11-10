@@ -20,6 +20,32 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<!-- Meta (Facebook) SDK: App ID and Client Token from the Meta developer dashboard
+	     (App settings > Basic and > Advanced). Leave REPLACE_ME to build with the SDK off. -->
+	<key>FacebookAppID</key>
+	<string>1114080567913082</string>
+	<key>FacebookClientToken</key>
+	<string>b782c166fb52086c779c0abfbdab5495</string>
+	<key>FacebookDisplayName</key>
+	<string>Null Fall</string>
+	<key>FacebookAutoLogAppEventsEnabled</key>
+	<true/>
+	<key>FacebookAdvertiserIDCollectionEnabled</key>
+	<true/>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Your choice helps us measure which of our ads bring new players to Null Fall.</string>
+	<!-- SKAdNetwork IDs for Meta ad attribution, also when tracking is declined -->
+	<key>SKAdNetworkItems</key>
+	<array>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>v9wttpbfk9.skadnetwork</string>
+		</dict>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>n38lu8286q.skadnetwork</string>
+		</dict>
+	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>

@@ -24,6 +24,8 @@ target 'App' do
   # Add your Pods here
   # Firebase Analytics without IDFA, so no App Tracking Transparency prompt is needed
   pod 'CapacitorFirebaseAnalytics/AnalyticsWithoutAdIdSupport', :path => '../../node_modules/@capacitor-firebase/analytics'
+  # Meta (Facebook) SDK app events for ad install attribution (App/MetaEventsPlugin.swift)
+  pod 'FBSDKCoreKit', '~> 19.0'
 end
 
 post_install do |installer|

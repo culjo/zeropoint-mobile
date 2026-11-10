@@ -5,5 +5,6 @@ class MainViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(GameServicesPlugin())
         bridge?.registerPluginInstance(StoreReviewPlugin())
+        bridge?.registerPluginInstance(MetaEventsPlugin())
     }
 }

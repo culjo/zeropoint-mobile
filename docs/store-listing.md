@@ -101,7 +101,7 @@ math,number,merge,brain,zero,logic,arcade,combo,orb,match,sum,offline,casual,blo
 
 ## Before submitting – check these
 
-- **Privacy:** the game code has no ads, analytics or in-app purchases, and saves progress only on the device. If that is still true at submission, use *App Store → Data Not Collected* and *Play Data safety → No data collected / No data shared*. Both stores still require a privacy policy URL.
+- **Privacy:** the app has no ads or in-app purchases and saves progress on the device, but it does send usage data: Firebase Analytics (gameplay events, no advertising ID) and the Meta SDK (installs, app opens and a few game events, plus the advertising ID when the player allows tracking, used for Meta ad attribution). *App Store privacy:* declare Identifiers → Device ID, Usage Data → Product Interaction and Advertising Data, used for Analytics and Third-Party Advertising, with Device ID and Advertising Data marked as *used to track you*. *Play Data safety:* declare Device or other IDs and App interactions, collected and shared with Meta for Analytics and Advertising or marketing, and answer *Yes* to the advertising ID question. Both stores still require a privacy policy URL, and the policy should name Firebase and Meta.
 - **Support URL** (App Store) and **contact email** (Play) are required.
 - **Offline claim:** confirm a fresh install works in airplane mode (fonts and audio are bundled, so it should).
 - **Screenshots:** suggested captions, one per shot —

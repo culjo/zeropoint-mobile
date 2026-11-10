@@ -11,6 +11,9 @@ public class MainActivity extends BridgeActivity {
         // Local plugins register before the bridge starts
         registerPlugin(GameServicesPlugin.class);
         registerPlugin(StoreReviewPlugin.class);
+        registerPlugin(MetaEventsPlugin.class);
+        // Meta SDK: logs installs and app opens for Meta ad attribution
+        MetaEventsPlugin.start(getApplication());
         super.onCreate(savedInstanceState);
         // Full screen: hidden bars peek in on swipe, then hide again
         WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView())
