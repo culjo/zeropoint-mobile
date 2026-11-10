@@ -125,7 +125,7 @@ fs.mkdirSync(work, { recursive: true });
 if (cmd === 'raw') {
     const name = args[1];
     const { log } = load(name);
-    const start = log.find((e) => e.kind === 'start').t + 200;
+    const start = (log.find((e) => e.kind === 'start') || { t: -200 }).t + 200; // map shots log no 'start'
     const last = log[log.length - 1].t + 4200; // the Breach panel finishes counting about 3.5 s after game over
     const out = arg('out', path.join(CAPS, `${name}.mp4`));
     clip(video(name), start, last, out);

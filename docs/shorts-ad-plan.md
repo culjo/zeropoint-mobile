@@ -65,7 +65,7 @@ Today the showcase autoplay (`www/showcase.js`) shows a faint white circle, and 
   - Needs a new capture: `capture.js` can already tap through the home screen into the map (the Boss Run route); it needs a variant that stops on the map and taps the next sector pill.
 - **Board:** the existing `cascade` set-piece, but with 1–2 small setup moves added before the big drop so it doesn't feel like a cold cut.
 - **Moves:** setup cancel, short pause (hand hovers over two columns, picks one), the drop → 16-step chain.
-- **Payoff caption:** `16x COMBO` (number from the capture log), then `NEW SECTOR UNLOCKED` on the map shot
+- **Payoff caption:** `16x COMBO` (kept by choice; the recorded chain is 16 steps and the in-game counter tops out at ×18), then `NEW SECTOR UNLOCKED` on the map shot
 - **Length:** runs to ~20 s with the map shot, so keep the setup to one move.
 - **Pairs with:** "Set Off Chain Reactions", "Drag, Drop, Blast, Cascade".
 

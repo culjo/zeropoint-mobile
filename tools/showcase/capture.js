@@ -4,7 +4,7 @@
 // Needs the capture server running (node tools/showcase/server.js). Runs headless at 2.5× by
 // default; --headless 0 shows the window (keep it uncovered: Chrome stops painting covered windows).
 //   node tools/showcase/capture.js --name chaser-01 --style chaser [--setpiece cascade] [--turns 200]
-//        [--best 0] [--heat 0] [--minutes 6] [--marker 1|0|hand] [--boss 10 --sector 1]
+//        [--best 0] [--heat 0] [--minutes 6] [--marker 1|0|hand] [--boss 10 --sector 1] [--map 1]
 // --marker hand shows a white pointing hand that glides between moves (social ads); 1 is the soft dot, 0 none.
 // Record hand takes with --headless 0: headless capture drops static parts of the page (HUD, tray) for
 // stretches of frames while the hand moves.
@@ -40,6 +40,8 @@ const playOpts = {
 if (arg('heat')) playOpts.stage = { heat: Number(arg('heat')) };
 // Boss Run: --boss 10 [--sector 1] taps from the home screen through the map into that boss
 if (arg('boss')) Object.assign(playOpts, { boss: Number(arg('boss')), sector: Number(arg('sector', 1)) });
+// Map shot (Shorts V3): --map 1 [--sector 1] clears that sector, opens the next, and taps into it on the map
+if (arg('map')) Object.assign(playOpts, { map: true, sector: Number(arg('sector', 1)) });
 const MINUTES = Number(arg('minutes', 6));
 const MARKER_ARG = arg('marker', '1');
 const MARKER = MARKER_ARG !== '0';

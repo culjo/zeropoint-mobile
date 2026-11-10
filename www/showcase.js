@@ -456,7 +456,7 @@
     }
 
     // ---------- set-piece boards (rows top → bottom, bottom-aligned; see tools/showcase/setpieces.js) ----------
-    const drop = (col, slot = 0) => ({ kind: 'drop', source: 'tray', slot, col });
+    const drop = (col, slot = 0, via) => ({ kind: 'drop', source: 'tray', slot, col, ...(via ? { via } : {}) });
     const SETPIECES = {
         // One +1 sets off a 16-step chain that empties the board; Overdrive fires partway through
         cascade: {
@@ -471,6 +471,22 @@
                 tray: [1, -3], overdrive: 55, rise: 5
             },
             moves: [drop(1)]
+        },
+        // Shorts ad V3 "Line up number CASCADES": the cascade board with a +3 parked on column 0. -3 clears it
+        // (a warm-up Zero Blast that leaves the cascade board exactly), the hand weighs up column 3, then +1 into
+        // column 1 sets off the 16-step chain
+        v3cascade: {
+            stage: {
+                rows: [
+                    [3, '.', 1, 4, '.', -2],
+                    [1, '.', 3, -1, 3, -4],
+                    [4, 2, -4, -3, -4, -3],
+                    [-2, -1, 3, -4, 1, 4],
+                    [-1, -3, 4, -1, 4, -2]
+                ],
+                tray: [1, -3], deals: [2, -1, 3, -2, 1, 4], overdrive: 55, rise: 5, swaps: 0
+            },
+            moves: [drop(0, 1), drop(1, 0, [3])]
         },
         // A 13-step chain that ends on ±16: Hyperspace Singularity, then BOARD CLEAR
         singularity: {
@@ -832,7 +848,8 @@
     function ease(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
 
     // Drag along a slight arc, like a thumb sweeping up from the tray
-    async function drag(from, to, ms, target) {
+    // `via`: points the finger pauses over first (the hand weighing up other columns) before going to `to`
+    async function drag(from, to, ms, target, via = []) {
         ensureMarker();
         const hand = markerMode === 'hand';
         if (hand) {
@@ -846,20 +863,28 @@
         pointer('pointerdown', from.x, from.y, target);
         await sleep(hand ? 220 : 60);
         setHandState(['dragging']);
-        const bow = (Math.random() - 0.5) * 50;
-        const start = performance.now();
-        await new Promise((done) => {
+        const sweep = (a, b, dur, bow) => new Promise((done) => {
+            const start = performance.now();
             function frame(now) {
-                const t = Math.min(1, (now - start) / ms);
+                const t = Math.min(1, (now - start) / dur);
                 const e = ease(t);
-                const x = from.x + (to.x - from.x) * e + Math.sin(Math.PI * e) * bow;
-                const y = from.y + (to.y - from.y) * e;
+                const x = a.x + (b.x - a.x) * e + Math.sin(Math.PI * e) * bow;
+                const y = a.y + (b.y - a.y) * e;
                 moveMarker(x, y);
                 pointer('pointermove', x, y, window.document.body);
                 if (t < 1) requestAnimationFrame(frame); else done();
             }
             requestAnimationFrame(frame);
         });
+        let at = from;
+        for (const p of via) {
+            await sweep(at, p, at === from ? ms : ms * 0.55, at === from ? (Math.random() - 0.5) * 50 : 0);
+            setHandState([], ['dragging']);
+            await sleep(520); // think it over
+            setHandState(['dragging']);
+            at = p;
+        }
+        await sweep(at, to, at === from ? ms : ms * 0.55, at === from ? (Math.random() - 0.5) * 50 : 0);
         setHandState([], ['dragging']);
         await sleep(hand ? 260 + Math.random() * 80 : 70 + Math.random() * 60); // settle over the column before letting go
         pointer('pointerup', to.x, to.y, window.document.body);
@@ -903,7 +928,13 @@
         const el = action.source === 'hold'
             ? document.getElementById('btn-touch-hold')
             : (document.getElementById(`drag-slot-${action.slot}`) || {}).closest?.('button');
-        await drag(from, to, rand(style.drag), el);
+        // A scripted drop can hover over other columns first ({ via: [cols] })
+        const via = (action.via || []).map((vc) => {
+            const vl = Math.max(0, landingRow(g, vc));
+            const vcell = geo.cell(vl, vc);
+            return { x: vcell.x, y: Math.max(vcell.y + LIFT - geo.cellH * 0.6, geo.cell(0, 0).y + LIFT) };
+        });
+        await drag(from, to, rand(style.drag), el, via);
     }
 
     // A finger tap on an element: marker, pointer events, then the click the game listens for
@@ -1043,6 +1074,36 @@
         return flow.concat(log).sort((a, b) => a.t - b.t);
     }
 
+    // Shorts V3 map shot: Sector `sector` fully cleared (boss beaten), the next one open. The hand taps into the
+    // Adventure map, lets the cleared world read, then taps the next sector's pill and its open nodes show
+    async function mapShot(opts = {}) {
+        const H = root.NullfallShowcaseHooks;
+        const sector = opts.sector || 1;
+        const t0 = opts.t0 || performance.now();
+        const flow = [];
+        const mark = (kind) => flow.push({ t: Math.round(performance.now() - t0), kind });
+        H.stageProgress(sector, opts.stars || [3, 3, 2, 3, 3, 3, 2, 3, 3, 3, 3], { bossCleared: true });
+        await sleep(opts.lead != null ? opts.lead : 1200);
+        mark('home');
+        await tap('#card-play-adventure');
+        await sleep(300);
+        mark('map');
+        await sleep(1500); // the cleared world, every node starred
+        const pill = document.querySelectorAll('#sector-pills .sector-pill')[sector];
+        mark('next');
+        await tap(pill);
+        mark('opened');
+        // Point (no tap) at the newly opened first node, so the eye goes to it
+        await sleep(450);
+        const first = document.querySelector(`.cnode[data-node-id="${sector + 1}-1"]`);
+        if (first && markerMode === 'hand') {
+            const r = first.getBoundingClientRect();
+            await glide(r.left + r.width * 0.62, r.bottom + 4, 700);
+        }
+        await sleep(2200); // the new world: first node open, the rest waiting
+        return flow;
+    }
+
     // ---------- capture: record this tab (video + game audio) and upload it to tools/showcase/server.js ----------
     // Needs a user gesture (or Chrome's --auto-accept-this-tab-capture) for the tab-capture prompt.
     const rec = { recorder: null, chunks: [], t0: 0 };
@@ -1077,9 +1138,11 @@
     // Record one run: the log's times line up with the video (t = ms from the first frame)
     async function capture(name, playOpts = {}) {
         const info = await startRecording(playOpts);
-        const log = playOpts.boss
-            ? await bossRun({ ...playOpts, t0: rec.t0 })
-            : await play({ ...playOpts, t0: rec.t0 });
+        const log = playOpts.map
+            ? await mapShot({ ...playOpts, t0: rec.t0 })
+            : playOpts.boss
+                ? await bossRun({ ...playOpts, t0: rec.t0 })
+                : await play({ ...playOpts, t0: rec.t0 });
         await sleep(playOpts.tail != null ? playOpts.tail : 2500);
         const saved = await stopRecording(`${name}.webm`);
         await fetch(`/__capture?name=${encodeURIComponent(name)}.json`, { method: 'POST', body: JSON.stringify({ info, log }, null, 1) });
@@ -1089,7 +1152,7 @@
     const api = {
         ROWS, COLS, STYLES, SETPIECES,
         fromState, cloneBoard, simulateDrop, simulateSwap, settle, climb, riserRows, makeTurn, landingRow, heights, tileCount, tierOf,
-        chooseAction, play, stop, runner, bossRun, tap, startRecording, stopRecording, capture, setMarker,
+        chooseAction, play, stop, runner, bossRun, mapShot, tap, startRecording, stopRecording, capture, setMarker,
         showMarker(on) { ensureMarker(); if (marker) marker.classList.toggle('hidden-marker', !on); }
     };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;

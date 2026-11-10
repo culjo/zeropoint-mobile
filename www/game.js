@@ -9298,7 +9298,9 @@
         },
         // Stage Adventure progress for the map: every node of a sector before its boss cleared, with
         // the given stars (cycled), the boss unlocked. Staged save data, for capture only.
-        stageProgress(sectorNum, stars = [3]) {
+        // opts.bossCleared: the boss is beaten too and the next sector's first node is open (as after a boss win);
+        // the map then opens on this sector
+        stageProgress(sectorNum, stars = [3], opts = {}) {
             if (!isDebugMode() || typeof NodeGenerator === 'undefined') return;
             this.quiet();
             const layout = NodeGenerator.SECTOR_LAYOUTS[sectorNum - 1] || [];
@@ -9306,9 +9308,13 @@
             if (!career.adventureNodes) career.adventureNodes = {};
             layout.forEach((n, i) => {
                 set.add(n.id);
-                if (n.type === 'boss') return;
+                if (n.type === 'boss' && !opts.bossCleared) return;
                 career.adventureNodes[n.id] = { cleared: true, stars: stars[i % stars.length], bestScore: 0, bestDrops: 0 };
             });
+            if (opts.bossCleared) {
+                set.add(`${sectorNum + 1}-1`);
+                career.currentSector = sectorNum;
+            }
             career.unlockedNodes = [...set];
             career.firstPlayDone = true;
             saveCareerData();
