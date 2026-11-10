@@ -6,6 +6,8 @@
 //   node tools/showcase/capture.js --name chaser-01 --style chaser [--setpiece cascade] [--turns 200]
 //        [--best 0] [--heat 0] [--minutes 6] [--marker 1|0|hand] [--boss 10 --sector 1]
 // --marker hand shows a white pointing hand that glides between moves (social ads); 1 is the soft dot, 0 none.
+// Record hand takes with --headless 0: headless capture drops static parts of the page (HUD, tray) for
+// stretches of frames while the hand moves.
 
 'use strict';
 

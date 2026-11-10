@@ -519,6 +519,21 @@
             },
             moves: [drop(2)]
         },
+        // Shorts ad V1 "Cancel opposite numbers to ZERO": a half-full board; -3 onto +3 and -2 onto +2
+        // are two clean Zero Blasts, then +1 sets off a 6-step chain (merges and a Cross Laser)
+        v1zero: {
+            stage: {
+                rows: [
+                    ['.', '.', '.', 3, '.', '.'],
+                    [4, '.', '.', -2, 1, '.'],
+                    [-2, -3, -2, -1, 3, 2],
+                    [-3, -1, -3, 4, -2, 1],
+                    [1, -2, -4, -1, -3, -4]
+                ],
+                tray: [-3, -2], deals: [1, 4, -1, 2, -4, 3], rise: 9, overdrive: 0, swaps: 0
+            },
+            moves: [drop(3, 0), drop(5, 1), drop(5, 0)]
+        },
         // Seven high, one row from the red line: an 18-step chain pulls it back to three
         brink: {
             stage: {
@@ -549,11 +564,11 @@
     let markerPos = { x: 0, y: 0 };
     let glideToken = 0;
 
-    // Pointing hand, index finger up, drawn in a 112 × 132 box; the touch point is HAND_TIP in that box
+    // Pointing hand, index finger up, drawn in a 112 × 138 box (shadow included); the touch point is HAND_TIP in that box
     const HAND_W = 84;
-    const HAND_BOX = [112, 132];
+    const HAND_BOX = [112, 138];
     const HAND_TIP = [46, 13];
-    const HAND_SVG = `<svg viewBox="-6 -4 112 132" width="${HAND_W}" height="${HAND_W * HAND_BOX[1] / HAND_BOX[0]}" aria-hidden="true">
+    const HAND_SVG = `<svg viewBox="-6 -4 112 138" width="${HAND_W}" height="${HAND_W * HAND_BOX[1] / HAND_BOX[0]}" aria-hidden="true">
 <defs>
   <linearGradient id="sc-hand-fill" x1="0" y1="0" x2="1" y2="0">
     <stop offset="0" stop-color="#ffffff"/><stop offset="0.7" stop-color="#f4f6fb"/><stop offset="1" stop-color="#dfe4ee"/>
@@ -566,8 +581,10 @@
     <path d="M30 64 C 30 60, 34 58, 38 60 L 88 74 C 92 76, 92 84, 90 92 C 88 106, 80 116, 66 118 L 48 118 C 38 117, 31 110, 29 100 Z"/>
     <path d="M33 74 C 24 66, 14 62, 9 68 C 5 73, 9 80, 15 86 C 22 94, 28 101, 34 104 Z"/>
   </g>
+  <filter id="sc-hand-blur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3"/></filter>
 </defs>
 <g transform="rotate(-14 40 6)">
+  <use class="hand-shadow" href="#sc-hand-shape" fill="rgba(0,0,0,0.5)" stroke="rgba(0,0,0,0.5)" stroke-width="7" transform="translate(1 6)" filter="url(#sc-hand-blur)"/>
   <use href="#sc-hand-shape" fill="#1a1f2e" stroke="#1a1f2e" stroke-width="7" stroke-linejoin="round"/>
   <use href="#sc-hand-shape" fill="url(#sc-hand-fill)"/>
   <path d="M35 10 C 37 7.5, 43 7.5, 45 10 L 45 17 C 43 18.5, 37 18.5, 35 17 Z" fill="#edf0f6"/>
@@ -591,16 +608,16 @@
                 background: radial-gradient(circle, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.18) 60%, rgba(255,255,255,0) 72%);
                 box-shadow: 0 0 0 2px rgba(255,255,255,0.55); transition: opacity 140ms ease, transform 120ms ease; }
             .showcase-touch.down { opacity: 1; transform: scale(0.82); }
-            .showcase-hand { position: fixed; left: 0; top: 0; width: 0; height: 0; pointer-events: none; z-index: 2147483647; }
+            .showcase-hand-stage { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 2147483647; }
+            .showcase-hand { position: absolute; left: 0; top: 0; width: 0; height: 0; }
             .showcase-hand .hand-body { position: absolute; left: ${-tipX}px; top: ${-tipY}px; line-height: 0;
-                transform-origin: ${tipX}px ${tipY}px; transition: transform 140ms cubic-bezier(.3,.7,.4,1);
-                filter: drop-shadow(0 6px 7px rgba(0,0,0,0.5)); }
-            .showcase-hand.down .hand-body { transform: scale(0.88) rotate(-3deg); filter: drop-shadow(0 2px 3px rgba(0,0,0,0.55)); }
+                transform-origin: ${tipX}px ${tipY}px; transition: transform 140ms cubic-bezier(.3,.7,.4,1); }
+            .showcase-hand.down .hand-body { transform: scale(0.88) rotate(-3deg); }
             .showcase-hand .hand-ripple { position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; border-radius: 50%;
                 border: 3px solid rgba(255,255,255,0.85); opacity: 0; transform: scale(0.3); }
             .showcase-hand.down .hand-ripple { animation: sc-ripple 520ms ease-out; }
             @keyframes sc-ripple { 0% { opacity: 0.9; transform: scale(0.3); } 100% { opacity: 0; transform: scale(1.6); } }
-            .showcase-touch.hidden-marker, .showcase-hand.hidden-marker { display: none; }`;
+            .showcase-touch.hidden-marker, .showcase-hand-stage:has(.hidden-marker) { display: none; }`;
             document.head.appendChild(style);
         }
         marker = document.createElement('div');
@@ -608,10 +625,15 @@
             marker.className = 'showcase-hand';
             marker.innerHTML = `<div class="hand-ripple"></div><div class="hand-body">${HAND_SVG}</div>`;
             markerPos = restPoint();
+            // A full-screen box clips the hand where it pokes past the bottom edge at rest
+            const stage = document.createElement('div');
+            stage.className = 'showcase-hand-stage';
+            stage.appendChild(marker);
+            document.body.appendChild(stage);
         } else {
             marker.className = 'showcase-touch';
+            document.body.appendChild(marker);
         }
-        document.body.appendChild(marker);
         moveMarker(markerPos.x, markerPos.y);
         return marker;
     }
@@ -619,7 +641,7 @@
 
     function setMarker(mode) {
         markerMode = mode === 'hand' ? 'hand' : 'dot';
-        if (marker) { marker.remove(); marker = null; }
+        if (marker) { (marker.closest('.showcase-hand-stage') || marker).remove(); marker = null; }
         ensureMarker();
     }
 
