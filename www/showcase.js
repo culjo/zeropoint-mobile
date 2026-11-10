@@ -542,24 +542,118 @@
     const rand = ([a, b]) => a + Math.random() * (b - a);
     const LIFT = 64; // game.js holds the dragged orb this far above the finger
 
+    // Marker styles: 'dot' (a soft circle while the finger is down, for the publisher videos) or
+    // 'hand' (a white pointing hand that stays on screen, glides between moves and rests by the tray, for ads)
+    let markerMode = 'dot';
     let marker = null;
+    let markerPos = { x: 0, y: 0 };
+    let glideToken = 0;
+
+    // Pointing hand, index finger up, drawn in a 112 × 132 box; the touch point is HAND_TIP in that box
+    const HAND_W = 84;
+    const HAND_BOX = [112, 132];
+    const HAND_TIP = [46, 13];
+    const HAND_SVG = `<svg viewBox="-6 -4 112 132" width="${HAND_W}" height="${HAND_W * HAND_BOX[1] / HAND_BOX[0]}" aria-hidden="true">
+<defs>
+  <linearGradient id="sc-hand-fill" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#ffffff"/><stop offset="0.7" stop-color="#f4f6fb"/><stop offset="1" stop-color="#dfe4ee"/>
+  </linearGradient>
+  <g id="sc-hand-shape">
+    <rect x="30" y="4" width="20" height="74" rx="10"/>
+    <rect x="47" y="42" width="19" height="40" rx="9.5"/>
+    <rect x="62" y="48" width="17" height="38" rx="8.5"/>
+    <rect x="75" y="56" width="15" height="34" rx="7.5"/>
+    <path d="M30 64 C 30 60, 34 58, 38 60 L 88 74 C 92 76, 92 84, 90 92 C 88 106, 80 116, 66 118 L 48 118 C 38 117, 31 110, 29 100 Z"/>
+    <path d="M33 74 C 24 66, 14 62, 9 68 C 5 73, 9 80, 15 86 C 22 94, 28 101, 34 104 Z"/>
+  </g>
+</defs>
+<g transform="rotate(-14 40 6)">
+  <use href="#sc-hand-shape" fill="#1a1f2e" stroke="#1a1f2e" stroke-width="7" stroke-linejoin="round"/>
+  <use href="#sc-hand-shape" fill="url(#sc-hand-fill)"/>
+  <path d="M35 10 C 37 7.5, 43 7.5, 45 10 L 45 17 C 43 18.5, 37 18.5, 35 17 Z" fill="#edf0f6"/>
+  <g fill="none" stroke="#b9c1d1" stroke-width="2.2" stroke-linecap="round">
+    <path d="M50.5 58 L 50.5 72"/><path d="M65 62 L 65 76"/><path d="M78 67 L 78 80"/>
+    <path d="M30 80 C 34 86, 37 92, 38 100"/>
+  </g>
+</g></svg>`;
+
     function ensureMarker() {
         if (marker || typeof document === 'undefined') return marker;
-        const style = document.createElement('style');
-        style.textContent = `
+        if (!document.getElementById('showcase-marker-css')) {
+            const s = HAND_W / HAND_BOX[0];
+            const tipX = HAND_TIP[0] * s;
+            const tipY = HAND_TIP[1] * s;
+            const style = document.createElement('style');
+            style.id = 'showcase-marker-css';
+            style.textContent = `
             .showcase-touch { position: fixed; left: 0; top: 0; width: 46px; height: 46px; margin: -23px 0 0 -23px;
                 border-radius: 50%; pointer-events: none; z-index: 2147483647; opacity: 0;
                 background: radial-gradient(circle, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.18) 60%, rgba(255,255,255,0) 72%);
                 box-shadow: 0 0 0 2px rgba(255,255,255,0.55); transition: opacity 140ms ease, transform 120ms ease; }
             .showcase-touch.down { opacity: 1; transform: scale(0.82); }
-            .showcase-touch.hidden-marker { display: none; }`;
-        document.head.appendChild(style);
+            .showcase-hand { position: fixed; left: 0; top: 0; width: 0; height: 0; pointer-events: none; z-index: 2147483647; }
+            .showcase-hand .hand-body { position: absolute; left: ${-tipX}px; top: ${-tipY}px; line-height: 0;
+                transform-origin: ${tipX}px ${tipY}px; transition: transform 140ms cubic-bezier(.3,.7,.4,1);
+                filter: drop-shadow(0 6px 7px rgba(0,0,0,0.5)); }
+            .showcase-hand.down .hand-body { transform: scale(0.88) rotate(-3deg); filter: drop-shadow(0 2px 3px rgba(0,0,0,0.55)); }
+            .showcase-hand .hand-ripple { position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; border-radius: 50%;
+                border: 3px solid rgba(255,255,255,0.85); opacity: 0; transform: scale(0.3); }
+            .showcase-hand.down .hand-ripple { animation: sc-ripple 520ms ease-out; }
+            @keyframes sc-ripple { 0% { opacity: 0.9; transform: scale(0.3); } 100% { opacity: 0; transform: scale(1.6); } }
+            .showcase-touch.hidden-marker, .showcase-hand.hidden-marker { display: none; }`;
+            document.head.appendChild(style);
+        }
         marker = document.createElement('div');
-        marker.className = 'showcase-touch';
+        if (markerMode === 'hand') {
+            marker.className = 'showcase-hand';
+            marker.innerHTML = `<div class="hand-ripple"></div><div class="hand-body">${HAND_SVG}</div>`;
+            markerPos = restPoint();
+        } else {
+            marker.className = 'showcase-touch';
+        }
         document.body.appendChild(marker);
+        moveMarker(markerPos.x, markerPos.y);
         return marker;
     }
-    function moveMarker(x, y) { if (marker) marker.style.translate = `${x}px ${y}px`; }
+    function moveMarker(x, y) { markerPos = { x, y }; if (marker) marker.style.translate = `${x}px ${y}px`; }
+
+    function setMarker(mode) {
+        markerMode = mode === 'hand' ? 'hand' : 'dot';
+        if (marker) { marker.remove(); marker = null; }
+        ensureMarker();
+    }
+
+    // Where the hand waits between moves: peeking up from the bottom edge, just under the tray orbs
+    function restPoint() {
+        return { x: window.innerWidth * 0.62, y: window.innerHeight * 0.965 };
+    }
+
+    // Hand mode: slide the hand to a point (the dot just jumps). A newer glide cancels an older one.
+    function glide(x, y, ms) {
+        const token = ++glideToken;
+        if (markerMode !== 'hand' || !marker) { moveMarker(x, y); return Promise.resolve(); }
+        const from = { ...markerPos };
+        const dist = Math.hypot(x - from.x, y - from.y);
+        if (dist < 2) { moveMarker(x, y); return Promise.resolve(); }
+        const dur = ms != null ? ms : Math.min(520, 220 + dist * 0.6);
+        const start = performance.now();
+        return new Promise((done) => {
+            function frame(now) {
+                if (token !== glideToken) return done();
+                const t = Math.min(1, (now - start) / dur);
+                const e = ease(t);
+                moveMarker(from.x + (x - from.x) * e, from.y + (y - from.y) * e);
+                if (t < 1) requestAnimationFrame(frame); else done();
+            }
+            requestAnimationFrame(frame);
+        });
+    }
+    // After a move the hand lifts off and drifts back to rest (not awaited, so the board can play out)
+    function returnToRest() {
+        if (markerMode !== 'hand') return;
+        const token = glideToken;
+        setTimeout(() => { if (token !== glideToken) return; const r = restPoint(); glide(r.x, r.y, 600); }, 180);
+    }
 
     function pointer(type, x, y, target) {
         const ev = new PointerEvent(type, {
@@ -575,10 +669,18 @@
     // Drag along a slight arc, like a thumb sweeping up from the tray
     async function drag(from, to, ms, target) {
         ensureMarker();
+        const hand = markerMode === 'hand';
+        if (hand) {
+            // Glide over to the orb, press, and drag slower so viewers can follow the move
+            await glide(from.x, from.y);
+            await sleep(90);
+            ms *= 1.5;
+        }
+        glideToken++;
         moveMarker(from.x, from.y);
         marker.classList.add('down');
         pointer('pointerdown', from.x, from.y, target);
-        await sleep(60);
+        await sleep(hand ? 140 : 60);
         const bow = (Math.random() - 0.5) * 50;
         const start = performance.now();
         await new Promise((done) => {
@@ -593,9 +695,10 @@
             }
             requestAnimationFrame(frame);
         });
-        await sleep(70 + Math.random() * 60); // settle over the column before letting go
+        await sleep(hand ? 260 + Math.random() * 80 : 70 + Math.random() * 60); // settle over the column before letting go
         pointer('pointerup', to.x, to.y, window.document.body);
         marker.classList.remove('down');
+        returnToRest();
     }
 
     async function waitIdle(H, timeout = 20000) {
@@ -645,10 +748,12 @@
         const x = r.left + r.width / 2 + (Math.random() - 0.5) * Math.min(12, r.width / 4);
         const y = r.top + r.height / 2 + (Math.random() - 0.5) * Math.min(8, r.height / 4);
         ensureMarker();
+        if (markerMode === 'hand') { await glide(x, y); await sleep(80); }
+        glideToken++;
         moveMarker(x, y);
         marker.classList.add('down');
         pointer('pointerdown', x, y, el);
-        await sleep(hold);
+        await sleep(markerMode === 'hand' ? Math.max(hold, 180) : hold);
         pointer('pointerup', x, y, el);
         el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
         marker.classList.remove('down');
@@ -819,7 +924,7 @@
     const api = {
         ROWS, COLS, STYLES, SETPIECES,
         fromState, cloneBoard, simulateDrop, simulateSwap, settle, climb, riserRows, makeTurn, landingRow, heights, tileCount, tierOf,
-        chooseAction, play, stop, runner, bossRun, tap, startRecording, stopRecording, capture,
+        chooseAction, play, stop, runner, bossRun, tap, startRecording, stopRecording, capture, setMarker,
         showMarker(on) { ensureMarker(); if (marker) marker.classList.toggle('hidden-marker', !on); }
     };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;

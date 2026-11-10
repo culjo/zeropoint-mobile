@@ -4,7 +4,8 @@
 // Needs the capture server running (node tools/showcase/server.js). Runs headless at 2.5× by
 // default; --headless 0 shows the window (keep it uncovered: Chrome stops painting covered windows).
 //   node tools/showcase/capture.js --name chaser-01 --style chaser [--setpiece cascade] [--turns 200]
-//        [--best 0] [--heat 0] [--minutes 6] [--marker 1] [--boss 10 --sector 1]
+//        [--best 0] [--heat 0] [--minutes 6] [--marker 1|0|hand] [--boss 10 --sector 1]
+// --marker hand shows a white pointing hand that glides between moves (social ads); 1 is the soft dot, 0 none.
 
 'use strict';
 
@@ -38,7 +39,9 @@ if (arg('heat')) playOpts.stage = { heat: Number(arg('heat')) };
 // Boss Run: --boss 10 [--sector 1] taps from the home screen through the map into that boss
 if (arg('boss')) Object.assign(playOpts, { boss: Number(arg('boss')), sector: Number(arg('sector', 1)) });
 const MINUTES = Number(arg('minutes', 6));
-const MARKER = arg('marker', '1') !== '0';
+const MARKER_ARG = arg('marker', '1');
+const MARKER = MARKER_ARG !== '0';
+const MARKER_MODE = MARKER_ARG === 'hand' ? 'hand' : 'dot';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -101,7 +104,7 @@ async function evaluate(c, expression, timeoutMs = 30000) {
         await c.send('Emulation.setFocusEmulationEnabled', { enabled: true });
         await c.send('Page.reload', {});
         await sleep(2500);
-        await evaluate(c, `NullfallShowcase.showMarker(${MARKER}); true`);
+        await evaluate(c, `NullfallShowcase.setMarker('${MARKER_MODE}'); NullfallShowcase.showMarker(${MARKER}); true`);
         console.log(`recording ${NAME} (${playOpts.setpiece || playOpts.style})…`);
         await evaluate(c, `window.__cap = null; NullfallShowcase.capture(${JSON.stringify(NAME)}, ${JSON.stringify(playOpts)})`
             + `.then((r) => { window.__cap = r; }, (e) => { window.__cap = { error: String(e && e.stack || e) }; }); true`);
