@@ -534,6 +534,20 @@
             },
             moves: [drop(3, 0), drop(5, 1), drop(5, 0)]
         },
+        // Shorts ad V2 "Merge same numbers to GROW them": +1 on +1 makes +2, -2 on the -2/-4 stack grows to -8,
+        // then +2 on the +2/+4/+8 stack climbs 4 → 8 → 16 and lands on the -16: a top-tier blast wipes the bottom rows
+        v2merge: {
+            stage: {
+                rows: [
+                    [1, '.', 2, '.', -2, '.'],
+                    [-3, 1, 4, 2, -4, -3],
+                    [2, 3, 8, -1, 3, 4],
+                    [4, -2, -16, -3, 4, -1]
+                ],
+                tray: [1, -2], deals: [2, 3, -1, 4, -3, 1], rise: 9, overdrive: 0, swaps: 0
+            },
+            moves: [drop(0, 0), drop(4, 1), drop(2, 0)]
+        },
         // Seven high, one row from the red line: an 18-step chain pulls it back to three
         brink: {
             stage: {
@@ -594,6 +608,19 @@
   </g>
 </g></svg>`;
 
+    // Hand states (class on .showcase-hand):
+    //   resting  floats gently by the tray between moves
+    //   moving   lifted while it glides to a target (bigger, softer shadow)
+    //   down     finger pressed on the glass (hand dips, shadow tucks in, glow under the fingertip)
+    //   dragging pressed and moving: glow pulses, a light trail follows the fingertip, the hand leans into the motion
+    //   release  pops back up when the finger lets go
+    // press and release also leave a one-off ripple on the screen (burst()).
+    let handLean = 0;
+    let handTrail = [];
+    let handCanvas = null;
+    let handLoop = 0;
+    let lastPos = null;
+
     function ensureMarker() {
         if (marker || typeof document === 'undefined') return marker;
         if (!document.getElementById('showcase-marker-css')) {
@@ -609,27 +636,47 @@
                 box-shadow: 0 0 0 2px rgba(255,255,255,0.55); transition: opacity 140ms ease, transform 120ms ease; }
             .showcase-touch.down { opacity: 1; transform: scale(0.82); }
             .showcase-hand-stage { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 2147483647; }
+            .showcase-hand-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
             .showcase-hand { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+            .showcase-hand .hand-lean { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; }
+            .showcase-hand.resting .hand-lean { animation: sc-bob 1800ms ease-in-out infinite; }
+            @keyframes sc-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -7px; } }
             .showcase-hand .hand-body { position: absolute; left: ${-tipX}px; top: ${-tipY}px; line-height: 0;
-                transform-origin: ${tipX}px ${tipY}px; transition: transform 140ms cubic-bezier(.3,.7,.4,1); }
-            .showcase-hand.down .hand-body { transform: scale(0.88) rotate(-3deg); }
-            .showcase-hand .hand-ripple { position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; border-radius: 50%;
-                border: 3px solid rgba(255,255,255,0.85); opacity: 0; transform: scale(0.3); }
-            .showcase-hand.down .hand-ripple { animation: sc-ripple 520ms ease-out; }
-            @keyframes sc-ripple { 0% { opacity: 0.9; transform: scale(0.3); } 100% { opacity: 0; transform: scale(1.6); } }
+                transform-origin: ${tipX}px ${tipY}px; transition: transform 170ms cubic-bezier(.3,.7,.4,1); }
+            .showcase-hand.moving .hand-body { transform: scale(1.05) rotate(2deg); }
+            .showcase-hand.down .hand-body { transform: scale(0.84) rotate(-5deg); transition-duration: 110ms; }
+            .showcase-hand.release .hand-body { animation: sc-pop 340ms cubic-bezier(.3,.7,.4,1); }
+            @keyframes sc-pop { 0% { transform: scale(0.84) rotate(-5deg); } 55% { transform: scale(1.08) rotate(2deg); } 100% { transform: none; } }
+            .showcase-hand .hand-shadow { transition: transform 170ms ease, opacity 170ms ease; }
+            .showcase-hand.moving .hand-shadow { transform: translate(5px, 15px); opacity: 0.45; }
+            .showcase-hand.down .hand-shadow { transform: translate(0.5px, 2px); opacity: 0.9; }
+            .showcase-hand .hand-glow { position: absolute; left: -34px; top: -34px; width: 68px; height: 68px; border-radius: 50%;
+                background: radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(127,248,255,0.6) 26%, rgba(0,242,254,0.18) 52%, rgba(0,242,254,0) 70%);
+                opacity: 0; transform: scale(0.3); transition: opacity 120ms ease, transform 160ms ease; }
+            .showcase-hand.down .hand-glow { opacity: 0.95; transform: scale(1); }
+            .showcase-hand.dragging .hand-glow { animation: sc-glow 520ms ease-in-out infinite alternate; }
+            @keyframes sc-glow { from { transform: scale(0.85); opacity: 0.8; } to { transform: scale(1.15); opacity: 1; } }
+            .hand-burst { position: absolute; left: 0; top: 0; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%;
+                border: 3px solid rgba(255,255,255,0.95); box-shadow: 0 0 14px rgba(127,248,255,0.8), inset 0 0 10px rgba(127,248,255,0.5);
+                animation: sc-burst 560ms cubic-bezier(.2,.7,.3,1) forwards; }
+            .hand-burst.drop { border-color: rgba(127,248,255,0.95); animation-duration: 640ms; }
+            @keyframes sc-burst { 0% { opacity: 1; transform: scale(0.25); } 100% { opacity: 0; transform: scale(1.7); } }
             .showcase-touch.hidden-marker, .showcase-hand-stage:has(.hidden-marker) { display: none; }`;
             document.head.appendChild(style);
         }
         marker = document.createElement('div');
         if (markerMode === 'hand') {
-            marker.className = 'showcase-hand';
-            marker.innerHTML = `<div class="hand-ripple"></div><div class="hand-body">${HAND_SVG}</div>`;
+            marker.className = 'showcase-hand resting';
+            marker.innerHTML = `<div class="hand-glow"></div><div class="hand-lean"><div class="hand-body">${HAND_SVG}</div></div>`;
             markerPos = restPoint();
-            // A full-screen box clips the hand where it pokes past the bottom edge at rest
+            // A full-screen box clips the hand where it pokes past the bottom edge at rest; the trail canvas sits under the hand
             const stage = document.createElement('div');
             stage.className = 'showcase-hand-stage';
+            handCanvas = document.createElement('canvas');
+            stage.appendChild(handCanvas);
             stage.appendChild(marker);
             document.body.appendChild(stage);
+            startHandLoop();
         } else {
             marker.className = 'showcase-touch';
             document.body.appendChild(marker);
@@ -637,10 +684,82 @@
         moveMarker(markerPos.x, markerPos.y);
         return marker;
     }
-    function moveMarker(x, y) { markerPos = { x, y }; if (marker) marker.style.translate = `${x}px ${y}px`; }
+    function moveMarker(x, y) {
+        markerPos = { x, y };
+        if (!marker) return;
+        marker.style.translate = `${x}px ${y}px`;
+        if (markerMode === 'hand' && marker.classList.contains('down')) handTrail.push({ x, y, t: performance.now() });
+    }
+    function setHandState(add, remove) {
+        if (!marker || markerMode !== 'hand') return;
+        for (const c of remove || []) marker.classList.remove(c);
+        for (const c of add || []) marker.classList.add(c);
+    }
+
+    // One-off ripple on the screen where the finger touched down or let go
+    function burst(x, y, kind) {
+        if (markerMode !== 'hand' || !marker) return;
+        const el = document.createElement('div');
+        el.className = 'hand-burst' + (kind ? ' ' + kind : '');
+        el.style.translate = `${x}px ${y}px`;
+        marker.parentNode.insertBefore(el, marker);
+        el.addEventListener('animationend', () => el.remove());
+    }
+
+    // Every frame: lean the hand into its motion and draw the fingertip trail while it is pressed
+    function startHandLoop() {
+        cancelAnimationFrame(handLoop);
+        const step = (now) => {
+            if (!marker || markerMode !== 'hand') return;
+            const p = markerPos;
+            const vx = lastPos ? (p.x - lastPos.x) / Math.max(1, now - lastPos.t) : 0;
+            lastPos = { x: p.x, y: p.y, t: now };
+            const target = Math.max(-16, Math.min(16, vx * 22));
+            handLean += (target - handLean) * 0.18;
+            if (Math.abs(handLean) < 0.05) handLean = 0;
+            const lean = marker.querySelector('.hand-lean');
+            if (lean) lean.style.transform = `rotate(${handLean.toFixed(2)}deg)`;
+            drawTrail(now);
+            handLoop = requestAnimationFrame(step);
+        };
+        handLoop = requestAnimationFrame(step);
+    }
+    function drawTrail(now) {
+        const cv = handCanvas;
+        if (!cv) return;
+        const dpr = window.devicePixelRatio || 1;
+        const w = Math.round(window.innerWidth * dpr);
+        const h = Math.round(window.innerHeight * dpr);
+        if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+        const ctx = cv.getContext('2d');
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+        const LIFE = 260;
+        handTrail = handTrail.filter((p) => now - p.t < LIFE);
+        if (handTrail.length < 2) return;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.lineCap = 'round';
+        for (let i = 1; i < handTrail.length; i++) {
+            const a = handTrail[i - 1];
+            const b = handTrail[i];
+            const k = 1 - (now - b.t) / LIFE; // 1 at the fingertip, 0 at the tail
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.strokeStyle = `rgba(0,242,254,${(0.28 * k).toFixed(3)})`;
+            ctx.lineWidth = 6 + 18 * k;
+            ctx.stroke();
+            ctx.strokeStyle = `rgba(235,255,255,${(0.85 * k).toFixed(3)})`;
+            ctx.lineWidth = 2 + 6 * k;
+            ctx.stroke();
+        }
+    }
 
     function setMarker(mode) {
         markerMode = mode === 'hand' ? 'hand' : 'dot';
+        cancelAnimationFrame(handLoop);
+        handTrail = [];
+        handCanvas = null;
         if (marker) { (marker.closest('.showcase-hand-stage') || marker).remove(); marker = null; }
         ensureMarker();
     }
@@ -650,22 +769,25 @@
         return { x: window.innerWidth * 0.62, y: window.innerHeight * 0.965 };
     }
 
-    // Hand mode: slide the hand to a point (the dot just jumps). A newer glide cancels an older one.
-    function glide(x, y, ms) {
+    // Hand mode: slide the hand to a point, lifted (the dot just jumps). A newer glide cancels an older one.
+    function glide(x, y, ms, rest) {
         const token = ++glideToken;
         if (markerMode !== 'hand' || !marker) { moveMarker(x, y); return Promise.resolve(); }
         const from = { ...markerPos };
         const dist = Math.hypot(x - from.x, y - from.y);
         if (dist < 2) { moveMarker(x, y); return Promise.resolve(); }
-        const dur = ms != null ? ms : Math.min(520, 220 + dist * 0.6);
+        const dur = ms != null ? ms : Math.min(560, 240 + dist * 0.6);
         const start = performance.now();
+        setHandState(['moving'], ['resting']);
         return new Promise((done) => {
             function frame(now) {
                 if (token !== glideToken) return done();
                 const t = Math.min(1, (now - start) / dur);
                 const e = ease(t);
                 moveMarker(from.x + (x - from.x) * e, from.y + (y - from.y) * e);
-                if (t < 1) requestAnimationFrame(frame); else done();
+                if (t < 1) return requestAnimationFrame(frame);
+                setHandState(rest ? ['resting'] : [], ['moving']);
+                done();
             }
             requestAnimationFrame(frame);
         });
@@ -674,7 +796,28 @@
     function returnToRest() {
         if (markerMode !== 'hand') return;
         const token = glideToken;
-        setTimeout(() => { if (token !== glideToken) return; const r = restPoint(); glide(r.x, r.y, 600); }, 180);
+        setTimeout(() => { if (token !== glideToken) return; const r = restPoint(); glide(r.x, r.y, 650, true); }, 260);
+    }
+
+    // Finger touches the glass: hand dips, ripple, glow under the fingertip
+    function pressDown(x, y) {
+        moveMarker(x, y);
+        if (markerMode === 'hand') {
+            handTrail = [];
+            setHandState(['down'], ['moving', 'resting', 'release']);
+            burst(x, y);
+        } else marker.classList.add('down');
+    }
+    // Finger lets go: hand pops back up (a drop leaves a cyan ripple where the orb was released)
+    function liftUp(x, y, kind) {
+        if (markerMode === 'hand') {
+            setHandState([], ['down', 'dragging']);
+            void marker.offsetWidth; // restart the pop if it ran a moment ago
+            setHandState(['release']);
+            const m = marker;
+            setTimeout(() => m.classList.remove('release'), 360);
+            if (kind) burst(x, y, kind);
+        } else marker.classList.remove('down');
     }
 
     function pointer(type, x, y, target) {
@@ -693,16 +836,16 @@
         ensureMarker();
         const hand = markerMode === 'hand';
         if (hand) {
-            // Glide over to the orb, press, and drag slower so viewers can follow the move
+            // Glide over to the orb, hover a beat, press and hold so the pick-up reads, then drag slower so viewers can follow
             await glide(from.x, from.y);
-            await sleep(90);
-            ms *= 1.5;
+            await sleep(130);
+            ms = Math.max(ms * 1.5, 780 + Math.random() * 120); // ~0.8 s, slow enough to follow
         }
         glideToken++;
-        moveMarker(from.x, from.y);
-        marker.classList.add('down');
+        pressDown(from.x, from.y);
         pointer('pointerdown', from.x, from.y, target);
-        await sleep(hand ? 140 : 60);
+        await sleep(hand ? 220 : 60);
+        setHandState(['dragging']);
         const bow = (Math.random() - 0.5) * 50;
         const start = performance.now();
         await new Promise((done) => {
@@ -717,9 +860,10 @@
             }
             requestAnimationFrame(frame);
         });
+        setHandState([], ['dragging']);
         await sleep(hand ? 260 + Math.random() * 80 : 70 + Math.random() * 60); // settle over the column before letting go
         pointer('pointerup', to.x, to.y, window.document.body);
-        marker.classList.remove('down');
+        liftUp(to.x, to.y - LIFT, 'drop');
         returnToRest();
     }
 
@@ -770,15 +914,14 @@
         const x = r.left + r.width / 2 + (Math.random() - 0.5) * Math.min(12, r.width / 4);
         const y = r.top + r.height / 2 + (Math.random() - 0.5) * Math.min(8, r.height / 4);
         ensureMarker();
-        if (markerMode === 'hand') { await glide(x, y); await sleep(80); }
+        if (markerMode === 'hand') { await glide(x, y); await sleep(130); }
         glideToken++;
-        moveMarker(x, y);
-        marker.classList.add('down');
+        pressDown(x, y);
         pointer('pointerdown', x, y, el);
-        await sleep(markerMode === 'hand' ? Math.max(hold, 180) : hold);
+        await sleep(markerMode === 'hand' ? Math.max(hold, 200) : hold);
         pointer('pointerup', x, y, el);
         el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
-        marker.classList.remove('down');
+        liftUp(x, y);
     }
 
     // ---------- the run ----------
