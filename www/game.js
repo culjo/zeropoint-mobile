@@ -519,19 +519,79 @@
         return !firstPlay && !isTutorial && !(activeAdventureLevel && activeAdventureLevel.editorTest);
     }
 
+    // The run that has a level_start but no level_end yet, so a quit or restart can close it
+    let openRun = null;
+
+    function runSeconds(run) {
+        return Math.round((Date.now() - run.startedAt) / 1000);
+    }
+
+    // A run left before it ended · result: quit (back to a menu) | restart
+    function trackRunAbandon(result) {
+        const run = openRun;
+        openRun = null;
+        const a = analytics();
+        if (!a || !run) return;
+        a.levelEnd(run.level, run.mode, false, { result, duration_sec: runSeconds(run) });
+    }
+
     function trackRunStart() {
+        if (openRun) trackRunAbandon('restart');
         const a = analytics();
         if (!a || !isTrackedRun()) return;
         const { level, mode } = runLabel();
+        openRun = { level, mode, startedAt: Date.now() };
         a.levelStart(level, mode);
     }
 
     function trackRunEnd(success, details) {
+        const run = openRun;
+        openRun = null;
         const a = analytics();
         if (!a || !isTrackedRun()) return;
-        const { level, mode } = runLabel();
-        a.levelEnd(level, mode, success, details);
+        const { level, mode } = run || runLabel();
+        a.levelEnd(level, mode, success, run ? { ...details, duration_sec: runSeconds(run) } : details);
         if (mode === 'classic') a.postScore(details.score, level);
+    }
+
+    // screen_view, once per change · overlays (settings, ladder…) report their own name while open
+    let lastTrackedScreen = null;
+    const SCREEN_NAMES = { 'adventure-nodes': 'adventure_map', 'adventure-map': 'adventure_map' };
+    function trackScreen(name) {
+        const a = analytics();
+        name = SCREEN_NAMES[name] || name;
+        if (!a || name === lastTrackedScreen) return;
+        lastTrackedScreen = name;
+        a.screenView(name);
+    }
+    // Overlays report their own screen_view while open, then hand back to the screen under them
+    function watchOverlayScreens() {
+        if (typeof MutationObserver === 'undefined') return;
+        const overlays = [
+            ['modal-settings', 'settings'], ['modal-pause', 'pause'], ['modal-node-preview', 'node_preview'],
+            ['disc', 'discoveries'], ['ladder', 'ladder'], ['htp', 'how_to_play']
+        ];
+        // .overlay modals open with .visible; the others with the hidden attribute
+        const isOpen = (el) => !el.hidden && (!el.classList.contains('overlay') || el.classList.contains('visible'));
+        overlays.forEach(([id, name]) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            let open = isOpen(el);
+            new MutationObserver(() => {
+                const now = isOpen(el);
+                if (now === open) return;
+                open = now;
+                if (now) trackScreen(name);
+                else if (lastTrackedScreen === name) trackScreen(currentScreen);
+            }).observe(el, { attributes: true, attributeFilter: ['class', 'hidden'] });
+        });
+    }
+
+    // mode_open: a mode entered from outside it (Home, another mode), not a return from one of its levels
+    const MODE_HUBS = { 'adventure-nodes': 'adventure', 'adventure-map': 'adventure', challenges: 'challenge' };
+    function trackModeOpen(mode, from) {
+        const a = analytics();
+        if (a) a.modeOpen(mode, SCREEN_NAMES[from] || from);
     }
 
     // Collection follows debug mode, so turning it on mid-session stops logging straight away
@@ -780,10 +840,19 @@
     let pendingNodeConfig = null;
 
     function showScreen(screenId) {
-        if (screenId !== 'game' && firstPlay) fpTeardown();
+        const prevScreen = currentScreen;
+        if (screenId !== 'game') trackRunAbandon('quit');
+        if (screenId !== 'game' && firstPlay) {
+            if (analytics()) analytics().tutorialSkip('first_play', firstPlay.step + 1);
+            fpTeardown();
+        }
         if (screenId !== 'game') hideObjectiveIntro();
         if (screenId !== 'game' && sfx && sfx.onBossTrack()) sfx.rotateBGM(false); // leaving a boss
         currentScreen = screenId;
+        trackScreen(screenId);
+        if (MODE_HUBS[screenId] && prevScreen !== 'game' && MODE_HUBS[prevScreen] !== MODE_HUBS[screenId]) {
+            trackModeOpen(MODE_HUBS[screenId], prevScreen);
+        }
         const screens = [screenHome, screenAdventureNodes, screenChallenges, screenAdventureMap, screenGame, screenCodex];
         screens.forEach(s => {
             if (s) s.classList.remove('active');
@@ -1461,6 +1530,7 @@
     }
 
     function startClassicMode() {
+        if (currentScreen !== 'game') trackModeOpen('classic', currentScreen);
         hideObjectiveIntro();
         gameMode = 'classic';
         isTutorial = false;
@@ -1642,6 +1712,7 @@
     };
 
     let tutLesson = 1;
+    let tutLoggedLesson = 0; // last lesson sent as tutorial_step (retries reload the same one)
     let tutPhase = 0;
     let tutBusy = false;
     let tutRisePending = false;
@@ -1671,7 +1742,11 @@
         }
         hideObjectiveIntro();
         hideTutWelcome();
-        if (analytics()) analytics().tutorialBegin('academy');
+        if (!isTutorial) {
+            if (currentScreen !== 'game') trackModeOpen('tutorial', currentScreen);
+            if (analytics()) analytics().tutorialBegin('academy');
+            tutLoggedLesson = 0;
+        }
         gameMode = 'adventure';
         isTutorial = true;
         activeAdventureLevel = ADVENTURE_LEVELS.find(l => l.isTutorial) || ADVENTURE_LEVELS[0];
@@ -1698,6 +1773,10 @@
         const lesson = TUT_LESSONS[n - 1];
         if (!lesson) return;
         tutLesson = n;
+        if (n !== tutLoggedLesson) {
+            tutLoggedLesson = n;
+            if (analytics()) analytics().tutorialStep('academy', n, lesson.kicker);
+        }
         tutPhase = 0;
         tutBusy = false;
         tutorialTargetCol = null;
@@ -1848,6 +1927,7 @@
     }
 
     function startGraduation() {
+        if (analytics()) analytics().tutorialStep('academy', TUT_LESSONS.length + 1, 'GRADUATION');
         isTutorial = false;
         hideTutHand();
         hideTutFail();
@@ -1859,7 +1939,7 @@
         hideTutHand();
         hideTutFail();
         if (markSkipped && career && !career.tutorialDone) {
-            if (analytics()) analytics().tutorialSkip('academy');
+            if (analytics()) analytics().tutorialSkip('academy', tutLesson);
             career.tutorialSkipped = true;
             saveCareerData();
         }
@@ -2396,6 +2476,7 @@
         setupConceptCard();
         setupLadder();
         setupDiscoveries();
+        watchOverlayScreens();
         const hintX = document.getElementById('tool-hint-x');
         if (hintX) hintX.addEventListener('click', (e) => { e.stopPropagation(); hideToolHint(); });
         window.addEventListener('resize', () => { if (toolHint) positionToolHint(); });
@@ -8117,6 +8198,7 @@
         if (sfx) { sfx.init(); sfx.playMove(); }
         hideTutWelcome();
         htpRoot.hidden = false;
+        if (analytics()) analytics().tutorialBegin('how_to_play');
         showHtpSlide(0, 0);
     }
 
@@ -8124,6 +8206,12 @@
     function closeHowToPlay(toMenu) {
         if (!htpRoot || htpRoot.hidden) return;
         htpRoot.hidden = true;
+        // Done only shows on the last slide
+        const a = analytics();
+        if (a) {
+            if (toMenu) a.tutorialComplete('how_to_play');
+            else a.tutorialSkip('how_to_play', htpIndex + 1);
+        }
         if (sfx) sfx.playMove();
         if (toMenu && currentScreen !== 'home') showScreen('home');
     }
@@ -8132,6 +8220,7 @@
         const last = HTP_SLIDES.length - 1;
         htpIndex = Math.max(0, Math.min(last, i));
         const slide = HTP_SLIDES[htpIndex];
+        if (analytics()) analytics().tutorialStep('how_to_play', htpIndex + 1, slide.title);
         htpRoot.querySelectorAll('.htp-slide').forEach((el, n) => {
             const on = n === htpIndex;
             el.classList.toggle('is-active', on);
@@ -8268,6 +8357,10 @@
     function fpLoadStep(i) {
         if (!firstPlay) return;
         const st = FP_STEPS[i];
+        if (firstPlay.loggedStep !== i) {
+            firstPlay.loggedStep = i;
+            if (analytics()) analytics().tutorialStep('first_play', i + 1, (st.kicker || st.kind).replace(/&amp;/g, '&'));
+        }
         Object.assign(firstPlay, {
             step: i, kind: st.kind, slot: st.slot || 0, col: st.col, from: st.from, to: st.to,
             keep: new Set(st.keep || []), dim: Array.isArray(st.keep), busy: false
