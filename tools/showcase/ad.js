@@ -33,9 +33,13 @@ const even = (n) => Math.round(n / 2) * 2;
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const titleHtml = (t) => esc(t).split('\n').map((l) => l.replace(/\*([^*]+)\*/g, '<em>$1</em>')).join('<br>');
 
-// Where the gameplay sits on a W×H canvas
-function windowFor(W, H) {
+// Where the gameplay sits on a W×H canvas; fill (Shorts) lets a tall canvas use its full height
+function windowFor(W, H, fill = false) {
     const tall = H / W >= 1.7;
+    if (fill && tall) {
+        const w = even(H * GAME_ASPECT);
+        return { x: even((W - w) / 2), y: 0, w, h: H };
+    }
     const h = even(H * (tall ? 0.86 : 0.94));
     const w = even(h * GAME_ASPECT);
     return { x: even((W - w) / 2), y: even(tall ? H * 0.03 : (H - h) / 2), w, h };
@@ -141,11 +145,13 @@ async function renderPngs(jobs) {
     } finally {
         chrome.kill();
         await exited;
-        fs.rmSync(profile, { recursive: true, force: true });
+        try { fs.rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch (e) { /* Chrome may still be writing its profile */ }
     }
 }
 
-(async () => {
+module.exports = { windowFor, frameHtml, endCardHtml, renderPngs, cdp, BG_CSS, FONT, GAME_ASPECT };
+
+if (require.main === module) (async () => {
     if (!fs.existsSync(MASTER)) throw new Error(`no master at ${MASTER} (make one with cut.js edl)`);
     const dur = Number(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', MASTER]).toString());
     const work = path.join(OUT, 'work');

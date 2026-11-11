@@ -91,6 +91,15 @@ All hook and payoff captions use the **cyan-to-gold gradient** from the end card
 4. **Cut + captions** with `cut.js edl` using a small plan file per video. Its captions today are plain white ffmpeg text, which can't do a gradient, so the captions get rendered as transparent PNGs in headless Chrome (as `ad.js` already does for the end card) and laid over the video.
 5. **Frame + end card** with `ad.js` at 1080×1920 and 1080×1350. For Shorts the gameplay should fill more of the frame than the current 86% window; add a `--fill` option.
 
+**Built (2026-11-10):** `node tools/showcase/shorts.js [v1,v2,v3,v4]` does steps 4–5 in one go. Clip ranges and caption timings for each video live at the top of that file; it renders the gradient captions frame by frame in headless Chrome (pop-in, CAPS word pops again), fills the full height at 9:16, frames the game at 4:5, and adds the ad.js end card. Output: `captures/ads/shorts/null-fall-short-<id>-<size>.mp4`.
+
+| Video | Takes | Length |
+|---|---|---|
+| V1 | `short-v1-hand3` | 15.4 s |
+| V2 | `short-v2` | 15.0 s |
+| V3 | `short-v3` + `short-v3-map` | 21.1 s |
+| V4 | `short-v4` | 17.2 s |
+
 ## 6. Honesty note
 
 The starting boards are staged; every move after that follows the real game rules. That is normal for gameplay ads, but the videos should only show things the game really does (no fake UI, no features that aren't shipped).

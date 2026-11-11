@@ -564,6 +564,24 @@
             },
             moves: [drop(0, 0), drop(4, 1), drop(2, 0)]
         },
+        // Shorts ad V4 "Clear the board before it FILLS up": the brinkclear board; +3 into column 1 matches
+        // nothing and pushes a second column up to the red line, the hand weighs up column 3, then -2 into
+        // column 5 sets off the 18-step chain to BOARD CLEAR
+        v4brink: {
+            stage: {
+                rows: [
+                    ['.', '.', '.', '.', -4, '.'],
+                    ['.', -2, '.', '.', 8, '.'],
+                    ['.', 4, -1, 16, 3, '.'],
+                    [-4, 3, 16, -8, 16, -2],
+                    [3, -1, -8, -2, 1, -4],
+                    [-2, -3, 4, -16, -2, 8],
+                    [-3, 8, -16, -3, 1, 16]
+                ],
+                tray: [-2, 3], deals: [1, -3, 2, 4, -1, 3], rise: 3, swaps: 0
+            },
+            moves: [drop(1, 1), drop(5, 0, [3])]
+        },
         // Seven high, one row from the red line: an 18-step chain pulls it back to three
         brink: {
             stage: {
