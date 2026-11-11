@@ -3616,7 +3616,7 @@
             addScore(90, { x: boardOffsetX + col * cellW + cellW / 2, y: boardOffsetY + epicR * cellH });
         } else if (sub === 'zero') {
             // Singularity Bomb: clears 3x3 radius
-            sfx.playAnnihilate(3);
+            sfx.playAnnihilate(combo, 3);
             triggerScreenShake(12);
             const blasted = [];
             hitNullCoreArea(row - 1, row + 1, col - 1, col + 1, 1, 1, { x: boardOffsetX + col * cellW + cellW / 2, y: boardOffsetY + row * cellH + cellH / 2 });
