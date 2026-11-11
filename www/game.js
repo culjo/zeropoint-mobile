@@ -8889,6 +8889,10 @@
                 <div class="dev-seg dev-music" id="dev-music" role="radiogroup" aria-label="Music track"></div>
                 <p class="dev-note" id="dev-music-note"></p>
 
+                <h3 class="dev-section">Gameplay sounds</h3>
+                <div class="dev-seg dev-music" id="dev-sfx-pack" role="radiogroup" aria-label="Gameplay sounds" data-no-tap></div>
+                <p class="dev-note">Drop, merge, blast and crack. Tap one to hear a drop, a 3-step cascade and a blast. New packs follow the music's key.</p>
+
                 <h3 class="dev-section">Button sound</h3>
                 <div class="dev-seg dev-music" id="dev-tap" role="radiogroup" aria-label="Button sound" data-no-tap></div>
                 <p class="dev-note">Tap one to hear it and use it for every button. Saved on this device.</p>
@@ -8937,6 +8941,14 @@
                 if (sfx) sfx.playMove();
                 setHitStopEnabled(hitStopSeg.dataset.hitStop === 'on');
                 renderDevTools();
+                return;
+            }
+            const packChip = e.target.closest('[data-sfx-pack]');
+            if (packChip) {
+                sfx.init();
+                sfx.setSfxPack(packChip.dataset.sfxPack);
+                sfx.playDemoTurn();
+                renderDevSfxPack();
                 return;
             }
             const tapChip = e.target.closest('[data-tap-sound]');
@@ -9028,6 +9040,18 @@
         renderDevJump();
         renderDevMusic();
         renderDevTap();
+        renderDevSfxPack();
+    }
+
+    function renderDevSfxPack() {
+        const box = devRoot && devRoot.querySelector('#dev-sfx-pack');
+        if (!box || !sfx) return;
+        const packs = sfx.constructor.sfxPacks;
+        box.innerHTML = Object.keys(packs).map((id) => {
+            const on = id === sfx.sfxPack;
+            return `<button type="button" role="radio" aria-checked="${on}" class="${on ? 'is-on' : ''}" data-sfx-pack="${id}">`
+                + `<strong>${packs[id].name}</strong><span>${packs[id].desc}</span></button>`;
+        }).join('');
     }
 
     function renderDevTap() {

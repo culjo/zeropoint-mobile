@@ -26,6 +26,13 @@
     .dl { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px; white-space: nowrap; }
     .dl:hover { color: var(--text); border-color: var(--muted); }
     .dl:disabled { opacity: .5; cursor: wait; }
+    .pack { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; }
+    .pack.on { border-color: var(--violet); }
+    .pack .name { margin-bottom: 2px; }
+    .pack .btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .pack .btns button { background: #18203a; border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+    .pack .btns button:active { border-color: var(--cyan); transform: scale(0.97); }
+    .pack .btns button.main { background: linear-gradient(135deg, var(--cyan), var(--violet)); color: #050814; font-weight: 700; border: 0; }
     .taps { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
     .tap { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; text-align: left; color: var(--text); font: inherit; cursor: pointer; transition: border-color .15s, transform .08s; }
     .tap:hover { border-color: var(--violet); }
@@ -41,11 +48,14 @@
     <p class="lead">Procedural tracks, generated live with Web Audio and no audio files. Each one loops endlessly and never repeats exactly. Pick one to ship as the in-game soundtrack.</p>
     <div class="bar">Volume <input id="vol" type="range" min="0" max="1" step="0.01" value="0.6"></div>
     <div id="list"></div>
+    <h2>Gameplay sounds</h2>
+    <p class="lead">Compare packs on the same events. Start a music track above to hear merges and blasts follow its key (Original stays in C).</p>
+    <div id="packs"></div>
     <h2>Button sounds</h2>
     <p class="lead">Tap each one a few times: they vary slightly in pitch, and Kalimba plays a different note each tap.</p>
     <div id="taps" class="taps"></div>
 </main>
-<script>document.write('<script src="../www/music.js?' + Date.now() + '"><\/script><script src="../www/audio.js?' + Date.now() + '"><\/script>');</script>
+<script>document.write('<script src="../www/music.js?' + Date.now() + '"><\/script><script src="../www/audio.js?' + Date.now() + '"><\/script><script src="../www/sfxPacks.js?' + Date.now() + '"><\/script>');</script>
 <script>
     let ctx = null, music = null, playingId = null;
     const vol = document.getElementById('vol');
@@ -82,10 +92,11 @@
         if (!ctx) { ctx = new (window.AudioContext || window.webkitAudioContext)(); music = new AmbientMusic(ctx); }
         ctx.resume();
         const was = playingId;
-        if (was) { music.stop(1); setUI(was, false); playingId = null; }
+        if (was) { music.stop(1); setUI(was, false); playingId = null; soundFX.keyTrack = null; }
         if (was === id) return;
         music.start(id, { volume: +vol.value, fadeIn: 2 });
         playingId = id;
+        soundFX.keyTrack = id;
         setUI(id, true);
     }
 
@@ -145,6 +156,41 @@
         }
         return new Blob([out], { type: 'audio/wav' });
     }
+
+    // Gameplay sound packs: each button plays one event with that pack
+    const packsEl = document.getElementById('packs');
+    const packList = soundFX.constructor.sfxPacks;
+    const EVENTS = [
+        ['Full turn', fx => fx.playDemoTurn(3, 3), true],
+        ['Drop', fx => fx.playDrop()],
+        ['Merge', fx => { fx.resetCascade(); fx.playMerge(); }],
+        ['Cascade ×6', fx => fx.playDemoTurn(6, 2)],
+        ['Blast 1', fx => { fx.resetCascade(); fx.playAnnihilate(1, 1); }],
+        ['Blast 2', fx => { fx.resetCascade(); fx.playAnnihilate(1, 2); }],
+        ['Blast 3', fx => { fx.resetCascade(); fx.playAnnihilate(1, 3); }],
+        ['Blast 4', fx => { fx.resetCascade(); fx.playAnnihilate(1, 4); }],
+        ['Blast 5', fx => { fx.resetCascade(); fx.playAnnihilate(1, 5); }],
+        ['Crack', fx => fx.playCrack()]
+    ];
+    Object.keys(packList).forEach(id => {
+        const el = document.createElement('div');
+        el.className = 'pack';
+        el.innerHTML = `<div class="name">${packList[id].name}</div><div class="mood">${packList[id].desc}</div><div class="btns"></div>`;
+        const btns = el.querySelector('.btns');
+        EVENTS.forEach(([label, run, main]) => {
+            const b = document.createElement('button');
+            b.textContent = label;
+            if (main) b.className = 'main';
+            b.addEventListener('pointerdown', () => {
+                soundFX.init();
+                soundFX.sfxPack = id; // audition only, not saved
+                document.querySelectorAll('.pack').forEach(p => p.classList.toggle('on', p === el));
+                run(soundFX);
+            });
+            btns.appendChild(b);
+        });
+        packsEl.appendChild(el);
+    });
 
     const taps = document.getElementById('taps');
     const tapSounds = soundFX.constructor.tapSounds;

@@ -44,6 +44,12 @@ const MUFFLE_OPEN_HZ = 20000; // music low-pass when the board is safe
 const MUFFLE_DANGER_HZ = 650; // at full danger
 const MUFFLE_TIME = 0.25;     // seconds (time constant) to glide between them
 
+// Gameplay sound pack (sfxPacks.js); 'original' keeps the voices below. Packs climb the
+// cascade ladder in the music's key (pentatonic) instead of fixed C.
+const SFX_PACK_KEY = 'nullfall_sfx_pack';
+const SFX_PACK_DEFAULT = 'pebbleplain';
+const SFX_PACK_GAIN = 1.4; // +3 dB: merges sit level with button taps, blasts above them
+
 function cascadeNoteHz(step) {
     const octave = Math.floor(step / CASCADE_SCALE.length);
     const semis = octave * 12 + CASCADE_SCALE[step % CASCADE_SCALE.length];
@@ -67,6 +73,68 @@ class SoundFX {
             if (saved && TAP_SOUNDS[saved]) this.tapSound = saved;
         } catch (e) {}
         this.kalimbaLast = -1;
+        this.sfxPack = SFX_PACK_DEFAULT;
+        try {
+            const saved = localStorage.getItem(SFX_PACK_KEY);
+            if (saved) this.sfxPack = saved;
+        } catch (e) {}
+        this.keyTrack = null; // music lab: key to follow when its own player is running
+    }
+
+    static get sfxPacks() {
+        const list = { original: { name: 'Original', desc: 'The current drop, merge and blast sounds.' } };
+        Object.entries(window.SfxPacks || {}).forEach(([id, p]) => { list[id] = { name: p.name, desc: p.desc }; });
+        return list;
+    }
+
+    setSfxPack(id) {
+        this.sfxPack = id;
+        try { localStorage.setItem(SFX_PACK_KEY, id); } catch (e) {}
+    }
+
+    packVoice() {
+        return this.sfxPack !== 'original' && window.SfxPacks ? window.SfxPacks[this.sfxPack] || null : null;
+    }
+
+    // Audition: a drop, a cascade of merges, then a blast of the given tier
+    playDemoTurn(merges = 3, tier = 3) {
+        clearTimeout(this.demoTimer);
+        const steps = [() => { this.resetCascade(); this.playDrop(); }];
+        for (let i = 0; i < merges; i++) steps.push(() => this.playMerge());
+        steps.push(() => this.playAnnihilate(1, tier));
+        const gaps = [0, 380].concat(Array(merges).fill(190));
+        let i = 0;
+        const next = () => {
+            steps[i++]();
+            if (i < steps.length) this.demoTimer = setTimeout(next, gaps[i]);
+        };
+        next();
+    }
+
+    // Pentatonic in the playing track's key (major or minor from its scale); C major without music
+    musicKey() {
+        const id = this.keyTrack || this.playingBGM();
+        if (this._key && this._keyId === id) return this._key;
+        let key = { rootHz: CASCADE_ROOT_HZ, scale: CASCADE_SCALE, chord: [0, 2, 3, 5] };
+        const track = id && window.AmbientMusic && AmbientMusic.tracks[id];
+        if (track && track.scale) {
+            const sc = track.scale;
+            const tonic = sc[0];
+            const minor = (sc[2] - tonic + 12) % 12 === 3;
+            const degrees = minor ? [0, 2, 3, 4, 6] : [0, 1, 2, 4, 5];
+            const scale = degrees.map(i => (sc[i] - tonic + 12) % 12).sort((a, b) => a - b);
+            const semis = tonic <= 6 ? tonic : tonic - 12; // keep the root near C4
+            key = { rootHz: 261.63 * Math.pow(2, semis / 12), scale, chord: minor ? [0, 1, 3, 5] : [0, 2, 3, 5] };
+        }
+        this._key = key;
+        this._keyId = id;
+        return key;
+    }
+
+    keyNoteHz(step) {
+        const k = this.musicKey();
+        const octave = Math.floor(step / k.scale.length);
+        return k.rootHz * Math.pow(2, (octave * 12 + k.scale[step % k.scale.length]) / 12);
     }
 
     static get tapSounds() { return TAP_SOUNDS; }
@@ -403,6 +471,17 @@ class SoundFX {
         }
     }
 
+    // Every pack voice goes through one gain (SFX_PACK_GAIN) into the effects bus
+    packBus() {
+        if (!this.packOut || this.packOutCtx !== this.ctx) {
+            this.packOut = this.ctx.createGain();
+            this.packOut.gain.value = SFX_PACK_GAIN;
+            this.packOut.connect(this.out);
+            this.packOutCtx = this.ctx;
+        }
+        return this.packOut;
+    }
+
     // Every tap sound goes through one gain (TAP_GAIN) into the effects bus
     tapBus() {
         if (!this.tapOut || this.tapOutCtx !== this.ctx) {
@@ -476,6 +555,8 @@ class SoundFX {
         if (this.muted || !this.ctx) return;
         this.resume();
         const now = this.ctx.currentTime;
+        const pack = this.packVoice();
+        if (pack) { pack.drop(this, now); return; }
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
 
@@ -497,6 +578,8 @@ class SoundFX {
         if (this.muted || !this.ctx) return;
         this.resume();
         const now = this.ctx.currentTime;
+        const pack = this.packVoice();
+        if (pack) { pack.merge(this, now, this.keyNoteHz(this.takeCascadeStep())); return; }
 
         // Pitch is the next note of the cascade ladder
         const baseFreq = cascadeNoteHz(this.takeCascadeStep());
@@ -532,6 +615,17 @@ class SoundFX {
         const now = this.ctx.currentTime;
 
         if (tier >= 4) this.duckMusic(); // Supernova and up get the room to themselves
+
+        const pack = this.packVoice();
+        if (pack) {
+            // Chord rooted an octave above the next ladder note; more notes for bigger tiers
+            const root = this.takeCascadeStep() + CASCADE_SCALE.length;
+            const key = this.musicKey();
+            const chord = key.chord.slice(0, Math.min(tier + 1, key.chord.length)).map(i => this.keyNoteHz(root + i));
+            const sparkle = this.keyNoteHz(root + key.scale.length + key.chord[2]);
+            pack.blast(this, now, { tier, combo, chord, sparkle });
+            return;
+        }
 
         const duration = 0.35 + Math.min(tier * 0.12, 0.5);
         const subFreq = Math.max(35, 110 - tier * 15);
@@ -617,6 +711,8 @@ class SoundFX {
 
     playCrack() {
         if (this.muted || !this.ctx) return;
+        const pack = this.packVoice();
+        if (pack) { this.resume(); pack.crack(this, this.ctx.currentTime); return; }
         this.playNoiseBlast(0.08, 0.25);
     }
 
